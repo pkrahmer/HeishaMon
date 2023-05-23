@@ -6,6 +6,15 @@ PyshaMon is a pure Python version based on the code of embedded HeishaMon versio
 PyshaMon allows to connect the heat pump directly to the serial port of any computer 
 (typically Raspberry Pi) via RS485 modules or a logic level converter circuit.
 
+## Status
+- MQTT only (implemented, topics and commands mostly compatible)
+- Optional PCB support (implemented)
+- Json set command still to be implemented (planned)
+- No RAW messages (maybe planned)
+- No DS18B20 (not planned)
+- No S0 (not planned)
+- No HTTP/REST (not planned)
+
 ## Usage
 
 Configure your specific requirements in pyshamon.conf. Select `mqtt_commands` you want Pyshamon to 
