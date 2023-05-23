@@ -16,10 +16,10 @@ class Heatpump:
         self.onTopicReceived = on_topic_received
         self.commandQueue = Queue()
         self.optionalCommand = OptionalCommand()
-        self.pollInterval = None if poll_interval < 0 else 10 \
+        self.pollInterval = None if poll_interval <= 0 else 10 \
             if poll_interval < minimum_poll_interval else poll_interval
 
-        self.optionalPollInterval = None if optional_pcb_poll_interval < 0 else 10 \
+        self.optionalPollInterval = None if optional_pcb_poll_interval <= 0 else 10 \
             if optional_pcb_poll_interval < minimum_poll_interval else optional_pcb_poll_interval
 
         self.serial: serial.Serial = None
