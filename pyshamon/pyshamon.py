@@ -9,21 +9,25 @@ from mqtt import MQTT
 from heatpump import Heatpump
 from datetime import datetime
 import json
+import signal
 
 
 class Pyshamon:
     def __init__(self):
         self.config = configparser.ConfigParser()
         self.read_config()
+        self.cleanedUp = False
 
         self.log_mqtt_level = self.config.getint("pyshamon", "log_mqtt_level")
-        self.log_file_level = self.config.getint("pyshamon", "log_file_level")
-        logging.basicConfig(level=0,
-                            handlers=[self.LogHandler(self.on_log)])
+        logging.basicConfig(format=self.config.get("pyshamon", "log_format"),
+                            level=self.config.getint("pyshamon", "log_level"))
+        logging.getLogger().addHandler(self.LogHandler(self.on_log))
 
         logging.info("pyshamon: starting up")
 
         atexit.register(self.cleanup)
+        signal.signal(signal.SIGINT, self.cleanup)
+        signal.signal(signal.SIGTERM, self.cleanup)
 
         self.mqtt = MQTT(self.config.get("mqtt", "host"),
                          self.config.getint("mqtt", "port"),
@@ -43,12 +47,14 @@ class Pyshamon:
             logging.error(F"pyshamon: failed to connect to heat pump: {msg}")
             raise msg
 
-        running: bool = True
-        while running:
+        while not self.cleanedUp:
             try:
                 self.heatpump.loop()
             except KeyboardInterrupt:
-                running = False
+                self.cleanup()
+            except Exception as err:
+                if not self.cleanedUp:
+                    logging.error(err)
 
     class LogHandler(logging.Handler):
         def __init__(self, on_log: any):
@@ -59,9 +65,6 @@ class Pyshamon:
             self.on_log(record)
 
     def on_log(self, record: LogRecord):
-        if self.log_file_level <= record.levelno:
-            print(F"{datetime.fromtimestamp(record.created)} {record.levelname} {record.msg}")
-
         if self.log_mqtt_level <= record.levelno:
             data = {"time": str(datetime.fromtimestamp(record.created)),
                     "level": record.levelname,
@@ -79,17 +82,21 @@ class Pyshamon:
             print(F"Config file not found. Searched: {config_file_candidates}")
             exit(1)
 
-    def cleanup(self):
-        logging.info("pyshamon: shutting down")
-        try:
-            self.mqtt.shutdown()
-        except Exception as err:
-            logging.warning(F"pyshamon: failed to shut down mqtt: {err}")
+    def cleanup(self, *args):
+        if self.cleanedUp:
+            return
 
+        self.cleanedUp = True
+        logging.warning("pyshamon: shutting down")
         try:
             self.heatpump.shutdown()
         except Exception as err:
             logging.warning(F"pyshamon: failed to disconnect from heat pump: {err}")
+
+        try:
+            self.mqtt.shutdown()
+        except Exception as err:
+            logging.warning(F"pyshamon: failed to shut down mqtt: {err}")
 
         pass
 
