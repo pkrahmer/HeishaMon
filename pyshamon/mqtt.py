@@ -52,12 +52,12 @@ class MQTT:
             if name.lower().startswith(F"{self.topic_base}/commands/".lower()):
                 name = message.topic[len(F"{self.topic_base}/commands/"):]
             if name.lower() in self.subscribed_commands:
-                if message.payload.isdigit():
+                try:
                     param = int(message.payload)
                     if self.on_command:
                         self.on_command(name, param)
-                else:
-                    logging.warning(f"mqtt: command {name} only supports integer payload")
+                except ValueError as err:
+                    logging.warning(f"mqtt: command {name} only supports integer payload but got '{message.payload}': {err}")
             else:
                 logging.warning(f"mqtt: command {name}={message.payload} not known or allowed.")
         except Exception as err:

@@ -57,8 +57,23 @@ class Command:
             "SetOperationMode": self.set_operation_mode,
             # set DHW temperature by sending desired temperature between 40C-75C
             "SetDHWTemp": self.set_dhw_temp,
-            # set heat/cool curves on z1 and z2 using a json input
-            # "SetCurves": self.set_curves,
+            # set heat/cool curves on z1 and z2
+            "SetZ1HeatCurveTargetHighTemp": self.set_z1_heat_curve_target_high_temp,
+            "SetZ1HeatCurveTargetLowTemp": self.set_z1_heat_curve_target_low_temp,
+            "SetZ1HeatCurveOutsideHighTemp": self.set_z1_heat_curve_outside_high_temp,
+            "SetZ1HeatCurveOutsideLowTemp": self.set_z1_heat_curve_outside_low_temp,
+            "SetZ2HeatCurveTargetHighTemp": self.set_z2_heat_curve_target_high_temp,
+            "SetZ2HeatCurveTargetLowTemp": self.set_z2_heat_curve_target_low_temp,
+            "SetZ2HeatCurveOutsideHighTemp": self.set_z2_heat_curve_outside_high_temp,
+            "SetZ2HeatCurveOutsideLowTemp": self.set_z2_heat_curve_outside_low_temp,
+            "SetZ1CoolCurveTargetHighTemp": self.set_z1_cool_curve_target_high_temp,
+            "SetZ1CoolCurveTargetLowTemp": self.set_z1_cool_curve_target_low_temp,
+            "SetZ1CoolCurveOutsideHighTemp": self.set_z1_cool_curve_outside_high_temp,
+            "SetZ1CoolCurveOutsideLowTemp": self.set_z1_cool_curve_outside_low_temp,
+            "SetZ2CoolCurveTargetHighTemp": self.set_z2_cool_curve_target_high_temp,
+            "SetZ2CoolCurveTargetLowTemp": self.set_z2_cool_curve_target_low_temp,
+            "SetZ2CoolCurveOutsideHighTemp": self.set_z2_cool_curve_outside_high_temp,
+            "SetZ2CoolCurveOutsideLowTemp": self.set_z2_cool_curve_outside_low_temp,
             # set zones to active
             "SetZones": self.set_zones,
             "SetFloorHeatDelta": self.set_floor_heat_delta,
@@ -175,8 +190,56 @@ class Command:
     def set_external_pad_heater(self, mode: int):
         self.set_command(25, 48 if mode == 2 else 32 if mode == 1 else 16)
 
-    def set_buffer_delta(self, delta):
+    def set_buffer_delta(self, delta: int):
         self.set_command(59, delta + 128)
+
+    def set_z1_heat_curve_target_high_temp(self, temp: int):
+        self.set_command(75, temp + 128)
+
+    def set_z1_heat_curve_target_low_temp(self, temp: int):
+        self.set_command(76, temp + 128)
+
+    def set_z1_heat_curve_outside_low_temp(self, temp: int):
+        self.set_command(77, temp + 128)
+
+    def set_z1_heat_curve_outside_high_temp(self, temp: int):
+        self.set_command(78, temp + 128)
+
+    def set_z2_heat_curve_target_high_temp(self, temp: int):
+        self.set_command(79, temp + 128)
+
+    def set_z2_heat_curve_target_low_temp(self, temp: int):
+        self.set_command(80, temp + 128)
+
+    def set_z2_heat_curve_outside_low_temp(self, temp: int):
+        self.set_command(81, temp + 128)
+
+    def set_z2_heat_curve_outside_high_temp(self, temp: int):
+        self.set_command(82, temp + 128)
+
+    def set_z1_cool_curve_target_high_temp(self, temp: int):
+        self.set_command(86, temp + 128)
+
+    def set_z1_cool_curve_target_low_temp(self, temp: int):
+        self.set_command(87, temp + 128)
+
+    def set_z1_cool_curve_outside_low_temp(self, temp: int):
+        self.set_command(88, temp + 128)
+
+    def set_z1_cool_curve_outside_high_temp(self, temp: int):
+        self.set_command(89, temp + 128)
+
+    def set_z2_cool_curve_target_high_temp(self, temp: int):
+        self.set_command(90, temp + 128)
+
+    def set_z2_cool_curve_target_low_temp(self, temp: int):
+        self.set_command(91, temp + 128)
+
+    def set_z2_cool_curve_outside_low_temp(self, temp: int):
+        self.set_command(92, temp + 128)
+
+    def set_z2_cool_curve_outside_high_temp(self, temp: int):
+        self.set_command(93, temp + 128)
 
 
 class OptionalCommand:

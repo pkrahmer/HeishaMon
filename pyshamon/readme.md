@@ -9,7 +9,7 @@ PyshaMon allows to connect the heat pump directly to the serial port of any comp
 ## Status
 - MQTT only (implemented, topics and commands mostly compatible)
 - Optional PCB support (implemented)
-- Json set command still to be implemented (planned)
+- Json set command still to be implemented (not planned, instead individual commands are implemented)
 - No RAW messages (maybe planned)
 - No DS18B20 (not planned)
 - No S0 (not planned)
