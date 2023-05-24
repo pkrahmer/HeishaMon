@@ -46,6 +46,10 @@ class MQTT:
         else:
             logging.debug(F"mqtt: skipping deactivated topic {topic.name}")
 
+    def publish_log(self, payload):
+        if "log" in self.published_topics:
+            self.client.publish(f"{self.topic_base}/log", payload=payload, qos=0, retain=False)
+
     def on_message(self, client, userdata, message: paho.mqtt.client.MQTTMessage):
         try:
             name = message.topic
@@ -83,7 +87,7 @@ class MQTT:
         logging.warning(f"mqtt: failed to connect to  {self.host}:{self.port} rc={rc}")
 
     def on_mqtt_log(self, client, userdata, level, buf):
-        logging.debug(f"mqtt: {buf}")
+        logging.log(level, f"mqtt: {buf}")
 
     def shutdown(self):
         self.client.disconnect()

@@ -56,6 +56,11 @@ class Heatpump:
                     if self.onTopicReceived(topic):
                         topic.delegated = True
 
+            if len(buffer) == 20:
+                # optional pcb response to heatpump should contain the data from heatpump on byte 4 and 5
+                self.optionalCommand.optional_query[4] = buffer[4]
+                self.optionalCommand.optional_query[5] = buffer[5]
+
     def shutdown(self):
         logging.info("heatpump: disconnecting")
         self.serial.close()
