@@ -1,12 +1,12 @@
 import time
 
 import paho.mqtt.client
-import traceback
 
 from command import Command, OptionalCommand
 from topics import Topic
 import paho.mqtt.client as mqtt
 import logging
+import binascii
 
 
 class MQTT:
@@ -50,6 +50,10 @@ class MQTT:
         if "log" in self.published_topics:
             self.client.publish(f"{self.topic_base}/log", payload=payload, qos=0, retain=False)
 
+    def publish_raw(self, topic_type: str, raw: []):
+        if "raw" in self.published_topics:
+            self.client.publish(f"{self.topic_base}/raw/{topic_type}", payload=binascii.hexlify(bytes(raw), " "), qos=0, retain=False)
+
     def on_message(self, client, userdata, message: paho.mqtt.client.MQTTMessage):
         try:
             name = message.topic
@@ -66,7 +70,6 @@ class MQTT:
                 logging.warning(f"mqtt: command {name}={message.payload} not known or allowed.")
         except Exception as err:
             logging.error(f"mqtt: unknown error handling command {message.topic}={message.payload}: {err}")
-            traceback.print_exc(err)
 
     def on_mqtt_connect(self, client, userdata, flags, rc):
         logging.info(f"mqtt: connected to {self.host}:{self.port} rc={rc}")

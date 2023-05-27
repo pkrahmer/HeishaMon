@@ -14,6 +14,8 @@ import signal
 
 class Pyshamon:
     def __init__(self):
+        self.last_raw = {'main': [0] * 203, 'optional': [0] * 20}
+
         self.config = configparser.ConfigParser()
         self.read_config()
         self.cleanedUp = False
@@ -42,7 +44,8 @@ class Pyshamon:
             self.heatpump = Heatpump(self.config.get("heatpump", "serial_port"),
                                      self.config.getint("heatpump", "poll_interval"),
                                      self.config.getint("heatpump", "optional_pcb_poll_interval"),
-                                     self.on_topic_received)
+                                     self.on_topic_received,
+                                     self.on_topic_data)
         except Exception as msg:
             logging.error(F"pyshamon: failed to connect to heat pump: {msg}")
             raise msg
@@ -107,6 +110,11 @@ class Pyshamon:
             logging.info(f"topic: {topic}")
             self.mqtt.publish(topic)
             return True
+
+    def on_topic_data(self, topic_type: str, raw: []):
+        if raw != self.last_raw[topic_type]:
+            self.last_raw[topic_type] = raw
+            self.mqtt.publish_raw(topic_type, raw)
 
     def on_command_received(self, name: str, param: int):
         if self.heatpump.command(name, param):

@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime, timedelta
 
 from topics import Topics
@@ -10,10 +11,12 @@ minimum_poll_interval = 2
 
 
 class Heatpump:
-    def __init__(self, device: str, poll_interval: int, optional_pcb_poll_interval: int, on_topic_received: any):
+    def __init__(self, device: str, poll_interval: int, optional_pcb_poll_interval: int,
+                 on_topic_received: any, on_topic_data: any):
         self.topics: Topics = Topics()
         self.device = device
         self.onTopicReceived = on_topic_received
+        self.onTopicData = on_topic_data
         self.commandQueue = Queue()
         self.optionalCommand = OptionalCommand()
         self.pollInterval = None if poll_interval <= 0 else 10 \
@@ -51,6 +54,9 @@ class Heatpump:
     def on_receive(self, buffer: []):
         if self.topics.decode_and_update(buffer):
             logging.debug(F"Received {len(buffer)} bytes: {buffer}")
+            if self.onTopicData is not None:
+                self.onTopicData("optional" if len(buffer) == 20 else "main", buffer)
+
             for topic in self.topics.topics:
                 if self.onTopicReceived is not None:
                     if self.onTopicReceived(topic):
