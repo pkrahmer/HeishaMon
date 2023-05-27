@@ -11,6 +11,21 @@ from datetime import datetime
 import json
 import signal
 
+def raw_diff(old, new: []):
+    hx: str = ""
+    changed = False
+    for o, n in zip(old, new):
+        if o != n:
+            hx += "\033[96m\033[1m" if not changed else ""
+            changed = True
+        else:
+            hx += "\033[0m" if changed else ""
+            changed = False
+        hx += "%0.2X " % n
+    if changed:
+        hx += "\033[0m"
+    return hx
+
 
 class Pyshamon:
     def __init__(self):
@@ -31,15 +46,6 @@ class Pyshamon:
         signal.signal(signal.SIGINT, self.cleanup)
         signal.signal(signal.SIGTERM, self.cleanup)
 
-        self.mqtt = MQTT(self.config.get("mqtt", "host"),
-                         self.config.getint("mqtt", "port"),
-                         self.config.get("mqtt", "topic_base"),
-                         self.on_command_received,
-                         [key.lower() for (key, value) in self.config.items('mqtt_topics')
-                          if value.lower() in ['yes', 'true', '1']],
-                         [key.lower() for (key, value) in self.config.items('mqtt_commands')
-                          if value.lower() in ['yes', 'true', '1']])
-
         try:
             self.heatpump = Heatpump(self.config.get("heatpump", "serial_port"),
                                      self.config.getint("heatpump", "poll_interval"),
@@ -49,6 +55,17 @@ class Pyshamon:
         except Exception as msg:
             logging.error(F"pyshamon: failed to connect to heat pump: {msg}")
             raise msg
+
+        self.mqtt = MQTT(self.config.getint("mqtt", "version"),
+                         self.config.get("mqtt", "host"),
+                         self.config.getint("mqtt", "port"),
+                         self.config.get("mqtt", "topic_base"),
+                         self.on_command_received,
+                         [key.lower() for (key, value) in self.config.items('mqtt_topics')
+                          if value.lower() in ['yes', 'true', '1']],
+                         [key.lower() for (key, value) in self.config.items('mqtt_commands')
+                          if value.lower() in ['yes', 'true', '1']])
+        self.mqtt.run()
 
         while not self.cleanedUp:
             try:
@@ -108,13 +125,15 @@ class Pyshamon:
             if topic.name == "Alarm_State" and topic.value == 1:
                 logging.warning(f"pyshamon: heatpump reported alarm state!")
             logging.info(f"topic: {topic}")
-            self.mqtt.publish(topic)
-            return True
+
+            return self.mqtt.publish(topic)
 
     def on_topic_data(self, topic_type: str, raw: []):
         if raw != self.last_raw[topic_type]:
-            self.last_raw[topic_type] = raw
+            diff = raw_diff(self.last_raw[topic_type], raw)
+            logging.info(f"raw: {diff}")
             self.mqtt.publish_raw(topic_type, raw)
+            self.last_raw[topic_type] = raw
 
     def on_command_received(self, name: str, param: int):
         if self.heatpump.command(name, param):

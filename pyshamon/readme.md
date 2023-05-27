@@ -39,5 +39,5 @@ python3 -m pip install paho-mqtt
 python3 -m pip install pyserial
 python3 -m pip freeze > requirements.txt
 docker build --tag pyshamon  .
-docker run -v pyshamon.conf:/etc/pyshamon.conf -v /dev/ttyAMA0:/dev/ttyAMA0 --privileged --name pyshamon pyshamon
+docker run -d -it --mount type=bind,source=/var/lib/docker/volumes/pyshamon.conf,target=/etc/pyshamon.conf --device=/dev/ttyAMA0 --add-host=host.docker.internal:host-gateway --name pyshamon pyshamon
 ```

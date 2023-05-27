@@ -16,11 +16,14 @@ optional_pcb_poll_interval=10
 
 # mqtt server settings
 [mqtt]
-#host=localhost
-host=10.79.0.212
+host=localhost
+#host=10.79.0.212
+#host=host.docker.internal
 port=1883
 #topic_base=pyshamon
 topic_base=jeisha
+#protocol 31, 311 or 5
+version=5
 
 # specify (yes|no) which mqtt commands pyshamon subscribes and forwards to the heat pump.
 [mqtt_commands]
