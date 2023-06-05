@@ -39,7 +39,8 @@ class Pyshamon:
 
         self.log_mqtt_level = self.config.getint("pyshamon", "log_mqtt_level")
         logging.basicConfig(format=self.config.get("pyshamon", "log_format"),
-                            level=self.config.getint("pyshamon", "log_level"))
+                            level=self.config.getint("pyshamon", "log_level"),
+                            datefmt="%Y-%m-%dT%H:%M:%S%z")
         logging.getLogger().addHandler(self.LogHandler(self.on_log))
 
         logging.info("pyshamon: starting up")
