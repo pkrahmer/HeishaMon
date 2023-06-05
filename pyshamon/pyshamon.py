@@ -1,3 +1,4 @@
+import os
 import sys
 
 from topics import Topic
@@ -10,6 +11,7 @@ from heatpump import Heatpump
 from datetime import datetime
 import json
 import signal
+
 
 def raw_diff(old, new: []):
     hx: str = ""
@@ -31,7 +33,7 @@ class Pyshamon:
     def __init__(self):
         self.last_raw = {'main': [0] * 203, 'optional': [0] * 20}
 
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser(os.environ)
         self.read_config()
         self.cleanedUp = False
 
