@@ -6,7 +6,7 @@ log_mqtt_level=%(pyshamon_log_mqtt_level)s
 
 [heatpump]
 # specify the serial port used to communicate with the heat pump.
-serial_port=/dev/ttyAMA0
+serial_port=%(pyshamon_serial_port)s
 
 # Interval to poll the heat pump for new values. 0 to disable scheduled polling.
 poll_interval=20
