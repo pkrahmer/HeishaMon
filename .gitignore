@@ -12,3 +12,7 @@ platformio.ini
 build_output
 firmware.map
 firmware.asm
+.venv
+.idea
+nohup.out
+__pycache__
