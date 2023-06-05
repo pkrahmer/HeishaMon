@@ -18,7 +18,7 @@ mqttVersions = {
 
 class MQTT:
     def __init__(self, protocol_version: int, host: str, port: int, topic_base: str, on_command: any,
-                 published_topics: [], subscribed_commands: []):
+                 published_topics: [], subscribed_commands: [], username: str = None, password: str = None):
         self.host = host
         self.port = port
         self.topic_base = topic_base
@@ -28,6 +28,8 @@ class MQTT:
         self.protocol_version = protocol_version
 
         self.client = Client(protocol=mqttVersions[protocol_version])
+        if username is not None:
+            self.client.username_pw_set(username, password)
         self.client.on_connect = self.on_mqtt_connect
         self.client.on_disconnect = self.on_mqtt_disconnect
         self.client.on_connect_fail = self.on_mqtt_connect_fail

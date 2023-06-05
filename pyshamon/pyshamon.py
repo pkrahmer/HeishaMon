@@ -58,15 +58,17 @@ class Pyshamon:
             logging.error(F"pyshamon: failed to connect to heat pump: {msg}")
             raise msg
 
-        self.mqtt = MQTT(self.config.getint("mqtt", "version"),
-                         self.config.get("mqtt", "host"),
-                         self.config.getint("mqtt", "port"),
-                         self.config.get("mqtt", "topic_base"),
-                         self.on_command_received,
-                         [key.lower() for (key, value) in self.config.items('mqtt_topics')
-                          if value.lower() in ['yes', 'true', '1']],
-                         [key.lower() for (key, value) in self.config.items('mqtt_commands')
-                          if value.lower() in ['yes', 'true', '1']])
+        self.mqtt = MQTT(protocol_version=self.config.getint("mqtt", "version"),
+                         host=self.config.get("mqtt", "host"),
+                         port=self.config.getint("mqtt", "port"),
+                         topic_base=self.config.get("mqtt", "topic_base"),
+                         on_command=self.on_command_received,
+                         published_topics=[key.lower() for (key, value) in self.config.items('mqtt_topics')
+                                           if value.lower() in ['yes', 'true', '1']],
+                         subscribed_topics=[key.lower() for (key, value) in self.config.items('mqtt_commands')
+                                            if value.lower() in ['yes', 'true', '1']],
+                         username=self.config.get("mqtt", "username", fallback=None),
+                         password=self.config.get("mqtt", "password", fallback=None))
         self.mqtt.run()
 
         while not self.cleanedUp:
