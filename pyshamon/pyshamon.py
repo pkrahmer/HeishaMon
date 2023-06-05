@@ -65,7 +65,7 @@ class Pyshamon:
                          on_command=self.on_command_received,
                          published_topics=[key.lower() for (key, value) in self.config.items('mqtt_topics')
                                            if value.lower() in ['yes', 'true', '1']],
-                         subscribed_topics=[key.lower() for (key, value) in self.config.items('mqtt_commands')
+                         subscribed_commands=[key.lower() for (key, value) in self.config.items('mqtt_commands')
                                             if value.lower() in ['yes', 'true', '1']],
                          username=self.config.get("mqtt", "username", fallback=None),
                          password=self.config.get("mqtt", "password", fallback=None))
