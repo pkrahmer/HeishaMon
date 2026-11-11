@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:54:26.963793Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T19:54:26.963793Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:55:39.713293Z'
+  stage: review
+  run: 1322e207c8424a95b72009b296a1617d
 ---
 
 # The signal table, the energy balance and the relay
@@ -228,3 +230,18 @@ Expect: `control: 5 test programs passed`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (factory files excluded) against the story, the Python reference (`signals.py`, `balance.py`, `hysteresis.py`, `types.py`), `ctl_types.h`, `ctl_config.[ch]` and `check.h`.
+
+   All of these check out:
+   - Operand order matches Python everywhere: the trim clamp comparison order, the ledger `+=` with `power * hours`, and the left-to-right sums.
+   - Staleness is `!(age <= max)`, done once through `ctl_signals_is_fresh`.
+   - Core includes are only from the allowed set. Public names have the `ctl_`/`CTL_` prefix and helpers are `static`.
+   - There is no dynamic memory. Every loop is bounded by `CTL_SIGNAL_COUNT`.
+   - Each header function has a comment saying what it returns and what it refuses.
+   - The claims in `core.md` match the code, including the limit of 3000 = factor × hysteresis. `decisions.md` has the six listed differences plus the builder's decision about `init`.
+   - Every test file in the diff is new (`A`), so no earlier test was changed. The journal reports `make check` green.
+
+   Findings. Both are rules the Interface states that have no criterion and no test, so the human should also see them as gaps in the story:
+
+   1. `tests/control/test_relay.c` (`test_relay`): there is no test of the Interface rule "from a value that is no member of the enum" (`ctl_relay.h` documents it too). A `previous` outside the enum that is not handled as `NONE` would still pass every row. Fix: add rows with `previous` set to `(ctl_demand)3`: -1500.0 → `HEATING`, 0.0 → `NONE`, 1500.0 → `COOLING`. Gap in the story: criterion 9 has no row for a non-member `previous`.
+   2. `tests/control/test_signals.c` (the `resolve` tests): the per-signal fallback rule ("each optional signal's held value when it is fresh, and `fallback_w` … when it is not") is only tested with both optional signals fresh or both stale. A wrong `optional_value` that tests `stale != 0` instead of the signal's own bit would pass all three resolve tests. Fix: add a case with one optional signal fresh and the other stale. Example: `P_SOLAR` 120.0 at 100.0, `P_INTERNAL` 400.0 and the required signals at 750.0, asked at 800.0. Expect `p_solar_w` 0.0, `p_internal_w` 400.0, and `substituted` holding exactly the bit of `P_SOLAR`. Gap in the story: criterion 5 has no case with mixed optional signals.
