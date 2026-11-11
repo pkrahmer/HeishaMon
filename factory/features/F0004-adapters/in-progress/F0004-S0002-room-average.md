@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:50:10.295454Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T22:50:04.687793Z'
   stage: doing
   run: b0565fdc2fa84a48a796540d36271045
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:50:10.295454Z'
+  stage: review
 ---
 
 # The room average
@@ -164,3 +173,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    Noticed but not touched: the glue that publishes weight-0 rooms in telemetry, and the conversion of the average into a `T_INDOOR` reading, are outside this story.
 
    `check`: check: green
+4. factory: started review as heishamon.
