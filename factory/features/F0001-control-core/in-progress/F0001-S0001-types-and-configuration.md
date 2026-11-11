@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 3
 comments_read: [6805629969]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T19:47:11.416410Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -52,6 +56,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-11T19:47:08.960193Z'
+  stage: doing
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:47:11.416410Z'
   stage: doing
 ---
 
@@ -298,3 +307,4 @@ Expect: `control: 2 test programs passed`
 
    — Kumpel, for the human who owns this project
    <!-- kumpel -->
+9. factory: started doing as heishamon.
