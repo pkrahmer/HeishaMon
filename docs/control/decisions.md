@@ -279,3 +279,48 @@ script waits for `ready` from the host twin too, and exits with 2 when the link 
 refuses, without half a replay before it.
 **Rejected.** Reading line by line like the C runner, which would interleave format errors with
 replies in flight.
+
+## 2026-11-11: The script's restart line names what came instead of the reply
+
+**Decision.** `replay.py` prints a break as `<file>:<line>: broken line, restarting (<k> of 2):
+<what came>`, where `<what came>` is the broken line in safe form, `<request> -> <reply>` for an
+answer that is no answer, or `no reply within 10 s`. A break while the configuration is sent
+restarts the trace too and prints the place as `<file>` alone. A third break prints the same line
+without `restarting`, then `<file>: failed after 2 restarts`. A reply whose fields have the right
+number but do not parse is a break like one with the wrong number.
+**Reason.** The person at the board needs to see whether the line dropped characters, the board
+answered `error`, or it went quiet; and the configuration crosses the same line as the calls. A
+field that does not parse is a damaged line, not a value of the core.
+**Rejected.** The bare `broken line, restarting (<k> of 2)`, which hides what broke; and failing a
+trace without a restart when `R`, a `C` or `B` breaks.
+
+## 2026-11-11: Printing escapes every byte outside printable ASCII
+
+**Decision.** `replay.py` writes every byte from the link outside `0x20` to `0x7e` as `\xNN`, the
+control characters included, and a reply whose frame checks but holds such a byte is broken.
+**Reason.** A control character can move the cursor or clear a console as surely as a byte above
+`0x7f` can crash its encoder; and no reply of the protocol holds one.
+**Rejected.** Escaping only bytes above `0x7f`, which leaves the console to the link's garbage.
+
+## 2026-11-11: The host twin takes `--garble` with at most nine decimal digits
+
+**Decision.** `host_server` accepts no argument, or `--garble` and one to nine decimal digits;
+`0` garbles nothing. Anything else, a sign or a longer number included, prints the usage line and
+exits with 2. Every reply after `ready` counts, `error` and the stats line included.
+**Reason.** Nine digits cannot overflow an `unsigned long`, and no replay comes near a billion
+replies; a sign or a letter is a mistake on the command line, which an exit says better than a
+run that silently garbles nothing.
+**Rejected.** `strtoul`, which takes signs, spaces and overflows quietly.
+
+## 2026-11-11: The script's tests are a Python program that a C test runs
+
+**Decision.** The tests of the host twin's frames and of `replay.py`'s restarts are
+`tests/control/device/test_replay.py`, which builds the twin with gcc and runs it and the script
+as processes; `tests/control/test_replay_script.c` runs it with `system` and passes when it exits
+with 0. The twin that garbles every reply is `tests/control/device/garbling_twin.py`, which can
+replace with any byte, so that the safe printing is proven with one outside ASCII.
+**Reason.** `make test` runs every `tests/control/test_*.c`, and the `Makefile` stays as it is; a
+pipe to a process is not reachable from strict C99, and the script's own functions are best
+checked from Python.
+**Rejected.** A Python test outside `make test`, which nothing would run; and a second `--garble`
+mode in the host twin, which would put a test's needs into the code that serves the board's twin.

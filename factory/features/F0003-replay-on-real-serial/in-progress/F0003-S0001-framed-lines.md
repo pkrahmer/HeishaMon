@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 9
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T21:38:37.026433Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T21:38:37.026433Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T21:45:33.041197Z'
+  stage: doing
+  run: 8c512ec00ca949d9a7747d1aed2d7149
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -131,3 +133,50 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the checksum frame, the restart in the replay script, the board reset and the 230,400-baud setting. `make check` is green, and both smoke commands give exactly their `Expect:` lines.
+
+   What I built:
+   - `HeishaMon/src/control/wire/ctl_frame.h` and `ctl_frame.c`: `ctl_frame_checksum`, `ctl_frame_add` and `ctl_frame_strip`, as the Interface specifies. They are plain C99 and leave the line unchanged when they refuse.
+   - `tests/control/test_frame.c` covers criteria 1–3 as table tests. The round-trip rows are one request of each kind in the protocol table (R, C ×3, B, O, A, M, E, S) plus a text of the full 128 characters. I read "the earlier story's request table" as the protocol table in `device-test.md`.
+   - `tests/control/device/host_server.c`:
+     - It frames `ready` and every reply, and strips each request's frame first. A request whose frame does not check gets a framed `error` and never reaches `ctl_wire_handle`.
+     - `S` is recognised after stripping.
+     - Its buffers grow by `CTL_FRAME_SUFFIX`.
+     - `--garble <n>` replaces the first character of the n-th reply with `#` and keeps the old checksum. A wrong argument prints the usage line and exits with 2.
+   - `tests/control/device/replay/replay.ino`: the same framing, 230,400 baud, and `CTL_FRAME_SUFFIX` added to its line and reply buffers. The stats line is now built with `snprintf` so it can be framed. A refused frame is answered with `error` and never reaches the time sums.
+   - `tests/control/device/replay.py`:
+     - `--command` is split with `shlex`.
+     - The process link is binary and a reader thread feeds a queue, so a reply that never comes times out after 10 s on every platform.
+     - With `--port` it sends the reset pulse (DTR off, RTS on, 0.2 s, RTS off) and then waits up to 10 s for a framed `ready`.
+     - It keeps 4 requests in flight and restarts a trace from `R` at most twice, dropping replies for 1 s before each restart. Results count only a trace's last attempt.
+     - It prints everything from the link safely and ends with the new summary line.
+   - Tests for criteria 4–8:
+     - `tests/control/device/test_replay.py` builds the twin, checks its frames, `--garble 3` and the usage line, and runs the restart, the restart limit and the safe-printing cases. It prints one line per failed check, in the style of the C tests.
+     - `tests/control/device/garbling_twin.py` garbles every reply with a chosen byte, which gives the non-ASCII case.
+     - `tests/control/test_replay_script.c` runs the Python test with `system()`, so `make test` covers it without a `Makefile` change.
+     - Against the old script and twin, the Python test fails as it should.
+   - `docs/control/device-test.md`: new sections for the frame (with `ok *04`) and for restarts (with why a call is never retried), the protocol table shown framed, the reset, 230,400 baud with 4 in flight, the new summary line, and that the owner's D1 mini (FTDI, ESP-12F) needs no button press.
+   - `docs/control/decisions.md`: four new entries for the decisions below.
+
+   Decisions where the story left room (each is in `decisions.md`):
+   - **Restart line wording.** It is `... restarting (<k> of 2): <what came>`, where `<what came>` is the safe-form broken line, `<request> -> <reply>`, or `no reply within 10 s`. Criterion 8 needs the restart line to carry the `\x` escapes, and the bare form would carry nothing from the link.
+   - **Breaks during configuration.** A break while sending R, C or B also restarts the trace, and its place is printed as `<file>` without a line number. A `bad` reply to `B` still fails the trace without a restart, because the same configuration would be bad again.
+   - **What counts as broken.**
+     - A reply with the right number of fields but a field that does not parse is broken too.
+     - A reply whose frame checks but whose text holds a byte outside printable ASCII is broken.
+     - Safe printing escapes control characters as well as bytes above `0x7f`.
+   - **`--garble` values.** It takes one to nine decimal digits, and `0` garbles nothing. A sign, letters or a longer number is a wrong argument: usage line and exit 2.
+   - **Third break.** It prints `<file>:<line>: broken line: <what>` before `<file>: failed after 2 restarts`.
+   - **Rejected:** a Python test that `make test` would not run, and a second garble mode inside the host twin.
+
+   Smoke test results:
+   - First command: `device replay: 1 files, 3236 calls, 0 mismatches, 1 restarts`.
+   - Second command: `ready *6b`, `ok *04`, `error *78`.
+   - In `make test`, the host replay ends with `device replay: 2 files, 10639 calls, 0 mismatches, 0 restarts`, and `make device` compiles the sketch (RAM 36 %, flash 23 %).
+
+   Noticed but did not touch:
+   - The host twin's `fgets` buffer counts the `\r` of a `\r\n` line, so a framed line at the full length that ends in `\r\n` is answered `error` by the twin, while the sketch takes it. The twin had the same one-byte gap before this story.
+   - The reset pulse and 230,400 baud are untested here because no stage has a board. Only the owner's run of `make device-replay` proves them.
+   - The `system()` call runs `python3` by name, so `make test` needs `python3` on the PATH. The `Makefile` already needs it there.
+
+   `check`: check: green
