@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T21:45:39.531791Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T21:45:33.041197Z'
   stage: doing
   run: 8c512ec00ca949d9a7747d1aed2d7149
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:45:39.531791Z'
+  stage: review
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -180,3 +189,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
    - The `system()` call runs `python3` by name, so `make test` needs `python3` on the PATH. The `Makefile` already needs it there.
 
    `check`: check: green
+4. factory: started review as heishamon.
