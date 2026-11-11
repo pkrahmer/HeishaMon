@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 2
+round: 3
 attempts: 0
 crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:58:07.212016Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -78,6 +74,12 @@ journal:
   kind: started
   at: '2026-11-11T19:58:07.212016Z'
   stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:58:32.395132Z'
+  stage: review
+  run: 65ec893d93194b67800c56ccdbed5837
 ---
 
 # The signal table, the energy balance and the relay
@@ -353,3 +355,21 @@ Expect: `control: 5 test programs passed`
 
     `check`: check: green
 12. factory: started review as heishamon.
+13. reviewer: Round 2 review of `git diff develop...HEAD -- . ':!factory'`. I compared it against the story, `ctl_types.h` and `ctl_config.c`. The defaults set `P_INTERNAL` `max_age_s` to `INFINITY` and `fallback_w` to 550.0, and `ctl_demand` has three members, so `(ctl_demand)3` is no member.
+
+    What I checked, group by group:
+    1. **Acceptance criteria.** Criteria 1–11 each have a test that tests what the criterion says, including:
+       - the round-0 rows for a `previous` outside the enum;
+       - the case with one optional signal fresh and the other stale;
+       - both sides of every boundary: freshness at 700.0 and 700.001, the relay at ±H and 0 with `nextafter`, the clamp, and the trim limit;
+       - an untouched marker on every refusal.
+
+       The journal reports `check: green`.
+    2. **Architecture.** The core includes only allowed headers. Names carry the `ctl_` or `CTL_` prefix and helpers are `static`. No file outside the three folders changed.
+    3. **Embedded safety.** No dynamic memory and no recursion. Every loop is bounded by `CTL_SIGNAL_COUNT`.
+    4. **Quality.** Operand order and comparison order match the Python reference. Staleness has one definition. There is no dead code.
+    5. **Hygiene.** One finding, below.
+    6. **Earlier tests.** Every test file in the diff is new (status `A`), so no earlier test was changed.
+
+    Findings:
+    1. `docs/control/core.md`, section "Signal table", the sentence that begins "until its first reading, and at a NaN `at`, it is not fresh and falls back to `fallback_w` (550 W)". The fallback part is wrong for a NaN `at`. At a NaN `at` every required signal is also not fresh, so `ctl_signals_resolve` refuses and nothing falls back. The paragraph on `resolve` in the same section says so too. Fix: limit the fallback to "until its first reading", for example: "until its first reading it falls back to `fallback_w` (550 W); at a NaN `at` it is not fresh, like every signal."
