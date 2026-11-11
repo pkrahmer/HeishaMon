@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 12
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:16:17.454759Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T22:16:17.454759Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:17:43.071706Z'
+  stage: review
+  run: f1c998008d4e42dab391c20db1ffb9ee
 ---
 
 # The payload parser and the plausibility bounds
@@ -161,3 +163,22 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD -- . ':!factory'` against the work item, going through all six checklist groups. I read the parser and bounds code and the two new tests. I also checked that `replay.ino` includes no `adapt/` header, that no upstream source calls `setlocale`, and that no existing helper does the same job (`ctl_wire_parse_double` decodes hexadecimal bits, which is a different job). The factory's `make check` after the builder was green, as the journal says.
+
+   Findings:
+
+   1. `tests/control/test_payload.c`, `test_objects_accepted`: the 18-digit limit on `"ts"` is tested only on its refused side (the 19-digit row in criterion 4). No row shows that 18 digits are accepted, so a parser that refused 18 digits would still pass. Criterion 3 also has no row at that limit; this is a gap in the story. Fix: add an accepted row such as `{"v":1,"ts":999999999999999999}` that gives timestamp 999999999999999999, and add that row to criterion 3 in the `## Description`.
+   2. `tests/control/test_payload.c`, `test_bare_numbers_accepted` and `test_bare_numbers_refused`: the Interface says spaces, tabs, `\r` and `\n` are skipped, but only a space and `\n` are tested. No row accepts a tab or `\r`, and no row checks the failing side, another whitespace byte being refused. That matters because `strtod` on its own would skip `\f` and `\v`. No criterion covers this; this is a gap in the story. Fix: add an accepted row such as `"\t22.7\r\n"`, add refused rows such as `"\f5"` and `"5\v"`, and name them in criteria 1 and 2.
+   3. `tests/control/device/replay/replay.ino`, criterion 7: `make device` is green, but arduino-cli builds only the libraries a sketch includes, and the sketch includes only `ctl_config.h`, `ctl_controller.h`, `ctl_frame.h` and `ctl_wire.h`. So `ctl_payload.c` and `ctl_bounds.c` are never compiled for the D1 mini, including their use of `strtod` from the board's C library. The criterion's intent, the new folder compiling for the board, is not met. The builder noticed this and left it out. Fixing it needs the human's word, because the two options are both outside this story's leave:
+      - an `#include` of the `adapt/` headers in `replay.ino`, a test another story wrote;
+      - a new sketch under `tests/control/device/`, which may change the smoke test's expected `make device | grep -c '^\. '` count of `2`.
+
+      Fix: the builder ends with `question` and asks the human to choose. I would choose the include in `replay.ino`, which leaves the smoke-test count as it is.
+
+   Groups with no finding:
+   - Architecture: all files are in the fork's folders, the `.c` files are pure C99, every public name starts with `ctl_`, every helper is `static`, and every header opens with a comment saying what the module is for.
+   - Embedded safety: no allocation, no recursion, every loop is bounded by `length`, the key array is guarded by `MEMBERS_MAX`, and the conversion buffer is `CTL_PAYLOAD_MAX + 1`.
+   - Quality: nothing to report.
+   - Docs: `adapters.md` and the three `decisions.md` entries match the code.
+
+   Earlier tests: the diff changes no test file that `develop` already holds. Every test file in the diff is added (status `A`). The one modified file, `docs/control/decisions.md`, only has entries appended.
