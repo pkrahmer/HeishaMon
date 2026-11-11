@@ -9,7 +9,8 @@ ARG ESP8266_CORE_VERSION=3.1.2
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential \
  && rm -rf /var/lib/apt/lists/*
-# The board tools live under /opt/arduino, readable by every identity a stage runs under.
+# The board tools live under /opt/arduino, writable by every identity a stage runs under: the
+# ESP8266 core writes a header into its own folder at every build. Each container has its own copy.
 # arduino-cli verifies the core's archives against the checksums of the package index.
 ENV ARDUINO_DIRECTORIES_DATA=/opt/arduino/data \
     ARDUINO_DIRECTORIES_DOWNLOADS=/opt/arduino/downloads \
@@ -23,6 +24,5 @@ RUN curl -fsSL -o /tmp/arduino-cli.tgz \
  && arduino-cli core update-index \
  && arduino-cli core install "esp8266:esp8266@${ESP8266_CORE_VERSION}" \
  && rm -rf /opt/arduino/downloads \
- && chmod -R a+rX /opt/arduino \
  && mkdir -p /opt/arduino/downloads /opt/arduino/user \
- && chmod 1777 /opt/arduino/downloads /opt/arduino/user
+ && chmod -R a+rwX /opt/arduino
