@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:55:21.004602Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,12 @@ journal:
   kind: started
   at: '2026-11-11T22:55:21.004602Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:57:06.730037Z'
+  stage: doing
+  run: 279a5cf568b2438396ce6969e87cdc06
 ---
 
 # The room average
@@ -298,3 +300,18 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
      - The three consequences match `firmware-design.md` §3.1.
    - Earlier tests: none. `tests/control/test_rooms.c` is the only test file in the diff, and it is new (status A).
 10. factory: started doing as heishamon.
+11. builder: Round 2: fixed the one finding from the round-1 review. I changed no code. The guard in `index_valid` (`HeishaMon/src/control/adapt/ctl_rooms.c`) already behaved as the new checks expect.
+
+    - `tests/control/test_rooms.c`, `test_out_of_range`: a new block uses the rooms that all hold a value at 0.0 and sets `config.count` to 17 (`CTL_ROOMS_MAX + 1`). It checks three things:
+      - `ctl_rooms_offer` for index 16 with `22.0` gives `CTL_ROOM_BAD_INDEX`;
+      - the rooms are unchanged afterwards, compared with a snapshot over all 16 slots using the existing `check_rooms_equal`;
+      - `ctl_rooms_is_fresh` for index 16 gives false.
+      This is criterion 8's count-17 row, as the reviewer wrote it into the Description.
+    - Mutation check on a temporary copy of the module: I removed `&& index < CTL_ROOMS_MAX` from `index_valid`. The new block then fails at lines 189 and 191 (status ACCEPTED, and slots changed by the write past the array). The unchanged module passes. In that mutant the out-of-bounds write is undefined behaviour, but the checks still caught it.
+    - Description and docs: unchanged. The reviewer already rewrote the Description in round 1. `docs/control/decisions.md` already records the `CTL_ROOMS_MAX` guard.
+
+    Smoke test: `make test | grep '^control:'` gives `control: 12 test programs passed`, one more than the 11 before the story. `make check` is green: lint, test and device.
+
+    Noticed but not touched: nothing new.
+
+    `check`: check: green

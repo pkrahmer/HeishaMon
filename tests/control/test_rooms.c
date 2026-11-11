@@ -183,6 +183,16 @@ static void test_out_of_range(void)
     CHECK_TRUE(!ctl_rooms_is_fresh(&rooms, &config, CTL_ROOMS_MAX, 0.0));
 
     {
+        /* A count past the arrays must not open the slots behind them. */
+        ctl_rooms before = rooms;
+        config.count = CTL_ROOMS_MAX + 1;
+        CHECK_UINT((uint32_t)offer_text(&rooms, &config, CTL_ROOMS_MAX, "22.0", 0.0),
+                   (uint32_t)CTL_ROOM_BAD_INDEX);
+        check_rooms_equal(__FILE__, __LINE__, &rooms, &before);
+        CHECK_TRUE(!ctl_rooms_is_fresh(&rooms, &config, CTL_ROOMS_MAX, 0.0));
+    }
+
+    {
         enum { COUNT_17, NEGATIVE_WEIGHT };
         static const int rows[] = {COUNT_17, NEGATIVE_WEIGHT};
         for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
