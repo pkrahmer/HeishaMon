@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:59:13.256508Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -100,6 +96,12 @@ journal:
   kind: started
   at: '2026-11-11T19:59:13.256508Z'
   stage: review
+- number: 17
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:59:51.795484Z'
+  stage: review
+  run: 1559c933c508471f9f9d8ebf94b9d4c0
 ---
 
 # The signal table, the energy balance and the relay
@@ -411,3 +413,31 @@ Expect: `control: 5 test programs passed`
 
     `check`: check: green
 16. factory: started review as heishamon.
+17. reviewer: Round 3 review of `git diff develop...HEAD -- . ':!factory'`. I compared it against the story, the Python reference (`signals.py`, `balance.py`, `hysteresis.py`, and `EnergyLedger` in `types.py`), `ctl_types.h`, `ctl_config.c` and `tests/control/check.c`.
+
+    1. **Acceptance criteria.** Criteria 1–11 each have a test that checks what the criterion says.
+       - Boundaries are tested on both sides:
+         - freshness at 700.0 and 700.001;
+         - the relay at ±H and at 0, using `nextafter`;
+         - the clamp at its bounds and beyond them;
+         - the trim at the limit, beyond it, and inside it (criterion 6).
+       - The failing sides are covered:
+         - a never-observed `P_INTERNAL`, whose `max_age_s` is `INFINITY`, is not fresh (`test_empty_table`);
+         - every refusal leaves the marker untouched in every field;
+         - a `previous` outside the enum is treated as `NONE`;
+         - with one optional signal fresh and the other stale, each falls back on its own freshness.
+       - `check_double` treats NaN as equal to NaN, so the NaN rows test what they claim.
+       - The journal reports `check: green`.
+    2. **Architecture.** The core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`. Public names carry `ctl_` or `CTL_`, and helpers are `static`. Numbers are `double`. Nothing outside the three folders changed.
+    3. **Embedded safety.** No dynamic memory and no recursion. Every loop is bounded by `CTL_SIGNAL_COUNT`. Arguments are not checked, which the story decided.
+    4. **Quality.** Operand and comparison order match the Python reference:
+       - transmission and model sums;
+       - the trim clamp: `< -limit`, then `> limit`;
+       - the ledger: `x + p * hours`, and a left-to-right total;
+       - relay branch order and `clamp_bounds`.
+
+       Staleness is defined once, as `!ctl_signals_is_fresh`. No dead code.
+    5. **Hygiene.** The round-2 finding is fixed: the sentence on `P_INTERNAL` in `docs/control/core.md` now limits the fallback to "until its first reading", which matches the paragraph on `resolve`. The `core.md` tables match the code. `decisions.md` holds the six listed differences plus the builder's `init` decision, each with a reason and what was rejected. The Description matches what was built.
+    6. **Earlier tests.** Every test file in the diff has status `A`, so no earlier test was changed.
+
+    no findings
