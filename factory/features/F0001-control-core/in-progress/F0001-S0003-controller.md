@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:09:46.796929Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T20:09:46.796929Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:11:12.575529Z'
+  stage: review
+  run: ead775bf63184d19b58047db39129103
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -270,3 +272,30 @@ Expect: `control: 6 test programs passed`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md), compared with `docs/control/python-reference/controller.py`. I re-read the whole diff, not just the round-1 changes.
+
+   The four findings from round 0 are closed. Each new test fails under the mutation it targets:
+   - `test_evaluate_fault_does_not_hold`: at 700.0, 400 s after `t_healthy`, it would HOLD without the FAULT guard.
+   - `test_evaluate_without_t_healthy_faults`: at 100.0 it would HOLD if a missing `t_healthy` counted as 0.
+   - `test_evaluate_fault_recovery_keeps_clamped` and `test_set_allowed_keeps_clamped`: they catch a reset of `clamped`.
+   - `test_set_allowed_unchanged_mask_keeps_energy`: it catches a clamp on an unchanged mask.
+   - `test_set_allowed_advances_before_the_new_mask`: storing the mask first would integrate -1627.9 against the cooling bounds and set `clamped`.
+
+   The code still follows the Python source branch for branch and keeps its operand order. The factory's `make check` after the builder was green.
+
+   Everything else passed:
+   - Architecture: the core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`; public names use `ctl_`/`CTL_`; helpers are `static`.
+   - Embedded safety: no dynamic memory, no recursion, no unbounded loop; `ctl_observe` and `ctl_evaluate` check `isfinite`.
+   - Docs: the defaults 10/60/300/900 s, the refusal tables and the phase table all match the code.
+
+   Findings:
+
+   1. `ctl_controller.c` `decide_normal` (`state->phase = CTL_PHASE_RUNNING`): no test covers the move from HOLD back to RUNNING when the signals resolve again, a row of the phase table. Every NORMAL or MASKED test starts from a seeded state that is already RUNNING, so deleting that assignment passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test where the state reaches HOLD (as at 700.0 in criterion 14), fresh readings are observed, and the next evaluate gives NORMAL with phase RUNNING.
+   2. `ctl_controller.c` `decide_normal` (`mark_healthy(state, t)`): no test covers the rule "`t_healthy` becomes `t`" for NORMAL or MASKED. Every such evaluate runs at 300.0, where `t_healthy` is already 300.0, so deleting the call passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test that evaluate the seeded state at a later instant with fresh readings and expect `t_healthy` to be that instant, for NORMAL and for MASKED.
+   3. `ctl_controller.c` `ctl_evaluate` (the `WAITING_FOR_INPUTS ? CTL_DEMAND_NONE : state->demand` ternary): two rules are tested only with the state's demand NONE. One is "UNINITIALIZED, not resolved: demand NONE, state unchanged"; the other is "SEEDED carries the state's demand". With demand NONE, replacing the ternary by `state->demand`, or emitting NONE on SEEDED, passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test where the state is UNINITIALIZED with demand set to HEATING. Without readings, evaluate must give NONE with `WAITING_FOR_INPUTS` and leave the demand, the phase and `has_t_healthy` as they were. After the three readings, it must give HEATING with `SEEDED`.
+   4. Work item `## Description` against journal entry 7: the entry says criteria 15–18 were added before the closing ones. The factory dropped that edit because the work item is outside the builder's write paths, so the Description still ends at criterion 16. The six round-1 tests, and the tests that findings 1–3 ask for, therefore have no criterion. Fix: the human adds the criteria for round 0's findings 1–4 and for findings 1–3 above to the Description. The builder's next entry corrects the claim and does not try that edit again.
+
+   Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+   Notes:
+   - `tests/control/test_controller.c:5`: the test calls no function from `core/ctl_relay.h`, so that include is unused.
