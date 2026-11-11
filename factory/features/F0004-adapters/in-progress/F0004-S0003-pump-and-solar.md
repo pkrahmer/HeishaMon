@@ -1,17 +1,13 @@
 ---
 stage: review
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T23:09:17.664389Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,13 @@ journal:
   kind: started
   at: '2026-11-11T23:09:17.664389Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: question
+  at: '2026-11-11T23:10:00.685859Z'
+  stage: review
+  run: 7d556b862e36440dbfc81d6e9de40470
+  blocked: question
 ---
 
 # The pump signals and the solar gain
@@ -214,3 +217,32 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` (ctl_pump.h/.c, test_pump.c, adapters.md, decisions.md) against the work item. I checked it against ctl_bounds.h/.c, ctl_payload.h, ctl_types.h, decode.h (TOP20, TOP26) and algorithm-plan.md §1.9 and [A-3]. The builder fixed all five findings from round 0 in the code, the tests and the documents. One finding is left, and the builder cannot fix it.
+
+   Findings:
+
+   1. `factory/features/F0004-adapters/in-progress/F0004-S0003-pump-and-solar.md` `## Description` → Interface: the Description still does not match what was built. The `ctl_pump_valve` bullet still says a reading comes "when that changes `hot_water` and a heat is stored". That contradicts criterion 4 (valve `1` at 20.0 changes `hot_water` while a heat is stored, and gives no reading) and the code (`ctl_pump.c` `set_mask_flag` gives a reading only when the whole mask switches). The `ctl_solar` bullet also leaves out the refusal of a product that is not finite, which the code, the header, adapters.md and decisions.md all state. The builder did rewrite both bullets in round 1, but journal entry 7 records that the factory dropped that edit. In `factory/pipeline.yml` the builder's write paths do not include `{work_item}`, so sending the item back to `doing` would only repeat the round.
+
+   Question for the human: how should the two Interface bullets be corrected?
+   - (a) You edit the Description yourself on the branch. Change the `ctl_pump_valve` bullet to "When that switches the mask (`hot_water` or `defrost`) on or off and a heat is stored, including a stored heat of 0 W, it gives `P_PRODUCED` at `t` under the new mask; a value that leaves the mask as it was gives no reading". Add to the `ctl_solar` bullet: "and the product `pv * gain` must be finite".
+   - (b) You instruct a stage that may write the work item (the reviewer has `{work_item}` in its write paths) to make exactly that edit.
+   - (c) You accept the Description as it is and let criterion 4 and the code stand as the truth.
+   I recommend (a). Once the Description matches, I see nothing else that blocks approval.
+
+   Checked and fine:
+   - **Criteria:** criteria 1–6 each have a test that does what the criterion says.
+     - Boundaries are tested on both sides: -60/60 against -60.5/61, 0/30000 against -1/30001, 100000 against 100000.5, gain 0.0 against -0.01.
+     - Every function has a row with a non-finite `t`, and refused rows check the marker reading and the pump state.
+     - The new `1e304` row covers the finite-product rule.
+     - `test_init` now checks `heat_w`.
+     - The journal records `make check` green.
+   - **Architecture:** pure C99 with only allowed includes, relative includes across library folders, and no dynamic memory, recursion or loops in the adapter. Every name has the `ctl_` prefix and helpers are `static`. No file changed outside the three folders.
+   - **Safety:** every outside double is checked: the bound check uses `isfinite`, flags must equal exactly 0.0 or 1.0 (so NaN is refused), and the gain, the product and `t` are each checked with `isfinite`.
+   - **Quality:** the `parse_bounded` comment no longer claims anything about negative values. The `ctl_pump.h` comments read as whole sentences, and `ctl_pump.h`/`ctl_pump.c` stay within 100 columns.
+   - **Docs:** adapters.md has the five-function table, the mask rule with criterion 4's sequence, and a DC-not-AC sentence that matches algorithm-plan.md §1.9 (lines 320–324). decisions.md records that defrost masks like hot water, that a negative value is refused and not clamped, that flags accept exactly 0 and 1, and that a non-finite product is refused. All of these match the code.
+
+   Earlier tests: none. The only change under tests is `A tests/control/test_pump.c`.
+
+   Notes:
+   - `tests/control/test_pump.c:50`: the `feed` signature is longer than 100 columns.
+   - `tests/control/test_pump.c:265`: in `test_solar`, the `ctl_solar` call line is longer than 100 columns.
