@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T21:53:42.580650Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T21:53:35.897513Z'
   stage: doing
   run: 4ad4ee00b48a4b3391d82c0debce2ee3
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:53:42.580650Z'
+  stage: review
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -278,3 +287,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
    The factory left out changes outside the write paths: factory/features/F0003-replay-on-real-serial/in-progress/F0003-S0001-framed-lines.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
