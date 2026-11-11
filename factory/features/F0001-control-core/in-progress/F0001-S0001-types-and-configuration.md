@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 3
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T19:40:50.388507Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T19:40:45.085489Z'
   stage: review
   run: 23714b90e6a14163b6b2e94c8c6ceac7
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:40:50.388507Z'
+  stage: doing
 ---
 
 # The core's enums and its configuration with validation
@@ -250,3 +259,4 @@ Expect: `control: 2 test programs passed`
    4. **Duplicate checks.** Location: `tests/control/test_config.c` `test_signal_arrays`, the two `CHECK_UINT` lines after the loop.
       - They repeat checks the loop already makes for `T_INDOOR` and `P_SOLAR` with `INFINITY`.
       - Fix: delete them.
+6. factory: started doing as heishamon.
