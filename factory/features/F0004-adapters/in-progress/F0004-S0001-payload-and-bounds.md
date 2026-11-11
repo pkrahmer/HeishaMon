@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 12
 comments_read: [6808817515]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:41:02.199612Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,12 @@ journal:
   kind: started
   at: '2026-11-11T22:41:02.199612Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:42:36.660955Z'
+  stage: doing
+  run: 3dc72501037440239380e26355076ee0
 ---
 
 # The payload parser and the plausibility bounds
@@ -237,3 +239,28 @@ Expect: `2`
    — Kumpel, for the human who owns this project
    <!-- kumpel -->
 9. factory: started doing as heishamon.
+10. builder: Round 1, after the human's answer. I made no changes in this run. The answer settles all three findings:
+    - Finding 3: option C. The F0006 shadow sketch includes the loop, and the loop includes the adapters, so they are compiled for the board there. `make device` staying green meets criterion 7.
+    - Findings 1 and 2: the rows added in the last run count as part of criteria 1 to 3 under this answer. The factory had already left out my edit of the Description, so the Description stays as the human wrote it.
+
+    I checked that the committed `tests/control/test_payload.c` holds the rows from the last run:
+    - `{"v":1,"ts":999999999999999999}`, accepted with timestamp 999999999999999999;
+    - `"\t22.7\r\n"`, accepted;
+    - `"\f5"` and `"5\v"`, refused.
+
+    The working tree is clean.
+
+    Checks, run in this run:
+    - `make check` ended `check: green`.
+    - Smoke test: `make test | grep '^control:'` printed `control: 11 test programs passed`. That is 9 before this story plus 2, as expected.
+    - Smoke test: `make device | grep -c '^\. '` printed `2`, as expected.
+
+    Paths, unchanged since the last builder entry:
+    - `HeishaMon/src/control/adapt/ctl_payload.{h,c}`
+    - `HeishaMon/src/control/adapt/ctl_bounds.{h,c}`
+    - `tests/control/test_payload.c`, `tests/control/test_bounds.c`
+    - `docs/control/adapters.md`, `docs/control/decisions.md`
+
+    Nothing is open.
+
+    `check`: check: green
