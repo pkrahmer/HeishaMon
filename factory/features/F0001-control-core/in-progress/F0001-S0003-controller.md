@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T20:06:21.680011Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T20:06:14.417157Z'
   stage: doing
   run: e04c5a89206c4e03bccff1ef1a668a1f
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:06:21.680011Z'
+  stage: review
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -194,3 +203,4 @@ Expect: `control: 6 test programs passed`
    Noticed, not touched: `make test` prints compiler warnings from upstream's rules harness (`rules.cpp:4640` "maybe-uninitialized", `settimer.cpp:24-25` unused variables) on stderr. They are upstream's files.
 
    `check`: check: green
+4. factory: started review as heishamon.
