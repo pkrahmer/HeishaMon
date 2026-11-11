@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -147,6 +147,11 @@ journal:
   at: '2026-11-11T20:23:31.311145Z'
   stage: review
   run: 80897d52f4594971b37ba189567d382d
+- number: 26
+  speaker: factory
+  kind: done
+  at: '2026-11-11T20:25:23.143523Z'
+  stage: approval
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -608,3 +613,4 @@ Expect: `control: 6 test programs passed`
     Notes:
     - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
     - `docs/control/core.md`, the paragraph under the phase table: the reflowed line that ends "so it restarts from 0;" is longer than the rest of the document's wrapped lines.
+26. factory: done (pull request merged); cost: 11 runs, 15.4 min, 78 turns, 492293 tokens in (2497407 more from cache), 83801 out, $4.64
