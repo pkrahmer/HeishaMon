@@ -453,3 +453,43 @@ the largest `double` turns an accepted PV power into an infinite `P_SOLAR`; a va
 is checked with `isfinite` before the core uses it.
 **Rejected.** An upper bound on the gain in the adapter, which would be a second rule beside the
 configuration's and a guess at the largest sensible gain.
+
+## 2026-11-11: The heat/cool polarity is a setting with no default
+
+**Decision.** `heat_cool_heat_value` says which value of `SetHeatCoolMode` means heat; it is -1
+(unset) by default, and while it is unset the router sends only `SetExternalThermostat1State`.
+No demand never sends `SetHeatCoolMode`.
+**Reason.** Nobody knows yet which value the emulated frame takes for heat on this pump, and a
+wrong guess would cool when the core asks for heat. Unset, the pump keeps the mode it has.
+**Rejected.** A default of 0 or 1, which is a guess at the polarity; and sending the mode with no
+demand, which has no direction to send.
+
+## 2026-11-11: The router sends on change, paced, and confirms with bounded repeats
+
+**Decision.** The router sends a new thermostat state only when the wanted state changes and at
+least `min_change_interval_s` (300 s) after the last new state; it repeats a state the pump has
+not confirmed after `retry_interval_s` (120 s), up to `max_retries` (3) times, and then reports a
+fault until the state lands or a new state is sent. Pacing counts from the last new state, not
+from a repeat. An unknown pump state counts as not confirmed.
+**Reason.** Each write wears the pump's EEPROM, and upstream asks for a few changes per hour per
+setting at most (`firmware-design.md` §4); commands are asynchronous and can be dropped, so a
+change must be checked and a lost one sent again, but not forever.
+**Rejected.** Sending on every step, which the emulated frame makes needless and the EEPROM
+cannot bear; repeating without a bound, which would hide a broken link behind endless writes;
+and pacing from the last repeat, which would let dropped commands delay a change of demand.
+
+## 2026-11-11: The router starts at no demand and is pure
+
+**Decision.** A fresh router wants no demand and has sent nothing, so its first step sends `0` at
+once. It takes the demand, the pump's reported state and an instant and returns at most two
+commands in a struct; the glue sends them. A step with a `now` that is not finite, or with a
+configuration `ctl_router_config_valid` refuses, sends nothing and changes nothing. A state that
+lands while the demand already wants another one leaves the status and the retries as they are.
+**Reason.** A boot starts at no demand until the core has seen fresh inputs
+(`firmware-design.md` §4), and a pure router is tested on the host like the core. An invalid
+configuration could write a value the pump does not know; refusing it as a whole matches the
+room average. While a change is pending the router is still waiting to send it, so `IDLE` would
+be wrong.
+**Rejected.** Waiting for the core's first demand before sending anything, which would leave the
+pump in whatever state the last run left it; and calling upstream's command sender from the
+router, which would tie it to the Arduino framework.
