@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:57:11.763477Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -69,6 +73,11 @@ journal:
   at: '2026-11-11T22:57:06.730037Z'
   stage: doing
   run: 279a5cf568b2438396ce6969e87cdc06
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:57:11.763477Z'
+  stage: review
 ---
 
 # The room average
@@ -315,3 +324,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Noticed but not touched: nothing new.
 
     `check`: check: green
+12. factory: started review as heishamon.
