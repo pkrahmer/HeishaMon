@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 9
 comments_read: [6808172827]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:06:43.998146Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -84,6 +80,12 @@ journal:
   kind: started
   at: '2026-11-11T22:06:43.998146Z'
   stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:08:29.484366Z'
+  stage: doing
+  run: 41723177b750435dbe18c3e4a5141279
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -383,3 +385,26 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 13. factory: started doing as heishamon.
+14. builder: Round 2, after the human's answer in entry 12. The answer adopted the six built behaviours as they are, so they need no change to code or tests. The only thing it asked for was the known limit in the docs, and that is the only change in this round. `make check` is green.
+
+    What I changed:
+    - `docs/control/device-test.md`: added a paragraph at the end of "On a mismatch" headed **Known limit: a line that vanishes whole**. It says:
+      - With 4 requests in flight, the script matches each reply to the oldest request still waiting. A reply that vanishes whole breaks no frame, so every later reply lands on the call before its own.
+      - When the calls are of the same kind, this shows up as mismatches from one line on, not as a restart. The trace usually stops after ten mismatches, before the last request's missing reply would time out.
+      - A dropped newline alone merges two lines and breaks the frame, so only a whole line causes this.
+      - **Symptom:** mismatches from one line on that do not come back when the trace is replayed again.
+      - **What to do:** replay that trace again before believing a mismatch. A mismatch from the core comes back at the same line every time.
+      - The frame format stays as it is, with no sequence number.
+
+    No changes to code, tests or `decisions.md`. Following the answer's "Nothing else", I did not add a decision entry for the limit.
+
+    Smoke test: I did not run it again this round, because no code changed since round 2's run (entry 11), which printed exactly the `Expect:` lines. In this run, `make check` ended with `device replay: 2 files, 10639 calls, 0 mismatches, 0 restarts`, `test: green`, `device: green` (RAM 36 %, flash 23 %) and `check: green`.
+
+    Noticed but did not touch, as in entry 11:
+    - The fallback in `trace_path` of `test_replay.py` is unreachable under `make test`.
+    - A timeout is tested only for the reply to `R`.
+    - The reset pulse and 230,400 baud are proven only by the owner's `make device-replay` on the board.
+
+    `check`: check: green
+
+    `check`: check: green

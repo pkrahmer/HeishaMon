@@ -189,3 +189,14 @@ and stops that trace without a restart: the same configuration would be bad agai
 first mismatch is the one to read; later ones are mostly its consequences. Never change a trace,
 and add no tolerance: a board that computes a different bit than the host is the finding the test
 exists for, and it is answered in the core or the build, not in the data.
+
+**Known limit: a line that vanishes whole.** With 4 requests in flight, the script pairs each
+reply with the oldest request still waiting. A reply the link loses whole, newline and all,
+breaks no frame, so it is not caught: every reply after it is read as the answer to the call
+before its own. When the calls around it are of the same kind, the field counts still match, and
+the trace shows mismatches from one line on rather than a restart, and it mostly stops after ten
+of them before the last request's missing reply would time out. A dropped newline alone merges two lines and breaks the frame, so only a whole line
+does this. The symptom is mismatches from one line on that do not repeat when the trace is
+replayed again. **Before believing a mismatch, replay that trace again**: a mismatch from the
+core comes back at the same line every time, one from a vanished line does not. The frame carries
+no sequence number, so that its format stays the text, ` *` and the checksum.
