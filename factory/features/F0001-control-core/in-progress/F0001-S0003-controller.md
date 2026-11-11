@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T20:09:46.796929Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T20:09:40.789828Z'
   stage: doing
   run: fd965028e1864583a58cfd5898dd9c3e
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:09:46.796929Z'
+  stage: review
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -260,3 +269,4 @@ Expect: `control: 6 test programs passed`
    The factory left out changes outside the write paths: factory/features/F0001-control-core/in-progress/F0001-S0003-controller.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
