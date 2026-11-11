@@ -345,3 +345,37 @@ break and restarts the trace, except `bad …` to `B`, which fails the trace at 
 link's fault; the same configuration, sent again, would be bad again.
 **Rejected.** Failing the trace on any reply other than `ok` or `error`, which turned a stale
 state line into a failure.
+
+## 2026-11-11: The payload parser reads the sources' shapes only
+
+**Decision.** `ctl_payload_parse` reads a bare number or a flat JSON object with a `"v"` or
+`"value"` member and an optional `"ts"`, and refuses everything else: nesting, escapes, a key
+twice, a value member given twice under its two names, a timestamp beyond 18 digits. Keys seen are
+held in a fixed array sized for the longest payload; nothing is allocated.
+**Reason.** These are the only shapes the CCU3 and HeishaMon send; a parser that accepts no more
+than that cannot be led to take a value from a payload no source sends, fits the board without
+dynamic memory, and is short enough to test row by row.
+**Rejected.** A general JSON library (ArduinoJson or a C parser): a new library, dynamic or
+pool memory, and a far larger surface that accepts shapes the adapters would then have to refuse
+again.
+
+## 2026-11-11: Numbers are converted with `strtod` after their form is checked
+
+**Decision.** The parser first checks a number's form by hand (optional `-`, digits, optional
+fraction, optional exponent), then converts exactly those bytes, copied into a zero-terminated
+buffer, with `strtod`, and refuses a result that is not finite.
+**Reason.** `strtod` rounds correctly to the nearest double, which a hand-written conversion would
+have to prove; but on its own it also takes a leading `+`, a leading point, `nan`, `inf` and
+hexadecimal. The check in front leaves it only the text it converts the same everywhere; the
+firmware never calls `setlocale`, so the point is the decimal separator.
+**Rejected.** `strtod` alone, which accepts those spellings; and a hand-written conversion, which
+rounds differently from `strtod` for long fractions.
+
+## 2026-11-11: A timestamp of 18 digits at most, leading zeros allowed
+
+**Decision.** `"ts"` is 1 to 18 decimal digits, read into an `int64_t`; leading zeros are taken
+as they are, as in the bare number's digits.
+**Reason.** 18 digits cannot overflow an `int64_t`, so no overflow check is needed, and milliseconds
+since 1970 need 13. The story names digits only, and a leading zero changes no value.
+**Rejected.** JSON's rule against leading zeros, which no source breaks and which would add a case
+without a reason.

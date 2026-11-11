@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 12
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:11:50.561945Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T22:11:50.561945Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:16:12.239905Z'
+  stage: doing
+  run: f55a7e9fccda4c009244178674967baf
 ---
 
 # The payload parser and the plausibility bounds
@@ -121,3 +123,31 @@ Expect: `2`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the payload parser and the plausibility bounds. Tests came first and failed (the header was missing), then the code made them pass. After the last edit `make check` ended `check: green`.
+
+   **Paths**
+   - `HeishaMon/src/control/adapt/ctl_payload.h`, `ctl_payload.c`: the parser. It walks the text with a cursor bounded by `length`. A hand-written form check (`scan_number`) runs first, then `strtod` converts those bytes, copied into a zero-terminated stack buffer of `CTL_PAYLOAD_MAX + 1`, and a result that is not finite is refused. The timestamp is read as 1 to 18 digits into an `int64_t`, so it cannot overflow. Keys seen are kept as spans in a fixed array of `CTL_PAYLOAD_MAX / 4` entries; the shortest member, `"":0`, takes 4 bytes, so no payload holds more. The result goes into a local and is copied to `*payload` only on success.
+   - `HeishaMon/src/control/adapt/ctl_bounds.h`, `ctl_bounds.c`: a `switch` maps each bound to its range. A value outside the enum has no range and is refused, so a cast integer cannot index past a table.
+   - `tests/control/test_payload.c`: one table test each for criteria 1 to 4, plus the length test for criterion 5. Every refused row checks that a marker-filled `ctl_payload` is unchanged, field by field (not `memcmp`, because of struct padding).
+   - `tests/control/test_bounds.c`: for each of the four bounds, both limits, the doubles just beyond them (`nextafter`), NaN and both infinities. Also heat at -0.001 and 30000.001, and bound 4.
+   - `docs/control/adapters.md` (new), and three entries appended to `docs/control/decisions.md`.
+
+   **Decisions where the story left room** (all recorded in `docs/control/decisions.md`)
+   - A parser for these shapes only, instead of a general JSON library (ArduinoJson or a C parser).
+   - `strtod` after the form check, instead of `strtod` alone or a hand-written conversion. The entry notes that the firmware never calls `setlocale`, so `.` is the decimal separator.
+   - `"ts"` allows leading zeros (digits only, as the story says); I rejected JSON's no-leading-zero rule.
+   - Unspecified edge cases:
+     - Leading zeros are also allowed in bare numbers.
+     - A string member may hold any byte except `"` and `\`.
+     - A skipped numeric member only has its form checked, so `"x":1e999` is skipped, not refused.
+
+   **Smoke test**
+   - `make test | grep '^control:'` prints `control: 11 test programs passed`. That is 9 before plus 2, as expected.
+   - `make device | grep -c '^\. '` prints `2`, as expected.
+
+   **Noticed, not touched**
+   - `make device` passes with the new `adapt/` folder given as a library. But arduino-cli compiles only the libraries a sketch includes, and `replay.ino` does not include the new headers, so the board compile does not actually build the adapter sources yet. I tried a throwaway probe sketch in a temp folder to compile them for the D1 mini, and the permission prompt denied it. Proving they compile for the board would mean an include in `replay.ino` or a second sketch under `tests/control/device/`; I kept that out of this story's scope.
+   - Stack use on the ESP8266 when parsing an object is about 512 bytes for the key spans plus a 257-byte conversion buffer. That fits the 4 KB stack but is worth knowing for the callers.
+   - `make test` prints compiler warnings from upstream's rules harness, and `test_types.c` prints expected-failure lines. Both are existing output that still passes, and I left them alone.
+
+   `check`: check: green
