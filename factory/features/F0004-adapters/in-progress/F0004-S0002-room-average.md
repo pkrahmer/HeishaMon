@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 2
+round: 3
 attempts: 0
 crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:57:11.763477Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -78,6 +74,12 @@ journal:
   kind: started
   at: '2026-11-11T22:57:11.763477Z'
   stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:58:21.768604Z'
+  stage: review
+  run: 4064750ecd1244f2af9dacf07b9a2302
 ---
 
 # The room average
@@ -325,3 +327,29 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     `check`: check: green
 12. factory: started review as heishamon.
+13. reviewer: Review, round 2. Scope: `git diff develop...HEAD -- . ':!factory'`, plus the work item. I read the code, the test and the two documents, and checked the docs against `docs/control/firmware-design.md` §3.1 and the bounds in `adapt/ctl_bounds.h`.
+
+    Findings:
+
+    1. `tests/control/test_rooms.c` `test_config`, first block: the Interface says `ctl_rooms_config_defaults` sets "every weight (all `CTL_ROOMS_MAX` of them)" to 1.0. The test checks only `weight[0..3]`. Every later use either overwrites slots 4 to 15 (the count-16 row) or uses an invalid configuration (count 17). As a result, a `ctl_rooms_config_defaults` that sets only the first `count` weights passes every test. Criterion 1 only says "with weights 1.0", so this is also a gap in the story. Fix: check `defaults.weight[i] == 1.0` for every `i < CTL_ROOMS_MAX`, and make criterion 1 say "all 16 weights 1.0".
+    2. `tests/control/test_rooms.c` `test_config` rows: the Interface says only "every weight of the first `count`" must be accepted by `CTL_BOUND_WEIGHT`, but no row puts a refused weight at or after index `count`. The loop sets slots 4 to 15 to 1.0 after every row. As a result, a `ctl_rooms_config_valid` that checks all `CTL_ROOMS_MAX` weights (`ctl_rooms.c`, the loop over `config->count`) passes every test. The sum's limit is covered (the all-weights-0 row keeps slots 4 to 15 at 1.0), but the bound check's limit is not. This is also a gap in criterion 1. Fix: add a row with count 4 and `weight[4] = -1.0` (or 1000.001) that is accepted, and name it in criterion 1 ("a refused weight beyond `count` is ignored").
+
+    Checked and in order:
+    - Acceptance criteria:
+      - Criteria 1 to 8 each have a test that checks what the criterion says.
+      - Round 1's finding is closed: with count 17, `ctl_rooms_offer` for index 16 gives `BAD_INDEX`, all 16 slots stay unchanged, and `ctl_rooms_is_fresh` for index 16 is false.
+      - The order of the offer checks is shown by the two-failure rows.
+      - Each limit is tested on both sides: 2800.0 against the next double above; 2 of 4 and 3.0 of 6.0 against 3.1 of 6.1; weights 0 and 1000 against -1 and 1000.001; counts 0 and 1, 16 and 17; `ts` 99, 100 and 101; index 3 and 4.
+      - The journal says the factory's `make check` after round 2 was green.
+    - Architecture: new files only under `HeishaMon/src/control/adapt/`, `tests/control/` and `docs/control/`. Includes are same-folder headers and standard headers only. Public names use `ctl_`/`CTL_`, the helpers are `static`, all numbers are `double`, and errors are status values. The header and function comments are present.
+    - Embedded safety: no dynamic memory, no VLA and no recursion. Loops are bounded by `CTL_ROOMS_MAX`, or by `count` after it was validated. Every index is guarded against `CTL_ROOMS_MAX`. `t` is checked with `isfinite`, the value against `CTL_BOUND_TEMPERATURE`, and a NaN `now` gives false.
+    - Quality: names are clear, there is no dead code, `ctl_payload_parse` and `ctl_bounds_accept` are reused, and the comments give reasons.
+    - Work item hygiene:
+      - The Description matches what was built.
+      - The adapters.md section covers what criterion 10 asks. Its three consequences match firmware-design.md §3.1: the 600 s `T_INDOOR` limit, the setpoint fitted against the plain mean, and the jump of a few tenths of a kelvin.
+      - decisions.md records the replay rule with the 90-minute observation, and the timeout as a setting.
+      - Every claim in both documents matches the code.
+    - Earlier tests: none. `git diff --name-status` shows `tests/control/test_rooms.c` as A, and no other test file is in the diff.
+
+    Notes:
+    - `tests/control/test_rooms.c` `test_offer`: `check_rooms_equal(__FILE__, __LINE__, ...)` reports the loop's line, so a failure does not name its row. Printing `i` alongside would help.
