@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T20:33:36.518051Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T20:33:28.280462Z'
   stage: doing
   run: 658ccb3fa0b74a31a022de384ff1a17b
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:33:36.518051Z'
+  stage: review
 ---
 
 # The trace runner over the thirteen golden traces
@@ -167,3 +176,4 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
    - Upstream's rules harness prints compiler warnings to stderr during `make test`. That is upstream code and was left alone.
 
    `check`: check: green
+4. factory: started review as heishamon.
