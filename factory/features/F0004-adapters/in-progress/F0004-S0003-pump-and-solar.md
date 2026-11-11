@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T23:06:07.431298Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T23:06:07.431298Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T23:07:28.550692Z'
+  stage: review
+  run: 9662c72272934661b764a38e21e32ba7
 ---
 
 # The pump signals and the solar gain
@@ -155,3 +157,21 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (ctl_pump.h/.c, test_pump.c, adapters.md, decisions.md) against the work item, and checked the claims against ctl_bounds.h, ctl_payload.h, ctl_types.h, ctl_config.c and algorithm-plan.md §1.9 and [A-3].
+
+   Findings:
+
+   1. `factory/features/F0004-adapters/in-progress/F0004-S0003-pump-and-solar.md` `## Description`, Interface bullet `ctl_pump_valve` (and `ctl_pump_defrost` "the same"): the bullet says a reading comes "when that changes `hot_water` and a heat is stored". The code (`ctl_pump.c` `set_mask_flag`) gives a reading only when the whole mask `hot_water || defrost` switches. That matches criterion 4, but the Description was never updated (R5). Fix: rewrite both bullets to say "when that switches the mask (`hot_water` or `defrost`) on or off and a heat is stored, including a stored heat of 0 W".
+   2. `HeishaMon/src/control/adapt/ctl_pump.c:26-28`: the `parse_bounded` comment says "A negative value is refused, not clamped to 0". But the same function serves `CTL_BOUND_TEMPERATURE`, which accepts values down to -60, so the comment is wrong for one of its three callers. Fix: say that a negative heat or PV power is refused because its bound starts at 0, or move the reason to the heat and solar callers.
+   3. `HeishaMon/src/control/adapt/ctl_pump.h:48`: the `ctl_pump_valve` comment has a sentence spliced in ("and a change while defrost still masks, change nothing the core sees"). The line is 122 columns, while the rest of the adapter sources stay within 100. Fix: rewrap the comment and make the sentence read as one.
+   4. `tests/control/test_pump.c` `test_flags_before_heat`: `pump.heat_w = 0.0;` right after `ctl_pump_init` is dead code. Its comment ("heat_w is not stated before the first heat") contradicts `ctl_pump.h`, and the decisions.md entry "The pump's flags accept exactly 0 and 1", which both say init sets `heat_w` to 0.0. Meanwhile `test_init` never checks `heat_w`, so the promised behaviour has no test. Fix: delete the override and its comment, and add `CHECK_DOUBLE(pump.heat_w, 0.0)` to `test_init`.
+   5. `HeishaMon/src/control/adapt/ctl_pump.c` `ctl_solar`: the reading's value `pv_w * gain` is never checked. A finite gain above about 1.8e303, which both the Interface and `ctl_config.c` (`is_at_least(solar_gain_factor, 0.0)`) accept, makes an infinite `P_SOLAR` from an accepted PV power. CLAUDE.md requires a value from outside to be checked with `isfinite` before it is used. Fix: refuse when the product is not finite, and add a test row (for example `"100000"` with gain `1e304`). Or, if the builder sees this as beyond the story, end with `question` to the human. This is a gap in the story too: the Interface states no rule for the product.
+
+   Checked and fine:
+   - Every criterion 1-6 has a test that does what the criterion says, with boundary rows on both sides: -60/60 against -60.5/61, 0/30000 against -1/30001, 100000 against 100000.5, gain 0.0 against -0.01.
+   - Every function has a row for a non-finite `t`. Refused rows check the marker reading and the pump state.
+   - The journal records `make check` green.
+   - Architecture holds: the code is pure C99 with allowed includes and relative includes between library folders, uses no dynamic memory, loops or recursion, keeps helpers `static`, and every public name carries the `ctl_` prefix. No file outside the three folders changed.
+   - The docs criterion is met: adapters.md has the five-function table, the mask rule with criterion 4's sequence, and a DC-not-AC sentence that matches §1.9. decisions.md has the defrost entry and the negative-value entry. Their claims match the code, apart from finding 2's comment.
+
+   Earlier tests: none. `git diff --name-status develop...HEAD` shows only `A tests/control/test_pump.c` under tests.
