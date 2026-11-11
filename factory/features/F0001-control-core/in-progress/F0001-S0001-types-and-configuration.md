@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 3
 comments_read: [6805629969]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:47:53.908198Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-11T19:47:53.908198Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:49:01.539863Z'
+  stage: review
+  run: 597e4419aac24a3a8eb8495eaf8c475a
 ---
 
 # The core's enums and its configuration with validation
@@ -210,12 +212,12 @@ The check helper: each `check_*` function compares, and on a difference it print
 1. Each of the four `ctl_*_name` functions returns the text named above for every member of its enum, and `"INVALID"` for the value one past the last member and for -1 cast to the enum.
 2. `ctl_signal_is_required` returns true for the three required signals, and false for the two optional ones, for `CTL_SIGNAL_COUNT` and for -1 cast to the enum.
 3. `ctl_config_defaults` sets every field to the value named above, and `ctl_config_validate` returns 0 for the result.
-4. For each range rule of the validation, a table test starts from the defaults, changes the one field, and checks the result on both sides of every limit: the last accepted value gives 0 and the first refused value gives exactly that field's bit. The rows cover `desired_indoor_c` at 5.0, 30.0, just below 5.0 and just above 30.0; 0 and a small positive value for each "greater than 0" field; 0 and a small negative value for each "0 or greater" field; `energy_clamp_factor` at 1.0 and just below; `tick_interval_s` at exactly half of `max_step_s` and just above; `integration_interval_s` at exactly `tick_interval_s` and just above.
+4. For each range rule of the validation, a table test starts from the defaults, changes the one field, and checks the result on both sides of every limit: the last accepted value gives 0 and the first refused value gives exactly that field's bit. The rows cover `desired_indoor_c` at 5.0, 30.0, just below 5.0 and just above 30.0; 0 and a small positive value for each "greater than 0" field; 0 and a small negative value for each "0 or greater" field; `energy_clamp_factor` at 1.0 and just below; `tick_interval_s` at exactly half of `max_step_s` and just above; `integration_interval_s` at exactly `tick_interval_s` and just above. One exception holds for the two timing fields that bound another, as in the Python reference and criterion 7: a zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds (`CTL_CONFIG_BAD_TICK_INTERVAL` or `CTL_CONFIG_BAD_INTEGRATION_INTERVAL`), and a small positive one is valid with the bounded fields brought under it.
 5. For each field of type `double`, and for one entry of each array, NaN and positive infinity each set that field's bit, with the exception that `INFINITY` in `max_age_s` of an optional signal gives 0 and in `max_age_s` of a required signal gives `CTL_CONFIG_BAD_MAX_AGE`.
 6. With `trim_limit_enabled` false, `trim_limit_k` at 0, at -1 and at NaN each give 0; with it true, each gives `CTL_CONFIG_BAD_TRIM_LIMIT`.
 7. A configuration with three bad fields (`hysteresis_wh` 0, `max_step_s` -1 and `fallback_w` of `P_SOLAR` NaN) gives exactly the three bits `CTL_CONFIG_BAD_HYSTERESIS`, `CTL_CONFIG_BAD_MAX_STEP` and `CTL_CONFIG_BAD_FALLBACK`, and `CTL_CONFIG_BAD_TICK_INTERVAL` as the fourth, because 60 s is then more than half of the maximum step.
 8. `ctl_config_energy_limit_wh` returns 3000.0 for the defaults and 3750.0 for a clamp factor of 2.5.
-9. The check helper counts. `tests/control/test_types.c` starts with this: one failing call of each of the four `check_*` functions prints four lines and makes `check_failures` return 4 and `check_result` return 1; after `check_reset`, four passing calls print nothing and both return 0. `check_double` passes two equal infinities, two NaN values, and `-0.0` against `0.0`; it fails 1.0 against the next double above 1.0, and NaN against 0.0. The test resets the count before its other checks.
+9. The check helper counts. `tests/control/test_types.c` starts with this: one failing call of each of the four `check_*` functions makes `check_failures` return 4 and `check_result` return 1; after `check_reset`, four passing calls make both return 0. The test checks the counts; the four printed lines, and the absence of lines for the passing calls, are read in the `make test` output, where a line labels them as expected failures. `check_double` passes two equal infinities, two NaN values, and `-0.0` against `0.0`; it fails 1.0 against the next double above 1.0, and NaN against 0.0. The test resets the count before its other checks.
 10. `make check` stays green.
 11. docs: `docs/control/core.md` is new. It says in one paragraph what the core is and that it is a port of the Python reference beside it, then has one section per module of this story: the enums with their names as text, and the configuration with a table of every field (its meaning in one sentence, its default, its rule) and a table of the problem bits. `docs/control/decisions.md` is new and records the differences from the Python reference listed in this story, each with its reason.
 
@@ -338,3 +340,26 @@ Expect: `control: 2 test programs passed`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: no findings
+
+    What I checked, round 1 after the human's answer:
+    - Acceptance criteria 1–9: each has a test that checks what the criterion says. Every range rule is tested on both sides of its limit. The timing exceptions are covered in `tests/control/test_config.c` `test_timing_limits`, as the human chose. NaN and +INFINITY are tested for every `double` field and for every entry of both arrays. The factory's `make check` after the builder was green (entry 10).
+    - Validation against the Python reference: I compared `ctl_config.c` with `docs/control/python-reference/config.py` `validate`. Every rule sets the same bit as Python for every case, including NaN and infinite bounds. The tick and integration bounds behave the same: C checks the bound even when the field itself is ≤ 0, Python uses `elif`, but the field's bit is set in both. `energy_limit_wh` keeps the operand order `energy_clamp_factor * hysteresis_wh`.
+    - Architecture and embedded safety:
+      - The core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`.
+      - No dynamic memory, no recursion, no `float`.
+      - Every loop is bounded by `CTL_SIGNAL_COUNT`, and every name lookup is bounds-checked through an `int` cast.
+      - Public names use `ctl_`/`CTL_`, and helpers are `static`.
+      - Every declared function has a comment saying what it returns and what it refuses.
+      - Every changed path is inside the fork's three folders.
+    - Docs:
+      - `docs/control/core.md` matches the code's names, defaults, rules and bits. Its field meanings match the comments in `config.py`.
+      - `docs/control/decisions.md` records every difference the story lists, plus the timing-bound reading and the reading of the check helper's printed lines, each with a reason and what was rejected.
+    - Earlier tests: `git diff --name-status develop...HEAD` shows status `A` for every non-factory path. No earlier test was changed.
+
+    Work item: the builder rewrote criteria 4 and 9 after the human's answer (entry 10), but the factory dropped that edit because the builder may not write the work item. Only my role may write it, so I made both rewrites in the `## Description`, exactly as the human answered in entry 8:
+    - Criterion 4 now names the exception: a zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds, and a small positive one is valid with the bounded fields brought under it.
+    - Criterion 9 now says the test checks the counts, and that the printed lines are read in the `make test` output.
+
+    Notes:
+    - `docs/control/core.md` first paragraph: one line runs far past the width of the rest of the file, left over from the round-1 rewording. It is cosmetic and could be reflowed.
