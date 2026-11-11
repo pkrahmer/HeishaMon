@@ -1,0 +1,21 @@
+contract: "1.1"
+attempts_cap: 2
+crash_cap: 2
+project_commands:
+  check: {time_limit: 10}
+  lint: {time_limit: 5}
+  test: {time_limit: 10}
+  sync: {time_limit: 5}  # the tools after a checkout: the stage environment runs it, no stage lists it
+  facts-diff: {time_limit: 1}      # start facts: the branch's diff, for the reviewer
+  facts-files: {time_limit: 1}     # the tracked files of the fork's own folders, for the builder
+# The thin line: one builder writes tests, code and documents, one reviewer reads them.
+# Both agents are the project's own (factory/agents/). The builder writes only the fork's own
+# folders; a change to a file of upstream is the human's, named in the feature.
+roles:
+  builder: {write_paths: ["HeishaMon/src/control/*", "tests/control/*", "docs/control/*"]}
+  reviewer: {write_paths: ["{work_item}"]}
+stages:
+  doing: {role: builder, next: [review], checks: [check], context: [facts-files]}
+  review: {role: reviewer, next: [approval, doing], round_cap: 3, context: [facts-diff]}
+  approval: {approval: true, next: [done, doing]}
+  done: {}
