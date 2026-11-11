@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:50:10.295454Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T22:50:10.295454Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:51:32.649621Z'
+  stage: review
+  run: 694d8aa53daa4987befb4b5f97b37290
 ---
 
 # The room average
@@ -174,3 +176,21 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Review, round 0. Scope: `git diff develop...HEAD`, without `factory/`.
+
+   Findings:
+
+   1. `tests/control/test_rooms.c` `test_config` rows: no test covers the failing side of "`room_timeout_s` is finite". The NaN row would still be refused without the `isfinite` check in `ctl_rooms_config_valid` (`ctl_rooms.c:37`), because `NaN > 0.0` is false, so a `+INFINITY` timeout is never tested. Criterion 1 does not list it either, so this is also a gap in the story. Fix: add a row `{TIMEOUT, INFINITY, false}` and name it in criterion 1.
+   2. `tests/control/test_rooms.c` `test_config` rows: the count limit is tested only on its upper side (16 accepted, 17 refused). On the lower side, 0 is refused but no row shows that a count of 1 is accepted. This is also a gap in criterion 1. Fix: add a row `{COUNT, 1.0, true}` and name it in criterion 1.
+   3. `tests/control/test_offer` in `test_rooms.c`: the rule "a `t` that is not finite gives `CTL_ROOM_IMPLAUSIBLE`" is tested only with NaN. A check written as `t == t` would pass every row while still accepting an infinite `t`. Criterion 2 names only NaN, so this is also a gap in the story. Fix: add a row with `t = INFINITY` that gives `IMPLAUSIBLE` and leaves the rooms as they were, and name it in criterion 2.
+   4. `tests/control/test_rooms.c` `test_offer`: the Interface says the checks of `ctl_rooms_offer` run "in this order", but every refused row fails exactly one check, so swapping two checks in `ctl_rooms.c:69-82` passes every row. No criterion covers the order, so this is also a gap in the story. Fix: add rows that fail two checks at once, for example index 4 with `abc` giving `BAD_INDEX`, and `{"ts":100,"v":61}` after `ts` 100 was accepted giving `IMPLAUSIBLE` rather than `REPLAYED`, and name them in criterion 2.
+   5. `ctl_rooms.c:113-115` (`ctl_rooms_average_at` returns zeros for an invalid configuration) and `ctl_rooms.c:93` (`ctl_rooms_is_fresh` returns false for an index not below `count`): the builder added these behaviours, and `ctl_rooms.h` and decisions.md promise them, but no test exercises them. Fix: test both, for example `average_at` with `count` 17 or a weight of -1 giving `has_average` false and `total_weight` 0.0, and `is_fresh` with index 4 on 4 rooms giving false.
+   6. The work item's `## Description`, "Freshness and the average": it says `total_weight` "is the sum of the configured weights". For a configuration that `ctl_rooms_config_valid` refuses, the code gives 0.0 instead, and the Description does not mention the `CTL_ROOMS_MAX` index bound or `timestamp_ms` 0 without a timestamp. The journal changed the meaning, but the Description was not rewritten. Fix: add these three decisions to the Description's Interface, or ask the human if they are not wanted.
+
+   Checked and in order:
+   - Criteria 1 to 7: each has its test, and each test checks what its criterion says. The boundaries checked are 2800.0 against the next double above, 2 of 4 and 3.0 of 6.0 against 3.1 of 6.1, and `ts` 100, 99 and 101. The offering table compares all 16 slots after every row.
+   - The factory's `make check` after the builder was green.
+   - Architecture: new files only under `adapt/`, and they include only same-folder headers and the standard C headers. Names use `ctl_`/`CTL_`, helpers are `static`, all numbers are `double`, and no Python reference exists for this module.
+   - Embedded safety: no dynamic memory and no recursion. Every loop is bounded by `CTL_ROOMS_MAX`, or by `count` after it was validated. Indexes are guarded against `CTL_ROOMS_MAX`, `t` is checked with `isfinite`, and NaN `now` is handled.
+   - Docs: adapters.md and decisions.md cover what criterion 9 asks for, and every claim in them matches the code.
+   - Earlier tests: none. The diff adds `tests/control/test_rooms.c` (status A) and changes no existing test file.
