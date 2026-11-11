@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 14
 comments_read: [6809683268]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T23:30:11.359666Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-11T23:30:11.359666Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T23:30:32.823599Z'
+  stage: review
+  run: 5032631f6ffb47f7b546e2308e49cf6d
 ---
 
 # The pump signals and the solar gain
@@ -270,3 +272,45 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 11. factory: started review as heishamon.
+12. reviewer: no findings
+
+    Round 1 review, run again after the human's answer (entry 10). I reviewed the current `git diff develop...HEAD -- . ':!factory'`: `ctl_pump.h`, `ctl_pump.c`, `test_pump.c`, `adapters.md` and `decisions.md`. I read the work item's Description together with entry 10's correction, as the answer asks.
+
+    - **Acceptance criteria:**
+      - Criteria 1–6 each have a test that does what the criterion says:
+        - `test_outdoor` covers criterion 1.
+        - `test_heat_unmasked` covers criterion 2.
+        - `test_valve_mask` covers criterion 3, including valve `2` and `0.5`.
+        - `test_defrost_mask` follows criterion 4 step for step, with the flags checked after each step.
+        - `test_flags_before_heat` covers criterion 5.
+        - `test_solar` covers criterion 6.
+      - Each limit is tested on both sides: -60/60 against -60.5/61, 0/30000 against -1/30001, 100000 against 100000.5, and the gain 0.0 against -0.01, NaN and infinity.
+      - Entry 10 adds the rule that the product must be finite. The `{"100000", 1e304}` row tests the side where it fails.
+      - Every function has a row with a non-finite `t`. Each refused row checks that the marker reading is unchanged, and the sequence rows also check the pump's state.
+      - The journal records `check: green` after the builder.
+    - **Architecture:**
+      - The code is pure C99. Its includes are the allowed ones, and it reaches the core's header by a relative path.
+      - Every public name starts with `ctl_`, and the helpers are `static`.
+      - No file outside the three folders changed.
+    - **Embedded safety:**
+      - There is no dynamic memory, no recursion and no loop in the adapter.
+      - Every double from outside is checked before use:
+        - `ctl_bounds_accept` checks the bounded values.
+        - The flags must equal exactly 0.0 or 1.0, so a NaN is refused.
+        - The gain, the product and `t` are each checked with `isfinite`.
+    - **Quality:**
+      - The comments give reasons, and the reason for refusing a negative value sits at the heat and solar callers it applies to.
+      - There is no dead code, and no helper is copied.
+    - **Work item hygiene:**
+      - With entry 10, the Interface matches the code. A reading comes when the mask switches and a heat is stored, including a stored heat of 0 W. A product that is not finite is refused.
+      - The journal explains the main decision (a reading on a switch of the mask, not on a change of the masked value) and what was rejected.
+      - `adapters.md` has:
+        - the table of the five functions
+        - the mask rule, with criterion 4's sequence as its example
+        - the sentence on DC, not AC, with its pointer to §1.9
+      - `decisions.md` records that defrost masks like hot water, that a negative value is refused and not clamped, that the flags accept exactly 0 and 1, and that a product that is not finite is refused. All of this matches the code.
+    - **Earlier tests:** none. The only change under tests is `A tests/control/test_pump.c`.
+
+    Notes:
+    - `tests/control/test_pump.c:50`: the `feed` signature is longer than 100 columns.
+    - `tests/control/test_pump.c:265`: the `ctl_solar` call in `test_solar` is longer than 100 columns.
