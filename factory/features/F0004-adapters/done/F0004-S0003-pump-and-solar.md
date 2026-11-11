@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -75,6 +75,11 @@ journal:
   at: '2026-11-11T23:30:32.823599Z'
   stage: review
   run: 5032631f6ffb47f7b546e2308e49cf6d
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-11T23:32:23.604662Z'
+  stage: approval
 ---
 
 # The pump signals and the solar gain
@@ -314,3 +319,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Notes:
     - `tests/control/test_pump.c:50`: the `feed` signature is longer than 100 columns.
     - `tests/control/test_pump.c:265`: the `ctl_solar` call in `test_solar` is longer than 100 columns.
+13. factory: done (pull request merged); cost: 5 runs, 6.2 min, 31 turns, 155790 tokens in (749660 more from cache), 31616 out, $1.56
