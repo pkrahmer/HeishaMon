@@ -196,3 +196,42 @@ without looking at `has_inputs` logs zeros, not what an earlier decision left th
 **Reason.** The Python source is the measure where the two differ; recording that they did not
 saves the next reader the comparison.
 **Rejected.** Nothing.
+
+## 2026-11-11: The golden traces showed no fault in the core
+
+**Decision.** The core was left as it was: all thirteen golden traces replayed with 0 mismatches
+on their first run, 332,239 calls in all.
+**Reason.** The runner was shown to find a difference before it was trusted with this result:
+a copy of `winter_day` with one demand changed and a copy of `edge_cases` with one energy changed
+were both reported at the changed line, and the faulty traces under `tests/control/data/bad/`
+check the same on every run.
+**Rejected.** Nothing.
+
+## 2026-11-11: The trace reader is strict where the format leaves room
+
+**Decision.** The reader refuses: any line other than a blank or a comment after the `end` line;
+`fallback_w.` of a required signal; a field separated by more than one space; a `clamped` other
+than `0` or `1`. It reads `state_max_age_s` and `persist_interval_s` as numbers and ignores them.
+It accepts a set whose names are not in alphabetical order or repeat one, and compares sets by
+their bit mask. The line buffer of 1,024 characters counts the line without its newline, so a
+line of 1,024 characters is read and one of 1,025 is refused; `trim_limit_enabled` is no key, as
+`trim_limit_k none` sets it.
+**Reason.** The format asks a reader to reject what it does not recognise; the order of a set
+says nothing the core holds, so refusing it would refuse a trace for its spelling.
+**Rejected.** Accepting trailing content after `end`, which would hide a concatenated file.
+
+## 2026-11-11: The trace replayer can print to a stream other than standard output
+
+**Decision.** `tests/control/trace.h` declares `trace_replay_to`, which takes the stream the
+mismatch lines go to; `trace_replay` calls it with `stdout`.
+**Reason.** The runner's test must read the first line a replay prints, and redirecting standard
+output needs POSIX calls that strict C99 does not have.
+**Rejected.** `dup2` on standard output under `_POSIX_C_SOURCE`, and a global output setting.
+
+## 2026-11-11: A trace that cannot be opened is no format error
+
+**Decision.** `trace_replay` returns false with `format_line` 0 and prints `<path>: cannot open`
+for a file it cannot open.
+**Reason.** No line of the file was read, so there is no line to name; the printed line and the
+false result still fail the test.
+**Rejected.** `format_line` 1, which would blame a line that does not exist.

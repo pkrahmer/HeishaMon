@@ -1,0 +1,9 @@
+heatnrgx-golden 1
+# The last decision has a balance, but the trace records none: one mismatch.
+scenario mismatch_pnet_none
+begin
+observe 10.0 T_INDOOR 21.0 | E=0.0 int=0.0 skip=0.0 clamped=0
+observe 10.0 T_OUTDOOR 5.0 | E=0.0 int=0.0 skip=0.0 clamped=0
+observe 10.0 P_PRODUCED 0.0 | E=0.0 int=0.0 skip=0.0 clamped=0
+evaluate 60.0 | demand=NO_DEMAND reason=SEEDED phase=RUNNING E=-37.98611111111111 dt=50.0 int=50.0 skip=0.0 clamped=0 pnet=none unhealthy=- substituted=P_INTERNAL,P_SOLAR ledger=0.0,0.0,7.638888888888888,-34.44444444444444,-11.180555555555555
+end 4

@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 6
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:25:59.301056Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T20:25:59.301056Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:33:28.280462Z'
+  stage: doing
+  run: 658ccb3fa0b74a31a022de384ff1a17b
 ---
 
 # The trace runner over the thirteen golden traces
@@ -112,3 +114,56 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the trace runner. All thirteen golden traces replay through the C core with 0 mismatches on the first run (332,239 calls). The traces showed no fault in the core, so no core file changed.
+
+   Built (all new except the two docs):
+   - `tests/control/trace.h`, `tests/control/trace.c`: a shared helper with the reader and replayer from sections 3 and 4 of the format. It provides `trace_replay` as the Interface gives it, plus `trace_replay_to(FILE *, …)`, which sends the mismatch lines to a stream of the caller's choice.
+   - `tests/control/test_traces.c`: replays the thirteen traces from a table with their call counts and a limit of 10, and prints the `traces:` line. It then runs table tests over the faulty traces.
+   - `tests/control/data/bad/`, 22 small traces:
+     - valid: `valid_small` (12 calls)
+     - comparison rules (criterion 6):
+       - `match_nan` holds a NaN: readings of ±1e308 make the balance inf − inf, so `pnet`, `E` and the ledger are NaN.
+       - `mismatch_nan` records `E=nan` where the core holds 0.0.
+       - `match_negative_zero` records `-0.0` for E, dt, int and ledger terms where the core holds 0.0.
+       - `match_pnet_none` records `pnet=none` at t 0, `nan` and `inf`.
+       - `mismatch_pnet_none` records none where the decision has inputs.
+       - `mismatch_pnet_number` records a number where it has none.
+     - mismatches: `wrong_energy` (line 12, key E), `wrong_everywhere` (a wrong `int` on 6 lines; with a limit of 3, exactly 3 mismatches)
+     - format errors, one file each: `version_2`, `unknown_config_key`, `invalid_config` (`hysteresis_wh 0.0`, refused at `begin`), `unknown_call`, `unknown_signal`, `unknown_demand`, `trailing_text` (`advance 10.0x`), `pair_order`, `missing_pair`, `wrong_end_count`, `no_end` (format_line one past the last line), `long_line` (1,025 characters)
+     - boundary: `longest_line` (1,024 characters, accepted)
+     - All expected values were filled in from replaying the files. A valid copy of each format-error file's base passes, so each one fails only on its fault.
+   - `docs/control/core.md`: new last section, *How the core is proven*.
+   - `docs/control/decisions.md`: four entries:
+     - the traces showed no fault;
+     - where the reader is strict where the format leaves room;
+     - why `trace_replay_to` exists;
+     - a file that cannot be opened gives false with format_line 0.
+
+   Decisions where the story left room:
+   - The helper has a second function, `trace_replay_to`. The test needs the first printed line, and C99 cannot redirect stdout without POSIX `dup2`. Rejected: `dup2` under `_POSIX_C_SOURCE`, and a global output setting.
+   - Mismatch keys for the ledger are printed per term, for example `ledger.solar`, so the line shows which term differed.
+   - A mismatch limit below 1 counts as 1.
+   - The reader refuses:
+     - anything other than a blank or comment line after `end`
+     - `fallback_w.` of a required signal
+     - a `clamped` other than 0 or 1
+     - double spaces
+     - `trim_limit_enabled` as a key (`trim_limit_k none` sets it)
+   - `state_max_age_s` and `persist_interval_s` must still be numbers, though they are ignored.
+   - Sets are accepted in any order and compared by their bit mask.
+   - The 1,024-character buffer counts the line without its newline.
+   - The whole line is parsed before the call is made, so a format error never follows a call.
+
+   Checks:
+   - Before trusting the zero, I corrupted a copy of `winter_day` (one demand) and of `edge_cases` (one E). Both were reported at the changed line.
+   - The bad-trace tests failed before their files existed.
+   - `make check` is green; `test: green (4.2 s)`.
+   - Smoke 1: `traces: 13 files, 332239 calls, 0 mismatches` and `control: 7 test programs passed`.
+   - Smoke 2: `CTL_TRACES is not set; run make test` and `exit 1`.
+
+   Noticed, not touched:
+   - In `match_nan`, a NaN energy passes `ctl_clamp` and sets `clamped=1` (`NaN != NaN`). Python's `clamp` does the same, but no golden trace covers it.
+   - Section 2 of `golden-traces.md` describes the eleven library scenarios only as a group. The doc table's rows for them therefore stick to what the trace headers and section 2 say (scenario name, hours, parameter), not guessed behaviour.
+   - Upstream's rules harness prints compiler warnings to stderr during `make test`. That is upstream code and was left alone.
+
+   `check`: check: green

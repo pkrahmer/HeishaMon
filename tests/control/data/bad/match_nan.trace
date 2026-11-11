@@ -1,0 +1,15 @@
+heatnrgx-golden 1
+# Readings at the edge of the double range overflow the balance to inf - inf, so the core holds
+# NaN in the net power, the energy and the ledger; a recorded nan matches it.
+scenario match_nan
+begin
+observe 10.0 T_INDOOR 1e308 | E=0.0 int=0.0 skip=0.0 clamped=0
+observe 10.0 T_OUTDOOR -1e308 | E=0.0 int=0.0 skip=0.0 clamped=0
+observe 10.0 P_PRODUCED 1e308 | E=0.0 int=0.0 skip=0.0 clamped=0
+observe 10.0 P_SOLAR 1e308 | E=0.0 int=0.0 skip=0.0 clamped=0
+evaluate 60.0 | demand=NO_DEMAND reason=SEEDED phase=RUNNING E=nan dt=50.0 int=50.0 skip=0.0 clamped=1 pnet=nan unhealthy=- substituted=P_INTERNAL ledger=1.3888888888888888e+306,1.3888888888888888e+306,7.638888888888888,-inf,33.541666666666664
+advance 70.0 | E=nan int=60.0 skip=0.0 clamped=1
+allow 80.0 HEATING | E=nan int=70.0 skip=0.0 clamped=1
+advance 90.0 | E=nan int=80.0 skip=0.0 clamped=1
+evaluate 120.0 | demand=NO_DEMAND reason=NORMAL phase=RUNNING E=nan dt=30.0 int=110.0 skip=0.0 clamped=1 pnet=nan unhealthy=- substituted=P_INTERNAL ledger=3.055555555555555e+306,3.055555555555555e+306,16.805555555555557,-inf,73.79166666666667
+end 9
