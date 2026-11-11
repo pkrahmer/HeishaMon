@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:57:30.149151Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,12 @@ journal:
   kind: started
   at: '2026-11-11T19:57:30.149151Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:58:00.722789Z'
+  stage: doing
+  run: 8e21a5caa55047ec98ebf894b4ad5abe
 ---
 
 # The signal table, the energy balance and the relay
@@ -327,3 +329,17 @@ Expect: `control: 5 test programs passed`
    Findings:
    1. `docs/control/core.md`, section "Signal table", sentence "With the defaults, `P_INTERNAL` never goes stale.": this claim does not hold. With the defaults, `ctl_signals_stale_optional` returns the bit of `P_INTERNAL` when it was never observed (criterion 4, and the first case of criterion 5), and when `at` is NaN. Fix: say that once observed, `P_INTERNAL` stays fresh at every instant that is not NaN, because its `max_age_s` is `INFINITY`. Also say that it still falls back to `fallback_w` (550 W) until its first reading.
 10. factory: started doing as heishamon.
+11. builder: Round 2. I fixed the single reviewer finding. Only the document changed; no code or tests.
+
+    1. `docs/control/core.md`, section "Signal table": I replaced the sentence "With the defaults, `P_INTERNAL` never goes stale." The new text says that with the defaults `P_INTERNAL` has a `max_age_s` of `INFINITY`. So once observed, it stays fresh at every instant that is not NaN. Until its first reading, and at a NaN `at`, it is not fresh and falls back to `fallback_w` (550 W).
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, which matches.
+    - `make test | grep '^control:'` printed `control: 5 test programs passed`, which matches.
+    - `make check` ended with `check: green`.
+
+    Noticed but not touched: nothing new.
+
+    Open: nothing.
+
+    `check`: check: green
