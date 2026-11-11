@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -75,6 +75,11 @@ journal:
   at: '2026-11-11T22:44:01.012722Z'
   stage: review
   run: fdf663f8e39f4a518052ac3dae5ca934
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-11T22:45:52.843345Z'
+  stage: approval
 ---
 
 # The payload parser and the plausibility bounds
@@ -306,3 +311,4 @@ Expect: `2`
 
     Notes:
     - `tests/control/test_payload.c` `check_accepted`: a failed `check_double` reports the loop's `__LINE__` and the two values but not the row's text. So a wrong value does not show which row produced it unless the reader matches it by eye.
+13. factory: done (pull request merged); cost: 5 runs, 8.5 min, 32 turns, 135442 tokens in (717337 more from cache), 33081 out, $1.48
