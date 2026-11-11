@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 9
 comments_read: [6808172827]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:08:34.739455Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -95,6 +91,12 @@ journal:
   kind: started
   at: '2026-11-11T22:08:34.739455Z'
   stage: review
+- number: 16
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:09:21.808772Z'
+  stage: review
+  run: 9b30ade049fe4e2495ce042d8a788ed0
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -418,3 +420,31 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
     `check`: check: green
 15. factory: started review as heishamon.
+16. reviewer: no findings
+
+    I read the whole diff against the Description and against the six built behaviours the human adopted in entry 12. I also checked that every finding from rounds 1 and 2 is fixed in the code.
+
+    - **Criteria 1–3:** `tests/control/test_frame.c` holds the table rows the story asks for, plus `ok *0A` and a 128-character round trip.
+    - **Criteria 4–9:** `tests/control/device/test_replay.py` covers them.
+      - Twin: frames, `S` (framed and bare), refused frames leaving the stats at `calls=0`, line length 128 and 129 with `\n` and `\r\n`, `--garble 3`, and the usage line on both sides of nine digits.
+      - Restarts: after a broken frame, `error`, the wrong fields, a field that does not parse, and silence. Also two restarts with a pass, the limit, safe printing with `\xe9`, and 0 restarts on the plain twin.
+      - Script functions: reset, `wait_ready` and `configure`.
+    - **Architecture:** `ctl_frame.c` and `ctl_frame.h` are strict C99. Their names use `ctl_`/`CTL_`, they use no dynamic memory, every loop has a bound, and refusals leave the line unchanged.
+    - **Buffers:**
+      - The sketch's line buffer (`CTL_WIRE_LINE_MAX + CTL_FRAME_SUFFIX + 2`) holds a framed 128-character text with `\r`. The twin's is `+ 3` for `fgets`.
+      - Every reply is written with `snprintf` and its text's share of the buffer.
+      - When `ctl_frame_add` refuses, both sides send a fixed `error *78`.
+    - **Docs:** I checked the frame values in `docs/control/device-test.md` by hand: `R *52`, `B *42`, `S *53`, `ready *6b` and `error *78` are right. The new known-limit paragraph matches `replay_calls`, which pairs each reply with the oldest pending request (`popleft`), and the drain after ten mismatches.
+    - **Description:** It matches the build, read together with entry 12, which adopted the six behaviours.
+
+    Notes (not findings):
+    - `tests/control/device/test_replay.py` (`trace_path`): the fallback that unpacks traces when `CTL_TRACES` is unset never runs under `make test`.
+    - `tests/control/device/test_replay.py` (`test_restart_after_silence`): silence is tested only on the reply to `R`, so `<file>:<line>` after a call that times out is not exercised.
+    - `tests/control/device/test_replay.py` (`test_twin_line_length`): no valid request is 128 characters long, so this test cannot tell the twin's `+ 3` buffer from the old `+ 2`. It does prove the twin stays in step with the lines.
+
+    Earlier tests (changed, not added). Each is named under "Changed:" in the story's Interface, which is the human's word:
+    - `tests/control/device/host_server.c`
+    - `tests/control/device/replay.py`
+    - `tests/control/device/replay/replay.ino`
+
+    `tests/control/test_wire.c` is unchanged.
