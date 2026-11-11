@@ -11,8 +11,8 @@ extern "C" {
 #include <ctl_wire.h>
 }
 
-// At 921,600 baud the line dropped and repeated characters; 230,400 baud with 4 requests in
-// flight replayed every trace.
+// The speed the owner's D1 mini carries without dropping characters, with the script's 4
+// requests in flight (docs/control/decisions.md, "The device replay runs at 230,400 baud").
 static const unsigned long BAUD = 230400;
 // Up to 4 requests are in flight, each well below 64 bytes; the buffer leaves ample room.
 static const size_t RECEIVE_BUFFER = 1024;
@@ -31,17 +31,24 @@ static bool is_call(const char *request)
     return request[0] == 'O' || request[0] == 'A' || request[0] == 'M' || request[0] == 'E';
 }
 
-// The reply buffer holds every reply and its frame, so the frame always fits.
+// The framed "error", sent as it is when a reply cannot be framed.
+static const char FRAMED_ERROR[] = "error *78";
+
+// A reply that cannot be framed is sent as a framed "error": the script restarts the trace on it
+// rather than reading an unframed line.
 static void send_reply()
 {
-    (void)ctl_frame_add(reply, sizeof reply);
-    Serial.print(reply);
+    if (ctl_frame_add(reply, sizeof reply)) {
+        Serial.print(reply);
+    } else {
+        Serial.print(FRAMED_ERROR);
+    }
     Serial.print('\n');
 }
 
 static void send_text(const char *text)
 {
-    strcpy(reply, text);
+    snprintf(reply, sizeof reply - CTL_FRAME_SUFFIX, "%s", text);
     send_reply();
 }
 

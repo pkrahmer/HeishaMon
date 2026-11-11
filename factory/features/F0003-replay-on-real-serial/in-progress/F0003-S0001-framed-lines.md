@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T21:48:18.039012Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T21:48:18.039012Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T21:53:35.897513Z'
+  stage: doing
+  run: 4ad4ee00b48a4b3391d82c0debce2ee3
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -232,3 +234,47 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
    `tests/control/test_wire.c` is unchanged.
 6. factory: started doing as heishamon.
+7. builder: Round 1: I worked through all twelve review findings. `make check` is green and both smoke commands print exactly their `Expect:` lines.
+
+   What I changed:
+   1. **The C test wrapper is gone.** I deleted `tests/control/test_replay_script.c`. `make test` runs `test_replay.py` once, through its own `test_*.py` loop. I removed the wrapper's claim from the parts table in `docs/control/device-test.md`. In `docs/control/decisions.md`, the entry is rewritten as "The script's tests are a Python program beside it", and it now rejects the `system()` wrapper.
+   2. **The Python test uses the environment.** `tests/control/device/test_replay.py` builds the twin from `CTL_SOURCES` into a `mkdtemp` folder under `CTL_BUILD`. Without either variable it prints one line and exits with 1. It still takes the traces from `CTL_TRACES`, or unpacks them into that folder when the variable is missing.
+   3. **Configuration replies.** In `tests/control/device/replay.py` (`configure`), only a `bad …` reply to `B` now fails the trace without a restart. Every other reply that is not `ok` raises `BrokenLine`, a stale state line included. New decision entry: "Only a bad configuration fails a trace without a restart". `test_configure` covers it with a scripted link. Against the old `replay.py`, its stale-line row and its `bad`-to-`C` row both fail.
+   4. **Every kind of restart is tested.** `tests/control/device/garbling_twin.py` is now a proxy around the real host twin. It breaks the n-th reply (`--at`), or every reply, in one of five ways (`--how`): `frame` (with `--byte`), `error`, `fields`, `value` or `silent`.
+      - `test_restart_after_answer` breaks reply 500 with `error`, with `fields` and with `value`. Each run expects one restart, 0 mismatches and 3236 calls.
+      - `test_restart_after_silence` drops the reply to `R`. It runs `replay.main` inside the test with `REPLY_TIMEOUT_S` set to 0.5 s so it does not wait 10 s, and it expects `<trace>: broken line, restarting (1 of 2): no reply within 0.5 s`.
+   5. **The restart line's place is checked.** `test_restart` works out the call whose reply is the 500th (R, the configuration lines and B come first). It then expects the line to start with `<trace>:<line>: broken line, restarting (1 of 2): #`. The `error`, `fields` and `value` cases check the same place with `<request> -> <reply>`.
+   6. **Zero restarts is checked.** `test_no_restart` replays `edge_cases` and `flaky_transport` through the plain twin and expects exactly `device replay: 2 files, 10639 calls, 0 mismatches, 0 restarts`.
+   7. **Reset and `ready` are tested.**
+      - `test_reset` calls `SerialLink.reset` on a stand-in port, with a stand-in for `time`. It expects the sequence dtr False, rts True, sleep 0.2, rts False.
+      - `test_wait_ready` uses a scripted link: a junk line with non-ASCII bytes, an unframed `ready`, `ready *00`, then `ready *6b`. It also checks that `wait_ready` gives up when no framed `ready` comes, uppercase digits included.
+      - I used stand-ins rather than a junk-printing twin, because they test the same functions without a process.
+   8. **Buffer sizes.** `replay.ino` (`send_text`) and `host_server.c` (`answer` and the `ready` line) now write with `snprintf` and the text's share of the buffer. The `strcpy` and `sprintf` calls are gone.
+   9. **The frame status is checked.** In both `replay.ino` and `host_server.c`, when `ctl_frame_add` refuses, the reply is sent as the fixed line `error *78`, which the script treats as a restart.
+   10. **Timeless comment.** The comment on the baud rate in `replay.ino` now gives the lasting reason and cites the new decision entry "The device replay runs at 230,400 baud with 4 requests in flight".
+   11. **Description.** The work item's Interface now matches what was built:
+       - the `--garble` rule (one to nine digits, anything else is the usage line and exit 2);
+       - non-printable bytes in a reply count as a broken line;
+       - the configuration rule from finding 3;
+       - the restart line with `: <what came>`, and `<file>` without a line number during the configuration;
+       - the extra `broken line:` line printed on a third break;
+       - the two new test files listed under New files.
+   12. **`device-test.md`, Restarts section.** It now says that more than nine digits is refused, and that a third break prints `<file>:<line>: broken line: <what came>` before `failed after 2 restarts`. It also states the configuration rule and describes the proxy and what each test proves.
+
+   Decisions:
+   - The garbling twin wraps the real twin rather than answering `ok` itself. This lets a trace pass after a single break, and the old every-reply cases (the restart limit and the `\xe9` safe printing) still work through it.
+   - The silent case drops the reply to `R`, where nothing else is in flight.
+   - Rejected: a 10 s real timeout in `make test`, and more `--garble` modes in the C twin.
+
+   Smoke test:
+   - First command: `device replay: 1 files, 3236 calls, 0 mismatches, 1 restarts`.
+   - Second command: `ready *6b`, `ok *04`, `error *78`.
+   - In `make check`: test green (18.4 s), the host replay with 0 restarts, `device` green (RAM 36 %, flash 23 %), and `check: green`.
+
+   Noticed but did not touch:
+   - With 4 requests in flight, a reply lost whole (not cut short) would shift the replies after it onto the wrong calls. When the call types match, the field counts match, so that shows up as mismatches, not a restart. A serial line that drops a newline merges two lines, which breaks the frame, so this needs a whole line to vanish. I kept the Interface's rule as it is.
+   - The one-byte `\r\n` gap in the twin's `fgets` buffer, the reset pulse and 230,400 baud on a real board, and `python3` needing to be on the PATH are as in the earlier entry: still untouched, and only the owner's run of `make device-replay` proves the board side.
+
+   The factory left out changes outside the write paths: factory/features/F0003-replay-on-real-serial/in-progress/F0003-S0001-framed-lines.md.
+
+   `check`: check: green

@@ -489,16 +489,18 @@ def receive_text(link):
 
 
 def configure(link, path, config, attempt):
-    """Sends R, the configuration and B one at a time; returns False when B found it bad."""
+    """Sends R, the configuration and B one at a time; returns False when B found it bad. Every
+    other reply than "ok" is a break, a stale line from an earlier attempt included."""
     for request in ["R"] + config + ["B"]:
         link.send([request])
         reply = receive_text(link)
-        if reply == "error":
-            raise BrokenLine(None, "%s -> error" % request)
-        if reply != "ok":
+        if reply == "ok":
+            continue
+        if request == "B" and reply.startswith("bad "):
             print("%s: %s: %s" % (path, request, reply))
             attempt.failed = True
             return False
+        raise BrokenLine(None, "%s -> %s" % (request, reply))
     return True
 
 

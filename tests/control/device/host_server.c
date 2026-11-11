@@ -67,11 +67,20 @@ static bool parse_arguments(int argc, char **argv, unsigned long *garble)
     return true;
 }
 
+/* The framed "error", sent as it is when a reply cannot be framed. */
+#define FRAMED_ERROR "error *78"
+
 /* Frames the text in reply, whose buffer holds the text and the frame, and sends it. A garbled
- * line keeps the checksum of the text it had, so its frame no longer checks. */
+ * line keeps the checksum of the text it had, so its frame no longer checks. A reply that cannot
+ * be framed is sent as a framed "error": the script restarts the trace on it rather than reading
+ * an unframed line. */
 static void send_line(char *reply, size_t size, bool garbled)
 {
-    (void)ctl_frame_add(reply, size);
+    if (!ctl_frame_add(reply, size)) {
+        puts(FRAMED_ERROR);
+        fflush(stdout);
+        return;
+    }
     if (garbled) {
         reply[0] = '#';
     }
@@ -79,16 +88,19 @@ static void send_line(char *reply, size_t size, bool garbled)
     fflush(stdout);
 }
 
+/* Writes the reply's text into reply, leaving CTL_FRAME_SUFFIX bytes of its size for the
+ * frame. */
 static void answer(ctl_wire_session *session, char *line, read_status status, char *reply,
                    size_t size)
 {
+    size_t text_size = size - CTL_FRAME_SUFFIX;
     if (status == READ_TOO_LONG || !ctl_frame_strip(line)) {
-        strcpy(reply, "error");
+        snprintf(reply, text_size, "%s", "error");
     } else if (strcmp(line, "S") == 0) {
-        sprintf(reply, "stats calls=%lu us_total=0 us_max=0 heap=0 state_bytes=%lu",
-                (unsigned long)session->calls, (unsigned long)sizeof *session);
+        snprintf(reply, text_size, "stats calls=%lu us_total=0 us_max=0 heap=0 state_bytes=%lu",
+                 (unsigned long)session->calls, (unsigned long)sizeof *session);
     } else {
-        ctl_wire_handle(session, line, reply, size - CTL_FRAME_SUFFIX);
+        ctl_wire_handle(session, line, reply, text_size);
     }
 }
 
@@ -106,7 +118,7 @@ int main(int argc, char **argv)
         return 2;
     }
     ctl_wire_init(&session);
-    strcpy(reply, "ready");
+    snprintf(reply, sizeof reply - CTL_FRAME_SUFFIX, "%s", "ready");
     send_line(reply, sizeof reply, false);
     while ((status = read_line(line, sizeof line)) != READ_END) {
         answer(&session, line, status, reply, sizeof reply);

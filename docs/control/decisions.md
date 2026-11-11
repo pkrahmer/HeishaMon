@@ -312,15 +312,36 @@ replies; a sign or a letter is a mistake on the command line, which an exit says
 run that silently garbles nothing.
 **Rejected.** `strtoul`, which takes signs, spaces and overflows quietly.
 
-## 2026-11-11: The script's tests are a Python program that a C test runs
+## 2026-11-11: The script's tests are a Python program beside it
 
-**Decision.** The tests of the host twin's frames and of `replay.py`'s restarts are
-`tests/control/device/test_replay.py`, which builds the twin with gcc and runs it and the script
-as processes; `tests/control/test_replay_script.c` runs it with `system` and passes when it exits
-with 0. The twin that garbles every reply is `tests/control/device/garbling_twin.py`, which can
-replace with any byte, so that the safe printing is proven with one outside ASCII.
-**Reason.** `make test` runs every `tests/control/test_*.c`, and the `Makefile` stays as it is; a
-pipe to a process is not reachable from strict C99, and the script's own functions are best
-checked from Python.
-**Rejected.** A Python test outside `make test`, which nothing would run; and a second `--garble`
-mode in the host twin, which would put a test's needs into the code that serves the board's twin.
+**Decision.** The tests of the host twin's frames and of `replay.py`'s restarts, reset and wait
+for `ready` are `tests/control/device/test_replay.py`, which `make test` runs with the sources in
+`CTL_SOURCES` and a scratch folder in `CTL_BUILD`. It builds the twin with gcc and runs it and the
+script as processes, and it calls the script's own functions with stand-in ports and links. The
+twin that breaks replies is `tests/control/device/garbling_twin.py`: it runs the host twin and
+breaks one reply, or every reply, in each way a restart answers.
+**Reason.** A pipe to a process is not reachable from strict C99, and the script's own functions
+are best checked from Python; a proxy around the real twin breaks one reply and leaves every other
+one right, so that a trace can pass after its restart.
+**Rejected.** A C test that runs the Python test with `system`, which would run it a second time;
+and more `--garble` modes in the host twin, which would put a test's needs into the code that
+serves the board's twin.
+
+## 2026-11-11: The device replay runs at 230,400 baud with 4 requests in flight
+
+**Decision.** The sketch and the script run the serial line at 230,400 baud, and the script keeps
+4 requests in flight.
+**Reason.** At 921,600 baud the owner's D1 mini dropped and repeated characters after some 26,000
+calls; at 230,400 baud with 4 requests in flight it replayed all thirteen traces. Four requests
+keep the board busy between replies without filling its receive buffer.
+**Rejected.** 921,600 baud with sixteen in flight, which the frame would catch but which would
+restart traces often enough to fail them.
+
+## 2026-11-11: Only a bad configuration fails a trace without a restart
+
+**Decision.** While `replay.py` sends `R`, the `C` lines and `B`, every reply other than `ok` is a
+break and restarts the trace, except `bad …` to `B`, which fails the trace at once.
+**Reason.** A stale line left from an earlier attempt, or any other reply that is no answer, is the
+link's fault; the same configuration, sent again, would be bad again.
+**Rejected.** Failing the trace on any reply other than `ok` or `error`, which turned a stale
+state line into a failure.

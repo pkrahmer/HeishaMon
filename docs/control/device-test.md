@@ -15,7 +15,7 @@ The parts:
 | the test sketch | `tests/control/device/replay/replay.ino` | moves lines between the USB serial port and the protocol, and measures the time each call takes |
 | the host twin | `tests/control/device/host_server.c` | does the same over standard input and output on the host |
 | the replay script | `tests/control/device/replay.py` | reads the traces, sends their configuration and calls to the sketch or the twin, compares every reply, and restarts a trace after a broken line |
-| the script's tests | `tests/control/device/test_replay.py`, `garbling_twin.py` | prove the twin's frames and the script's restarts; `tests/control/test_replay_script.c` runs them in `make test` |
+| the script's tests | `tests/control/device/test_replay.py`, `garbling_twin.py` | prove the twin's frames and the script's restarts, reset and wait for `ready`; `make test` runs them |
 
 `make test` builds the host twin and replays `edge_cases` and `flaky_transport` through it; it
 prints `device replay: 2 files, 10639 calls, 0 mismatches, 0 restarts`. `make device` compiles the sketch for
@@ -95,12 +95,16 @@ calls; at 230,400 baud with 4 requests in flight it replayed all thirteen traces
 ## Restarts
 
 A broken line, an `error` reply, a reply with the wrong number of fields or a field that does not
-parse, and no reply within 10 seconds each stop the current trace. The script prints
-`<file>:<line>: broken line, restarting (<k> of 2): <what came>`, with the trace's line of the
-call (without `:<line>` when it broke while sending the configuration), reads and drops replies
-for 1 second, and starts the trace again from its beginning: `R`, its `C` lines, `B` and every
-call. A third break prints `<file>: failed after 2 restarts`, and the trace fails. A restarted
-trace counts only its last attempt's calls and mismatches.
+parse, and no reply within 10 seconds each stop the current trace. While the configuration is
+sent, every reply to `R`, a `C` or `B` other than `ok` is a break too, a stale line from an
+earlier attempt included; only `bad …` to `B` fails the trace without a restart (below). The
+script prints `<file>:<line>: broken line, restarting (<k> of 2): <what came>`, with the trace's
+line of the call (without `:<line>` when it broke while sending the configuration), reads and
+drops replies for 1 second, and starts the trace again from its beginning: `R`, its `C` lines,
+`B` and every call. `<what came>` is the broken line in the safe form below,
+`<request> -> <reply>` for a reply that is no answer, or `no reply within 10 s`. A third break
+prints `<file>:<line>: broken line: <what came>`, then `<file>: failed after 2 restarts`, and the
+trace fails. A restarted trace counts only its last attempt's calls and mismatches.
 
 A call is never sent again on its own. Every call changes the core's state: an `O` stores a
 value, an `A` integrates, an `E` moves the balance, and a call that was lost on the way in, or
@@ -112,11 +116,14 @@ written as `\xNN`, so that a garbled reply cannot crash a console that cannot pr
 
 The host twin proves this without a board: `host_server --garble <n>` replaces the first
 character of its `n`-th reply after `ready` with `#` and keeps the old checksum. Any other
-argument than none or `--garble` and decimal digits prints `usage: host_server [--garble <n>]` and
-exits with 2; `--garble 0` garbles nothing. `tests/control/device/test_replay.py` replays
-`edge_cases` with `--garble 500` (one restart, 0 mismatches), and against `garbling_twin.py`,
-which garbles every reply, to see the trace fail after 2 restarts and the broken bytes printed
-safely.
+argument than none or `--garble` and one to nine decimal digits (a sign and a longer number
+included) prints `usage: host_server [--garble <n>]` and exits with 2; `--garble 0` garbles
+nothing. `tests/control/device/garbling_twin.py` runs the host twin and breaks its `n`-th reply,
+or every reply, in the other ways: a framed `error`, the wrong number of fields, a field that does
+not parse, no reply at all, or a broken frame with a chosen byte. `test_replay.py` replays
+`edge_cases` with each break once (one restart, 0 mismatches) and with every reply broken (the
+trace fails after 2 restarts, the broken bytes printed safely), and replays `edge_cases` and
+`flaky_transport` through the plain twin with 0 restarts.
 
 ## Flashing the D1 mini
 
