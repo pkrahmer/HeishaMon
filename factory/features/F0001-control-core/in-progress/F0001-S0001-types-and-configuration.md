@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 3
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T19:39:33.038140Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T19:39:27.255646Z'
   stage: doing
   run: 7ac65157a1154913940af53a19208d67
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:39:33.038140Z'
+  stage: review
 ---
 
 # The core's enums and its configuration with validation
@@ -219,3 +228,4 @@ Expect: `control: 2 test programs passed`
    Noticed, not touched: upstream's Rules harness prints compiler warnings (`rules.cpp:4640` `-Wmaybe-uninitialized`, unused variables in `settimer.cpp`) to stderr during `make test`. They are upstream's files.
 
    `check`: check: green
+4. factory: started review as heishamon.
