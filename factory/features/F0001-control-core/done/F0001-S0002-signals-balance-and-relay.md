@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 3
 attempts: 0
@@ -102,6 +102,11 @@ journal:
   at: '2026-11-11T19:59:51.795484Z'
   stage: review
   run: 1559c933c508471f9f9d8ebf94b9d4c0
+- number: 18
+  speaker: factory
+  kind: done
+  at: '2026-11-11T20:00:42.038520Z'
+  stage: approval
 ---
 
 # The signal table, the energy balance and the relay
@@ -441,3 +446,4 @@ Expect: `control: 5 test programs passed`
     6. **Earlier tests.** Every test file in the diff has status `A`, so no earlier test was changed.
 
     no findings
+18. factory: done (pull request merged); cost: 8 runs, 6.9 min, 43 turns, 254058 tokens in (1013429 more from cache), 39889 out, $2.27
