@@ -13,14 +13,14 @@ A fork of HeishaMon (github.com/heishamon/HeishaMon), the Arduino firmware that 
 - **Around the core**, the other `.c` files under `HeishaMon/src/control/` are pure too: they take values and return values, and they compile on the host. They may include the core's headers; the core never includes theirs.
 - **Code that needs the Arduino framework or an upstream header is a `.cpp` file**, never a `.c` file. Every `.c` file under `HeishaMon/src/control/` must compile on the host as strict C99.
 - **No dynamic memory**: no `malloc`, no variable-length array, no recursion. Every list has a compile-time maximum, and every loop has a bound.
-- **Floats are `float`**, not `double`, and a literal carries the suffix `f`. A value from outside the core is checked with `isfinite` and against its range before it is used.
+- **Numbers are `double`** in the core, never `float`, and every expression keeps the operand order of the Python reference (`docs/control/python-reference/`): the golden traces are compared bit for bit, and the build forbids fused multiply-add (`-ffp-contract=off`). The core treats a NaN or an infinite value as the Python reference does; around the core, a value from outside is checked with `isfinite` and against its range before it is used.
 - **Names**: every public name of the control code starts with `ctl_` (functions and types) or `CTL_` (macros and enum values). A function that is not part of a header is `static`.
 - **Errors are values**: a function that can refuse returns a status, and the caller checks it. Nothing aborts or exits.
 
 ## Tests
 - A test is a C99 program `tests/control/test_<subject>.c` with its own `main`. It returns 0 when every check passed, and it prints one line per failed check with the file, the line and the two values. `make test` builds each one with every `.c` file of the control code and runs it from the root of the checkout.
 - A `.c` file under `tests/control/` whose name does not start with `test_` is a shared helper and is linked into every test program. Before you write a helper, look for one there.
-- Test data (a trace, a table of cases) lives under `tests/control/data/`. A test reads it by its path from the root of the checkout.
+- The golden traces are `tests/control/data/*.trace.gz`, exported from the Python reference; `docs/control/golden-traces.md` is their format. Nobody edits them. `make test` unpacks them into a temporary folder and names it in the environment variable `CTL_TRACES`; a test reads `$CTL_TRACES/<name>.trace`. Other test data lives beside them and is read by its path from the root of the checkout.
 - Nothing may be faked inside the core: a test calls the real functions with values. Time is a number the test passes in.
 - A test another story wrote is changed only when the story names it with the human's word.
 - Upstream's two host suites (`Examples/Rules/run_tests.sh` and `tests/modbus/run_tests.py`) run in `make test` too. They are upstream's and stay as they are.
@@ -32,7 +32,7 @@ A fork of HeishaMon (github.com/heishamon/HeishaMon), the Arduino firmware that 
 
 ## Checks
 - `make check` must be green before any stage reports done. It runs `make lint` and `make test` and ends with `check: green`. Each target ends with the line `<target>: green (<seconds> s)`.
-- `make lint` compiles every `.c` file under `HeishaMon/src/control/` with `gcc -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only`, and it refuses an include in the core that the *Architecture* does not allow.
+- `make lint` compiles every `.c` file under `HeishaMon/src/control/` with `gcc -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off -fsyntax-only`, and it refuses an include in the core that the *Architecture* does not allow.
 - `make test` runs upstream's two host suites and then every test program of the control code.
 - No check builds the firmware for the boards yet. A `.cpp` file is therefore compiled by no check; a story that adds one says how the human builds it.
 

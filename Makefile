@@ -8,7 +8,8 @@
 CONTROL = HeishaMon/src/control
 CORE = $(CONTROL)/core
 TESTS = tests/control
-CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic
+# No fused multiply-add: the core must round as the Python reference does, twice where it does.
+CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -52,6 +53,7 @@ lint:
 # Upstream's two host suites, then the control tests: every tests/control/test_*.c is one program,
 # linked with every .c file of the control code and with the other .c files beside it (the shared
 # helpers), and run from the root of the checkout. A program passes when it exits with 0.
+# The golden traces are unpacked first, and CTL_TRACES names their folder.
 test:
 	$(start)
 	Examples/Rules/run_tests.sh
@@ -62,6 +64,11 @@ test:
 	tests=$(TESTS); [ -d "$$tests" ] || tests="$$build/empty"
 	sources=$$(find "$$control" -name '*.c' | sort)
 	helpers=$$(find "$$tests" -maxdepth 1 -name '*.c' ! -name 'test_*.c' | sort)
+	mkdir -p "$$build/traces"
+	for trace in $$(find "$$tests" -path '*/data/*.trace.gz' | sort); do
+	  gzip -dc "$$trace" > "$$build/traces/$$(basename "$$trace" .gz)"
+	done
+	export CTL_TRACES="$$build/traces"
 	count=0
 	for test in $$(find "$$tests" -maxdepth 1 -name 'test_*.c' | sort); do
 	  program="$$build/$$(basename "$$test" .c)"
