@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T23:00:22.961820Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -100,6 +96,12 @@ journal:
   kind: started
   at: '2026-11-11T23:00:22.961820Z'
   stage: review
+- number: 17
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T23:01:15.358746Z'
+  stage: review
+  run: 0283aa2439b6405480b3c44f1dc7b03f
 ---
 
 # The room average
@@ -185,9 +187,9 @@ Freshness and the average:
 ## Acceptance criteria
 
 1. The configuration, as rows of one table test:
-   - the defaults for 4 rooms are valid, with weights 1.0 and a timeout of 1800.0;
+   - the defaults for 4 rooms are valid, with all 16 weights 1.0 and a timeout of 1800.0;
    - refused: a count of 0, a count of 17, a negative weight, a weight of 1000.001, all weights 0, a timeout of 0, a negative timeout, a NaN timeout and an infinite timeout;
-   - accepted: a count of 1, a count of 16, a weight of 1000.0, one weight 0 among others.
+   - accepted: a count of 1, a count of 16, a weight of 1000.0, one weight 0 among others, and a weight of -1.0 or 1000.001 beyond `count` (a refused weight beyond `count` is ignored).
 2. Offering, as rows of one table test on 4 rooms with the defaults, each row with its status and with the rooms after it:
    - index 4 gives `BAD_INDEX`;
    - `abc` gives `UNPARSED`;
@@ -392,3 +394,40 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     `check`: check: green
 16. factory: started review as heishamon.
+17. reviewer: Review, round 3. Scope: `git diff develop...HEAD -- . ':!factory'`, plus the work item. I read the code, the test and both documents, and checked them against `adapt/ctl_payload.h` and `adapt/ctl_bounds.h`.
+
+    no findings
+
+    Round 2's findings are closed:
+    - Finding 1: the defaults block of `test_config` now checks `weight[i] == 1.0` for all `CTL_ROOMS_MAX` slots.
+    - Finding 2: the `WEIGHT_BEYOND_COUNT` rows (-1.0 and 1000.001 in `weight[4]`, count 4) are accepted. Every row resets slots 4 to 15 to 1.0 before its change. So the `ALL_WEIGHTS` row still catches a sum taken over all 16 weights, and the new rows catch a bound check run over all 16.
+
+    Work item Description: the builder may not write the work item, so I added the wording that round 2 asked for to criterion 1: "all 16 weights 1.0", and "a weight of -1.0 or 1000.001 beyond `count`" among the accepted rows. I changed no code and no test.
+
+    Checked and in order:
+    - Acceptance criteria: criteria 1 to 8 each have a test that checks what the criterion says. Every Interface rule has a test for its failing side. The limits are tested on both sides:
+      - count 0/1 and 16/17;
+      - weight -1/0 and 1000/1000.001;
+      - weights beyond `count`;
+      - timeout 0 refused, NaN and infinite refused, 1800 accepted;
+      - index 3/4 at count 4, and index 16 at count 17;
+      - age 1800 against the next double above it, and a negative age;
+      - `ts` 99, 100 and 101;
+      - half rule: 2 of 4, 3.0 of 6.0 and 3.1 of 6.1.
+      The order of the checks in `ctl_rooms_offer` is shown by the rows that fail two checks. All 16 slots are compared after every offer row. The journal says the factory's `make check` after round 3 was green.
+    - Architecture:
+      - Only new files under `HeishaMon/src/control/adapt/`, `tests/control/` and `docs/control/`.
+      - `.c` files only, includes from the same folder plus standard headers.
+      - `ctl_`/`CTL_` names, `static` helpers, `double` throughout, status values.
+      - The `ctl_payload` initializer `{0.0, false, 0}` matches the field order in `ctl_payload.h`.
+    - Embedded safety: no dynamic memory, no VLA and no recursion. Every loop is bounded by `CTL_ROOMS_MAX`, or by `count` after `ctl_rooms_config_valid`. Every array access is behind `index_valid`, which also checks `CTL_ROOMS_MAX`. `t` is checked with `isfinite`, the value with `CTL_BOUND_TEMPERATURE`, and a NaN `now` gives false.
+    - Quality: the names are clear, there is no dead code, `ctl_payload_parse` and `ctl_bounds_accept` are reused, and the comments give reasons.
+    - Work item hygiene:
+      - The Description now matches what is built.
+      - The adapters.md section covers everything in criterion 10, and its claims match the code: weight 0 counts in `fresh_count`, a payload without a timestamp clears the stored timestamp, and the defaults are 1.0 and 1800 s.
+      - decisions.md records the replay rule with the 90-minute observation, the timeout as a setting, and how an invalid configuration is handled.
+    - Earlier tests: none. `tests/control/test_rooms.c` is the only test file in the diff, and it is new (status A).
+
+    Notes:
+    - `tests/control/test_rooms.c` `test_offer`: `check_rooms_equal(__FILE__, __LINE__, ...)` reports the line of the loop, not the row, so a failure does not say which row failed (carried over from round 2).
+    - `tests/control/test_rooms.c` `test_config`: the timeout's lower limit is shown by 0 (refused) against 1800 (accepted). No row uses the smallest positive timeout.
