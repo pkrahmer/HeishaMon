@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:53:46.810045Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T22:53:46.810045Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:55:14.970378Z'
+  stage: review
+  run: 1e6095e0f57b4c8cb1f88ea3393dea5e
 ---
 
 # The room average
@@ -84,7 +86,7 @@ typedef struct {
     double value_c[CTL_ROOMS_MAX];
     double t[CTL_ROOMS_MAX];          /* arrival instant of the room's last accepted value */
     bool has_timestamp[CTL_ROOMS_MAX];
-    int64_t timestamp_ms[CTL_ROOMS_MAX];
+    int64_t timestamp_ms[CTL_ROOMS_MAX];  /* 0 when the last accepted payload had none */
 } ctl_rooms;
 
 typedef enum {
@@ -115,39 +117,42 @@ void ctl_rooms_average_at(const ctl_rooms *rooms, const ctl_rooms_config *config
 
 The configuration:
 
-- `ctl_rooms_config_defaults` sets `count` to its argument, every weight to 1.0, and `room_timeout_s` to 1800.0.
+- `ctl_rooms_config_defaults` sets `count` to its argument, every weight (all `CTL_ROOMS_MAX` of them) to 1.0, and `room_timeout_s` to 1800.0.
 - `ctl_rooms_config_valid` is true when `count` is from 1 to `CTL_ROOMS_MAX`, every weight of the first `count` is accepted by `CTL_BOUND_WEIGHT`, their sum is greater than 0, and `room_timeout_s` is finite and greater than 0.
 
 Offering a reading, in this order:
 
-- `index` not below `count` gives `CTL_ROOM_BAD_INDEX`.
+- `index` not below `count`, or not below `CTL_ROOMS_MAX` whatever `count` says, gives `CTL_ROOM_BAD_INDEX`.
 - A payload `ctl_payload_parse` refuses gives `CTL_ROOM_UNPARSED`.
 - A value `CTL_BOUND_TEMPERATURE` refuses, or a `t` that is not finite, gives `CTL_ROOM_IMPLAUSIBLE`.
 - A payload with a timestamp, for a room whose last accepted payload had a timestamp at least as large, gives `CTL_ROOM_REPLAYED`.
-- Otherwise the room takes the value, the arrival instant `t`, and the timestamp or its absence, and the result is `CTL_ROOM_ACCEPTED`.
+- Otherwise the room takes the value, the arrival instant `t`, and the timestamp or its absence (a `timestamp_ms` of 0 when there is none), and the result is `CTL_ROOM_ACCEPTED`.
 - Every result but `CTL_ROOM_ACCEPTED` leaves the rooms as they were.
 - A payload without a timestamp is always taken when it passes the bounds, also after one with a timestamp.
 
 Freshness and the average:
 
-- A room is fresh at `now` when it has a value and `now - t <= room_timeout_s`. An age equal to the timeout is fresh. A negative age is fresh. A NaN `now` is not fresh.
+- A room is fresh at `now` when it has a value and `now - t <= room_timeout_s`. An age equal to the timeout is fresh. A negative age is fresh. A NaN `now` is not fresh. An index not below `count`, or not below `CTL_ROOMS_MAX` whatever `count` says, is not fresh.
 - `ctl_rooms_average_at` fills `average`:
   - `total_weight` is the sum of the configured weights;
   - `fresh_count` is the number of fresh rooms, weight 0 included;
   - `fresh_weight` is the sum of the fresh rooms' weights.
 - When `fresh_weight` is more than half of `total_weight` (strictly), `has_average` is true and `average_c` is the sum of weight times value over the fresh rooms, divided by `fresh_weight`, summed in room order. Otherwise `has_average` is false and `average_c` is 0.0.
+- For a configuration `ctl_rooms_config_valid` refuses, `ctl_rooms_average_at` gives `has_average` false and `average_c`, `fresh_count`, `fresh_weight` and `total_weight` all 0.
 
 ## Acceptance criteria
 
 1. The configuration, as rows of one table test:
    - the defaults for 4 rooms are valid, with weights 1.0 and a timeout of 1800.0;
-   - refused: a count of 0, a count of 17, a negative weight, a weight of 1000.001, all weights 0, a timeout of 0, a negative timeout and a NaN timeout;
-   - accepted: a count of 16, a weight of 1000.0, one weight 0 among others.
+   - refused: a count of 0, a count of 17, a negative weight, a weight of 1000.001, all weights 0, a timeout of 0, a negative timeout, a NaN timeout and an infinite timeout;
+   - accepted: a count of 1, a count of 16, a weight of 1000.0, one weight 0 among others.
 2. Offering, as rows of one table test on 4 rooms with the defaults, each row with its status and with the rooms after it:
    - index 4 gives `BAD_INDEX`;
    - `abc` gives `UNPARSED`;
-   - `61` and `{"v":-60.5}` give `IMPLAUSIBLE`, and so does a NaN `t`;
+   - `61` and `{"v":-60.5}` give `IMPLAUSIBLE`, and so do a NaN `t` and an infinite `t`;
+   - rows that fail two checks show the order: index 4 with `abc` gives `BAD_INDEX`, and `abc` with a NaN `t` gives `UNPARSED`;
    - `{"ts":100,"v":21.0}` gives `ACCEPTED`;
+   - then `{"ts":100,"v":61}`, and `{"ts":100,"v":22.0}` with an infinite `t`, give `IMPLAUSIBLE`, not `REPLAYED`;
    - then `{"ts":100,"v":22.0}` and `{"ts":99,"v":22.0}` give `REPLAYED`;
    - then `{"ts":101,"v":22.0}` gives `ACCEPTED`;
    - then a bare `23.0` gives `ACCEPTED` and clears the room's timestamp;
@@ -160,8 +165,12 @@ Freshness and the average:
    - with exactly two fresh (`fresh_weight` 2.0 of 4.0, not more than half), `has_average` is false and `average_c` is 0.0;
    - with weights 3.0, 1.0, 1.0 and 1.0 and only the first fresh (3.0 of 6.0), `has_average` is false; and with weights 3.1, 1.0, 1.0 and 1.0 and only the first fresh, it is true.
 7. A room leaving and returning: four rooms accepted at 0.0, one of them offered again at 1000.0; asked at 2000.0 only that room is fresh and `has_average` is false; after the other three are offered at 2100.0 and the average is asked at 2100.0, all four are fresh again.
-8. `make check` stays green.
-9. docs: `docs/control/adapters.md` gets a section on the room average: what it computes, the replay rule and why, the half rule with one example, the defaults, and the three consequences of `docs/control/firmware-design.md` §3.1 in one sentence each. `docs/control/decisions.md` records the replay rule and the timeout as a setting, with the observation that the broker showed room values about 90 minutes old.
+8. Out of range, on rooms that all hold a value at 0.0:
+   - with 4 rooms, `ctl_rooms_is_fresh` at 0.0 is true for index 3 and false for index 4;
+   - with a count of 17, `ctl_rooms_offer` for index 16 gives `BAD_INDEX` and leaves the rooms as they were, and `ctl_rooms_is_fresh` for index 16 is false;
+   - `ctl_rooms_average_at` with a count of 17, or with a weight of -1.0, gives `has_average` false and `average_c`, `fresh_count`, `fresh_weight` and `total_weight` all 0.
+9. `make check` stays green.
+10. docs: `docs/control/adapters.md` gets a section on the room average: what it computes, the replay rule and why, the half rule with one example, the defaults, and the three consequences of `docs/control/firmware-design.md` §3.1 in one sentence each. `docs/control/decisions.md` records the replay rule and the timeout as a setting, with the observation that the broker showed room values about 90 minutes old.
 
 ## Smoke test
 
@@ -241,3 +250,41 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Review, round 1. Scope: `git diff develop...HEAD -- . ':!factory'`, plus the work item.
+
+   Findings:
+
+   1. `tests/control/test_rooms.c` `test_out_of_range` and `test_offer`: no test checks the failing side of the `CTL_ROOMS_MAX` guard in `index_valid` (`ctl_rooms.c`, `index < CTL_ROOMS_MAX`). `ctl_rooms.h` and decisions.md both promise this guard holds "whatever the count says". The one row that tries it (`ctl_rooms_is_fresh` with index `CTL_ROOMS_MAX` on 4 rooms) is already refused by `index < count`. Without the guard, every test still passes, and a count of 17 then reads and writes slot 16, past the arrays. Fix: with `config.count = 17`, check that `ctl_rooms_offer` for index 16 gives `CTL_ROOM_BAD_INDEX` and leaves the rooms as they were, and that `ctl_rooms_is_fresh` for index 16 gives false. The Description's criterion 8 now names these checks.
+
+   Work item Description:
+   - The builder's round-1 rewrite of the Description was dropped. The work item is not in the builder's write paths, so round 0's finding 6 was still open.
+   - The reviewer's write paths hold the work item, so I rewrote the `## Description` to match what is built and what decisions.md records:
+     - `timestamp_ms` is 0 when the payload had no timestamp.
+     - The defaults set all `CTL_ROOMS_MAX` weights.
+     - The index rule covers `CTL_ROOMS_MAX` whatever the count says, for both offer and freshness.
+     - `ctl_rooms_average_at` gives all zeros for an invalid configuration.
+     - Criterion 1 adds count 1 and an infinite timeout.
+     - Criterion 2 adds an infinite `t` and the two-failure order rows.
+     - A new criterion 8 covers out-of-range cases, including the count-17 checks of finding 1.
+     - `make check` and docs are now criteria 9 and 10.
+   - I changed no code and no test.
+
+   Checked and in order:
+   - Acceptance criteria:
+     - Criteria 1 to 7 each have a table test or function that checks what the criterion says.
+     - Round 0's findings 1 to 5 are closed by the new rows: count 1, infinite timeout, infinite `t`, the two-failure rows (`BAD_INDEX` over `UNPARSED`, `UNPARSED` over `IMPLAUSIBLE`, `IMPLAUSIBLE` over `REPLAYED`), `is_fresh` for index 3 and 4, and `average_at` with count 17 or weight -1.
+     - Every offer row compares all 16 slots.
+     - Boundaries tested on both sides: 2800.0 against the next double above; 2 of 4 and 3.0 of 6.0 against 3.1 of 6.1; weight 0/1000 against -1/1000.001; count 0/1 and 16/17; `ts` 99, 100 and 101.
+     - The journal says the factory's `make check` after the builder was green.
+   - Architecture: new files only under `HeishaMon/src/control/adapt/`, `tests/control/` and `docs/control/`. Includes are same-folder headers and standard C headers only. Public names use `ctl_`/`CTL_`, helpers are `static`, all numbers are `double`, and errors come back as status values.
+   - Embedded safety:
+     - No dynamic memory, no VLA and no recursion.
+     - Loops are bounded by `CTL_ROOMS_MAX`, or by `count` after `ctl_rooms_config_valid`.
+     - `t` is checked with `isfinite`, and the payload value with `CTL_BOUND_TEMPERATURE`.
+     - A NaN `now` is handled.
+   - Quality: names are clear, there is no dead code, and the module reuses `ctl_payload_parse` and `ctl_bounds_accept` without copying them. Comments give reasons.
+   - Docs:
+     - The adapters.md section covers everything criterion 10 asks for, and its claims match the code: weight 0 counts in `fresh_count`, a timestamp-less payload clears the timestamp, and the defaults are 1.0 and 1800 s.
+     - decisions.md records the replay rule with the 90-minute observation, the timeout as a setting, and the handling of invalid configurations.
+     - The three consequences match `firmware-design.md` §3.1.
+   - Earlier tests: none. `tests/control/test_rooms.c` is the only test file in the diff, and it is new (status A).
