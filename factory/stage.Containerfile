@@ -23,4 +23,6 @@ RUN curl -fsSL -o /tmp/arduino-cli.tgz \
  && arduino-cli core update-index \
  && arduino-cli core install "esp8266:esp8266@${ESP8266_CORE_VERSION}" \
  && rm -rf /opt/arduino/downloads \
- && chmod -R a+rX /opt/arduino
+ && chmod -R a+rX /opt/arduino \
+ && mkdir -p /opt/arduino/downloads /opt/arduino/user \
+ && chmod 1777 /opt/arduino/downloads /opt/arduino/user
