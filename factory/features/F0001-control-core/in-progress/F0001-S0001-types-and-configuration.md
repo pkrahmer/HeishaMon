@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 3
 comments_read: [6805629969]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T19:47:53.908198Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -64,6 +68,11 @@ journal:
   at: '2026-11-11T19:47:48.581823Z'
   stage: doing
   run: bec77441ca8a4159b8877ebd8c8ef3b7
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:47:53.908198Z'
+  stage: review
 ---
 
 # The core's enums and its configuration with validation
@@ -328,3 +337,4 @@ Expect: `control: 2 test programs passed`
     The factory left out changes outside the write paths: factory/features/F0001-control-core/in-progress/F0001-S0001-types-and-configuration.md.
 
     `check`: check: green
+11. factory: started review as heishamon.
