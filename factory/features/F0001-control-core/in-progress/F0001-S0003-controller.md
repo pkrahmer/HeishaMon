@@ -1,3 +1,154 @@
+---
+stage: approval
+blocked: null
+round: 1
+attempts: 0
+crashes: 0
+pull_request: 5
+comments_read: [6806361194]
+handed_over: approval
+claim: null
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-11T20:02:18.750311Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:02:18.756524Z'
+  stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:06:14.417157Z'
+  stage: doing
+  run: e04c5a89206c4e03bccff1ef1a668a1f
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:06:21.680011Z'
+  stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:07:46.469172Z'
+  stage: review
+  run: 801f139300a84fcd880018c7f86e0e99
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:07:52.333835Z'
+  stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:09:40.789828Z'
+  stage: doing
+  run: fd965028e1864583a58cfd5898dd9c3e
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:09:46.796929Z'
+  stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:11:12.575529Z'
+  stage: review
+  run: ead775bf63184d19b58047db39129103
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:11:18.047076Z'
+  stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:13:15.502260Z'
+  stage: doing
+  run: 8189f6c3a7844806befafb6ba47b0788
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:13:21.212042Z'
+  stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:14:58.451194Z'
+  stage: review
+  run: 40acf723c3044c1ab724742d6a4f7cdb
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:15:03.931368Z'
+  stage: doing
+- number: 15
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:16:12.027909Z'
+  stage: doing
+  run: 93f245fa73d04fd8a540961e2837bc9e
+- number: 16
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:16:17.516847Z'
+  stage: review
+- number: 17
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:17:42.159142Z'
+  stage: review
+  run: c808905e9eb34ac98f6a252f2ec11752
+- number: 18
+  speaker: factory
+  kind: question
+  at: '2026-11-11T20:17:42.159142Z'
+  stage: review
+  run: c808905e9eb34ac98f6a252f2ec11752
+  blocked: round_cap
+- number: 19
+  speaker: human
+  kind: comment
+  at: '2026-11-11T20:21:31.387285Z'
+  stage: review
+- number: 20
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:21:34.523787Z'
+  stage: review
+- number: 21
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:22:00.972273Z'
+  stage: review
+  run: c43de41673374bacbf4935937ca64135
+- number: 22
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:22:06.432335Z'
+  stage: doing
+- number: 23
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:22:56.621032Z'
+  stage: doing
+  run: 0f0237c3ddab4f368f975197ff64777e
+- number: 24
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:23:03.700510Z'
+  stage: review
+- number: 25
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:23:31.311145Z'
+  stage: review
+  run: 80897d52f4594971b37ba189567d382d
+---
+
 # The controller: advance, observe, set_allowed and evaluate
 
 ## Description
@@ -135,3 +286,325 @@ make test | grep '^control:'
 Expect: `control: 6 test programs passed`
 
 ## Journal
+
+1. 2026-11-11 human: created.
+2. factory: started doing as heishamon.
+3. builder: Built the controller as a port of `controller.py` (`initial_state`, `advance_to`, `observe`, `set_allowed`, `evaluate`) and of `Decision`.
+
+   What I built:
+   - `HeishaMon/src/control/core/ctl_controller.h`: `ctl_state`, `ctl_decision` and the five functions, as the Interface gives them. Each function has a comment that says what it returns and what it refuses.
+   - `HeishaMon/src/control/core/ctl_controller.c`: `ctl_evaluate` is split into small static functions, one per branch: `decide`, `decide_without_inputs`, `decide_normal`, `refuse_invalid_time`, `describe_state` and `clear_inputs`. Every expression keeps the Python operand order. For example, `raw = energy_wh + p_net_w * hours` with `hours = dt / 3600.0`, and `integrated_s + dt`.
+   - `tests/control/test_controller.c`: 14 test functions that cover criteria 1–14. Criteria 2 and 6 are table tests. A field-by-field `check_same_state` covers "every field as it was". It uses the shared `check.h` helper unchanged. I saw the tests fail first, at link time. As a mutation check I swapped advance and set in `ctl_observe`; criterion 7's check then failed, and I restored the code.
+   - `docs/control/core.md`: a new "Controller" section with the state's fields, the four functions and what each refuses, a phase table (from, condition, to, demand, reason), and the order of calls a host makes.
+   - `docs/control/decisions.md`: entries for the differences from the Python reference that the story lists (state changed in place, flags instead of `None`, three arguments to `ctl_observe`, no pointer or signal checks, the parts not ported). It also has the decisions below, and a note that no criterion disagreed with the Python source.
+
+   Decisions where the story left things open:
+   - `ctl_state_init` sets `t_last` and `t_healthy` to 0.0 while their flags are false, so the struct is fully defined. This matches the earlier decision for `ctl_signals_init`.
+   - When `has_inputs` is false, `ctl_evaluate` zeroes the decision's `inputs` and `balance` rather than leaving whatever the caller's struct held.
+   - The decision's demand is the state's demand after the step in every case except `WAITING_FOR_INPUTS`, which emits `NONE` explicitly, as Python does. I did this instead of having `decide` return the demand separately.
+   - `ctl_set_allowed` with a NaN `t` still applies the mask, because Python does the same: `advance_to` refuses and `set_allowed` carries on. The docs say so.
+
+   Rejected:
+   - `memcmp` to compare states in the tests: padding makes it unreliable.
+   - A `ctl_reading` struct: the story decided against it.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+   - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+   - The final `make check` ended with `check: green`.
+
+   Noticed, not touched: `make test` prints compiler warnings from upstream's rules harness (`rules.cpp:4640` "maybe-uninitialized", `settimer.cpp:24-25` unused variables) on stderr. They are upstream's files.
+
+   `check`: check: green
+4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md) against the story and `docs/control/python-reference/controller.py`. The port follows the Python source branch for branch and keeps its operand order (`raw = energy_wh + p_net_w * hours`, `hours = dt / 3600.0`, `integrated_s + dt`, `t - t_healthy`). The emitted demand matches in every branch, and so does the `set_allowed` behaviour with a NaN `t`. Criteria 1–14 each have a test that checks what the criterion says. The boundaries of `max_step_s`, `input_hold_s`, the observe age check and `dt <= 0` are each tested on both sides. Architecture holds: only own-folder headers and `math.h`/`stdbool.h`/`stdint.h` are included, there is no dynamic memory, recursion or unbounded loop, public names use `ctl_`, and helpers are `static`. Every claim in the docs that I checked is in the code: the field table, the refusals, the phase table, and the defaults 10 s, 60 s, 300 s and 900 s. The factory's `make check` after the builder was green.
+
+   Findings. All four are gaps in the story: an Interface rule whose failing side no criterion covers, so no test covers it either. The code itself is correct on each of them.
+
+   1. `HeishaMon/src/control/core/ctl_controller.c` `decide_without_inputs`, story criterion 14: nothing tests the `phase != FAULT` part of the hold condition. At 1300.0, `t - t_healthy` is already 1000.0 > 900.0, so deleting `state->phase != CTL_PHASE_FAULT` passes every test. Fix: add a criterion and test where the state is `FAULT` with `t - t_healthy <= input_hold_s` and the signals do not resolve, expecting `FAULT_TIMEOUT` and phase `FAULT`. Such a state can be arranged directly, or reached by evaluating at an earlier `t` after the fault.
+   2. `ctl_controller.c` `seconds_since_healthy`, the story's "or infinite without a `t_healthy`" rule: no test covers it. Treating a missing `t_healthy` as 0.0 would pass. Fix: add a criterion and test with phase `RUNNING`, `has_t_healthy` false, signals not resolved and `t` ≤ 900.0, expecting `FAULT_TIMEOUT`.
+   3. `ctl_controller.c` `decide` (FAULT branch) and `ctl_set_allowed`: no test covers "`clamped` stays as it was" or "it does not touch `clamped`" with `clamped` true. Criterion 9 checks only `false` → `false`, and criterion 14 never checks `clamped`, so code that resets `clamped` to false passes. Fix: add a criterion and test with `clamped` true before a `FAULT_RECOVERED` evaluate and before a mask change, expecting it to stay true.
+   4. `ctl_controller.c` `ctl_set_allowed`: two failing sides are untested. First, "clamps only when the mask differs": nothing tests an unchanged mask with the energy outside its bounds, where the energy must stay put. Second, "advance first": with a changed mask and an integrating interval, storing the mask before the advance would integrate against the new bounds and set `clamped`, and no test catches that. Fix: add criteria and tests for both cases.
+
+   Earlier tests: the diff adds `tests/control/test_controller.c` (status A) and changes, renames or deletes no test file that `develop` already holds.
+
+   Notes: none.
+6. factory: started doing as heishamon.
+7. builder: Round 1: addressed the reviewer's four findings. Each was a test gap; the code was already correct on all four. `HeishaMon/src/control/core/ctl_controller.c` and the docs are unchanged.
+
+   What I changed:
+   - `tests/control/test_controller.c`: six new test functions.
+     - Finding 1: `test_evaluate_fault_does_not_hold`. The state is seeded, the phase is set to `FAULT`, and the evaluate runs at 700.0, which is 400.0 after `t_healthy`. Expected: `FAULT_TIMEOUT` and phase `FAULT`.
+     - Finding 2: `test_evaluate_without_t_healthy_faults`. A fresh state is set to `RUNNING`/`HEATING` with no `t_healthy`, and the evaluate runs at 100.0. Expected: `FAULT_TIMEOUT`.
+     - Finding 3: `test_evaluate_fault_recovery_keeps_clamped` (`clamped` true before `FAULT_RECOVERED` stays true in the state and the decision) and `test_set_allowed_keeps_clamped` (a mask change with `clamped` true).
+     - Finding 4: `test_set_allowed_unchanged_mask_keeps_energy` (an unchanged mask leaves -2000.0 outside the cooling bounds as it is) and `test_set_allowed_advances_before_the_new_mask`. In that second test the energy is -1400.0 and the call sets `COOLING` at 300.0. Integrating within the old bounds gives about -1627.9, unclamped, and the new mask then clamps it to -1500.0 with `clamped` false. If the mask were stored first, the integration would clamp and set `clamped` true.
+   - The work item's Description: the reviewer asked for criteria, so I added them as 15–18, one per finding, before the two closing criteria. The closing ones are now 19 (`make check`) and 20 (docs).
+
+   Mutation checks: I applied each mutation to a copy of the code and restored it after each run. Every one made a new test fail:
+   - dropping `phase != FAULT` from the hold condition
+   - treating a missing `t_healthy` as 0
+   - resetting `clamped` on `FAULT_RECOVERED`
+   - resetting `clamped` in `ctl_set_allowed`
+   - clamping even when the mask is unchanged
+   - storing the mask before the advance
+
+   Docs: `docs/control/core.md` already describes all four behaviours in the phase table and the `ctl_set_allowed` paragraph, so it stays as it is. None of the new criteria disagrees with `controller.py`, so the decisions.md entry saying no criterion disagreed still holds.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+   - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+   - The final `make check` ended with `check: green`.
+
+   Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported in round 0.
+
+   The factory left out changes outside the write paths: factory/features/F0001-control-core/in-progress/F0001-S0003-controller.md.
+
+   `check`: check: green
+8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md), compared with `docs/control/python-reference/controller.py`. I re-read the whole diff, not just the round-1 changes.
+
+   The four findings from round 0 are closed. Each new test fails under the mutation it targets:
+   - `test_evaluate_fault_does_not_hold`: at 700.0, 400 s after `t_healthy`, it would HOLD without the FAULT guard.
+   - `test_evaluate_without_t_healthy_faults`: at 100.0 it would HOLD if a missing `t_healthy` counted as 0.
+   - `test_evaluate_fault_recovery_keeps_clamped` and `test_set_allowed_keeps_clamped`: they catch a reset of `clamped`.
+   - `test_set_allowed_unchanged_mask_keeps_energy`: it catches a clamp on an unchanged mask.
+   - `test_set_allowed_advances_before_the_new_mask`: storing the mask first would integrate -1627.9 against the cooling bounds and set `clamped`.
+
+   The code still follows the Python source branch for branch and keeps its operand order. The factory's `make check` after the builder was green.
+
+   Everything else passed:
+   - Architecture: the core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`; public names use `ctl_`/`CTL_`; helpers are `static`.
+   - Embedded safety: no dynamic memory, no recursion, no unbounded loop; `ctl_observe` and `ctl_evaluate` check `isfinite`.
+   - Docs: the defaults 10/60/300/900 s, the refusal tables and the phase table all match the code.
+
+   Findings:
+
+   1. `ctl_controller.c` `decide_normal` (`state->phase = CTL_PHASE_RUNNING`): no test covers the move from HOLD back to RUNNING when the signals resolve again, a row of the phase table. Every NORMAL or MASKED test starts from a seeded state that is already RUNNING, so deleting that assignment passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test where the state reaches HOLD (as at 700.0 in criterion 14), fresh readings are observed, and the next evaluate gives NORMAL with phase RUNNING.
+   2. `ctl_controller.c` `decide_normal` (`mark_healthy(state, t)`): no test covers the rule "`t_healthy` becomes `t`" for NORMAL or MASKED. Every such evaluate runs at 300.0, where `t_healthy` is already 300.0, so deleting the call passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test that evaluate the seeded state at a later instant with fresh readings and expect `t_healthy` to be that instant, for NORMAL and for MASKED.
+   3. `ctl_controller.c` `ctl_evaluate` (the `WAITING_FOR_INPUTS ? CTL_DEMAND_NONE : state->demand` ternary): two rules are tested only with the state's demand NONE. One is "UNINITIALIZED, not resolved: demand NONE, state unchanged"; the other is "SEEDED carries the state's demand". With demand NONE, replacing the ternary by `state->demand`, or emitting NONE on SEEDED, passes every test. This is a gap in the story: no criterion covers it. Fix: add a criterion and a test where the state is UNINITIALIZED with demand set to HEATING. Without readings, evaluate must give NONE with `WAITING_FOR_INPUTS` and leave the demand, the phase and `has_t_healthy` as they were. After the three readings, it must give HEATING with `SEEDED`.
+   4. Work item `## Description` against journal entry 7: the entry says criteria 15–18 were added before the closing ones. The factory dropped that edit because the work item is outside the builder's write paths, so the Description still ends at criterion 16. The six round-1 tests, and the tests that findings 1–3 ask for, therefore have no criterion. Fix: the human adds the criteria for round 0's findings 1–4 and for findings 1–3 above to the Description. The builder's next entry corrects the claim and does not try that edit again.
+
+   Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+   Notes:
+   - `tests/control/test_controller.c:5`: the test calls no function from `core/ctl_relay.h`, so that include is unused.
+10. factory: started doing as heishamon.
+11. builder: Round 2: closed the reviewer's findings 1–3 from entry 9 with tests, and answered finding 4 here. All three were test gaps; the code was already correct on each. I changed only `tests/control/test_controller.c`. `HeishaMon/src/control/core/ctl_controller.c` and the docs stay as they were.
+
+    What I built, in `tests/control/test_controller.c`, four new test functions:
+    - Finding 1: `test_evaluate_hold_returns_to_running`. The seeded state with `HEATING` at -500.0 goes to HOLD at 700.0. The three readings are then observed at 700.0, and the evaluate at 700.0 gives `HEATING`, `NORMAL` and phase `RUNNING` in both the decision and the state, with `t_healthy` 700.0.
+    - Finding 2: `test_evaluate_normal_marks_healthy` and `test_evaluate_masked_marks_healthy`. Each takes the seeded state (with the `COOLING`|`NONE` mask and -1500.0 for the masked case), observes fresh readings at 500.0 and evaluates at 500.0. They expect `NORMAL` or `MASKED`, and `t_healthy` 500.0.
+    - Finding 3: `test_evaluate_uninitialized_with_demand`. A fresh state is given demand `HEATING`. Evaluating at 0.0 gives `NONE` and `WAITING_FOR_INPUTS`, and leaves the state's demand `HEATING`, the phase `UNINITIALIZED` and `has_t_healthy` false. After the three readings at 0.0, evaluating at 300.0 gives `HEATING` and `SEEDED`.
+
+    Mutation checks. I applied each mutation to the code, ran `make test`, then restored the file from a copy (`git diff` on the code is empty afterwards). Every mutation made a new test fail:
+    - deleting `state->phase = CTL_PHASE_RUNNING` in `decide_normal`: 2 failures
+    - replacing `mark_healthy(state, t)` in `decide_normal` with a no-op: 3 failures, at lines 591, 606 and 623
+    - emitting `state->demand` on `WAITING_FOR_INPUTS`: 1 failure
+    - emitting `NONE` on `SEEDED`: 2 failures
+
+    Finding 4, correction to entry 7: entry 7 claimed I added criteria 15–18 to the Description. That edit was outside my write paths, and the factory dropped it. The Description still ends at criterion 16. I did not try the edit again. The tests from round 1 and from this round therefore have no criterion of their own. Per the reviewer's fix, the human needs to add criteria to the Description for:
+    - round 0's four findings: FAULT does not hold within `input_hold_s`; a missing `t_healthy` counts as infinite; `clamped` is kept on `FAULT_RECOVERED` and on a mask change; `ctl_set_allowed` keeps the energy when the mask is unchanged and advances before it stores a new mask
+    - entry 9's three findings: HOLD returns to RUNNING on fresh inputs; NORMAL and MASKED set `t_healthy`; WAITING emits `NONE` whatever the demand, and SEEDED keeps the state's demand
+
+    Rejected: the reviewer's note that `#include "core/ctl_relay.h"` is unused in the test. I removed it, and the test stopped compiling, because `CTL_DEMAND_BIT` and `CTL_DEMAND_ALL` are declared in that header. I put the include back.
+
+    Decisions: none new. None of the new tests disagrees with `controller.py`, so the decisions.md entry that says no criterion disagreed still holds.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported earlier.
+
+    `check`: check: green
+12. factory: started review as heishamon.
+13. reviewer: Round 2 review of `git diff develop...HEAD -- . ':!factory'` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md). I compared it with `docs/control/python-reference/controller.py` and re-read the whole diff, not just the round-2 changes.
+
+    The three code findings from round 1 are closed:
+    - `test_evaluate_hold_returns_to_running` covers HOLD → RUNNING.
+    - `test_evaluate_normal_marks_healthy` and `test_evaluate_masked_marks_healthy` cover the move of `t_healthy` at 500.0.
+    - `test_evaluate_uninitialized_with_demand` covers WAITING emitting NONE whatever the demand, and SEEDED carrying the state's demand.
+
+    The builder was right to keep `#include "core/ctl_relay.h"`, because `CTL_DEMAND_BIT` and `CTL_DEMAND_ALL` are declared there. The code still follows the Python source branch for branch, with its operand order. The factory's `make check` after the builder was green.
+
+    Everything else passed:
+    - Architecture: the core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`; `ctl_`/`CTL_` names; `static` helpers; no file outside the three folders.
+    - Embedded safety: no dynamic memory, no recursion, loops bounded by `CTL_SIGNAL_COUNT`, `isfinite` on outside values.
+    - Docs: core.md's field table, refusal tables, phase table and defaults (10/60/300/900 s, max age 600 s) match the code.
+    - decisions.md lists the story's differences from the Python reference.
+
+    I traced every `ctl_advance` and `ctl_evaluate` call in the test file by hand to find mutations that no test catches. Each finding below is an Interface rule whose failing side no criterion covers, so it is also a gap in the story.
+
+    Findings:
+
+    1. `ctl_controller.c` `ctl_advance`, `ctl_signals_resolve(&state->signals, state->t_last, ...)`: no test covers the rule "it resolves the signals at `t_last`, the start of the interval". Every interval the tests integrate is either fresh at both ends (0→300, 300→600, 300→500) or skipped for another reason (dt > `max_step_s`, or stale at both ends), so resolving at `t` instead passes every test. Fix: add a test with the three readings at 0.0 and `t_last` at 500.0 (arranged, or reached through advances). Advancing to 700.0 must integrate (true, 200.0, `integrated_s` grows, `skipped_s` unchanged), because the readings are fresh at 500.0 although they are stale (age 700 > 600) at 700.0.
+    2. `ctl_controller.c` `ctl_evaluate`, `ctl_signals_resolve(&state->signals, t, ...)` and `ctl_signals_unhealthy(..., t, ...)`: no test covers the rule "then resolves the signals at `t`" for an evaluate at a `t` before `t_last`. Every evaluate in the tests runs at or after `t_last`, where `ctl_advance` leaves `t_last == t`, so resolving at `state->t_last` passes every test. Fix: add a test where a seeded state has the readings at 0.0 and `t_last` at 700.0 (for example after `ctl_advance` to 700.0), then `ctl_evaluate` at 500.0. The expected decision is NORMAL with `has_inputs` true, `unhealthy` 0 and `dt_s` 0.0, and the state's `t_last` stays 700.0.
+    3. `ctl_controller.c` `ctl_observe`, `state->signals.observed[signal] && t < state->signals.t[signal]`: no test covers the side "when the table holds no reading for the signal, no age refuses it". Every first reading in the tests is at t ≥ 0.0, and the stored instant of an unobserved signal is 0.0, so dropping the `observed` check passes every test. Fix: add a row or test that observes a never-held signal at a negative instant (for example `T_INDOOR` 21.0 at -10.0 on a fresh state) and expects it stored with `observed` true.
+    4. Work item `## Description` (for the human, not the builder): the Description still ends at criterion 16. These rules have tests but no criterion:
+       - round 0's four findings
+       - round 1's three findings
+       - findings 1–3 above, once tested
+
+       The human adds those criteria before the two closing ones. The builder's next entry should list the new tests for findings 1–3 so the human can word the criteria.
+
+    Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes: none.
+14. factory: started doing as heishamon.
+15. builder: Round 3: closed the reviewer's findings 1–3 from entry 13 with tests. All three were test gaps, and the code was already correct on each. The only file I changed is `tests/control/test_controller.c`. `HeishaMon/src/control/core/ctl_controller.c`, the header and the docs are unchanged.
+
+    What I built: three new test functions in `tests/control/test_controller.c`.
+    - Finding 1, `test_advance_resolves_at_interval_start`: the three readings are at 0.0 and `t_last` is arranged at 500.0. `ctl_advance` to 700.0 returns true with 200.0, `t_last` becomes 700.0, `integrated_s` becomes 200.0 and `skipped_s` stays 0.0. The readings are fresh at 500.0 (age 500 ≤ 600) and stale at 700.0.
+    - Finding 2, `test_evaluate_before_reference`: the seeded state is advanced to 700.0. That interval is skipped because dt 400 > `max_step_s`, so `t_last` becomes 700.0. `ctl_evaluate` at 500.0 then gives `NORMAL`, `has_inputs` true, `unhealthy` 0 and `dt_s` 0.0, and the state's `t_last` stays 700.0.
+    - Finding 3, `test_observe_first_reading_at_negative_instant`: on a fresh state, `T_INDOOR` 21.0 at -10.0 is stored, with `observed` true, value 21.0 and instant -10.0.
+
+    Mutation checks. I applied each mutation to the code, ran `make test`, and restored the file from a copy. `git diff` on the code is empty afterwards. Each mutation made the new test fail:
+    - Resolving at `t` instead of `t_last` in `ctl_advance` fails 3 checks, at lines 660, 663 and 664.
+    - Resolving and computing `unhealthy` at `state->t_last` instead of `t` in `ctl_evaluate` fails at lines 694, 695 and 696. The 0x7 at 696 also catches the `unhealthy` call alone.
+    - Dropping the `observed` check in `ctl_observe` fails at lines 676, 677 and 678.
+
+    Finding 4, for the human: the Description still ends at criterion 16. These rules have tests but no criterion:
+    - Round 0 (entry 5):
+      - FAULT does not hold within `input_hold_s`.
+      - A missing `t_healthy` counts as infinite.
+      - `clamped` is kept on `FAULT_RECOVERED` and on a mask change.
+      - `ctl_set_allowed` keeps the energy when the mask is unchanged, and it advances before it stores a new mask.
+    - Round 1 (entry 9):
+      - HOLD returns to RUNNING on fresh inputs.
+      - NORMAL and MASKED set `t_healthy`.
+      - WAITING emits `NONE` whatever the demand, and SEEDED keeps the state's demand.
+    - Round 2 (entry 13), with this round's tests:
+      - `ctl_advance` resolves at the interval's start: `test_advance_resolves_at_interval_start`.
+      - `ctl_evaluate` resolves at `t` even when `t` is before `t_last`: `test_evaluate_before_reference`.
+      - A first reading of a signal is taken at any finite instant, even a negative one: `test_observe_first_reading_at_negative_instant`.
+
+    I did not edit the Description, because it is outside my write paths.
+
+    Decisions: none new. None of the new tests disagrees with `controller.py`, so the decisions.md entry saying no criterion disagreed still holds.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported earlier.
+
+    `check`: check: green
+16. factory: started review as heishamon.
+17. reviewer: Round 3 review of `git diff develop...HEAD -- . ':!factory'`: ctl_controller.h/.c, test_controller.c, core.md and decisions.md. I compared the diff with `docs/control/python-reference/controller.py` and with `Decision` in `types.py`, and re-read the whole diff, not just this round's changes.
+
+    The three findings from round 2 are closed:
+    - `test_advance_resolves_at_interval_start` fails if the signals are resolved at `t`.
+    - `test_evaluate_before_reference` fails if evaluate resolves, or computes `unhealthy`, at `t_last`.
+    - `test_observe_first_reading_at_negative_instant` fails if the `observed` guard is dropped.
+
+    The code still follows the Python source branch for branch, including the operand order, the emitted demand in each branch and the INVALID_TIME decision. The factory's `make check` after the builder was green.
+
+    - Architecture holds: includes are limited to the core's own headers plus `math.h`, `stdbool.h` and `stdint.h`; names use `ctl_`/`CTL_`; helpers are `static`; no file outside the three folders changed.
+    - Embedded safety holds: no dynamic memory or recursion, loops are bounded by `CTL_SIGNAL_COUNT`, and outside values are checked with `isfinite`.
+    - Docs: the core.md defaults (10/60/300/900 s, max age 600 s) match `ctl_config.c`, apart from finding 2.
+
+    Findings:
+
+    1. `ctl_controller.c` `integrate` (`state->integrated_s = state->integrated_s + dt`) and `ctl_advance` (`state->skipped_s = state->skipped_s + dt`): the Interface rules "integrated_s grows by dt" and "adds dt to skipped_s" are only tested from 0.0, so `= dt` in either place passes every test. Every checked integration or skip starts with the counter at 0.0 (criteria 3, 4, 11, the 700.0 step of 14, and the round-1/3 tests); counters after a second step are never checked (the 1200.0 step of criterion 14, the 300→600 step of criterion 5, the 300→500 step of `test_evaluate_normal_marks_healthy`). No criterion covers this, so it is also a gap in the story. Fix: check `integrated_s` 600.0 after the second step of the criterion 5 test, and `skipped_s` 900.0 after the evaluate at 1200.0 in the criterion 14 test (700→1200 is skipped because the readings are 700 s old at 700.0).
+    2. `docs/control/core.md`, Controller section: two claims are false for `WAITING_FOR_INPUTS` with a demand other than NONE, which is exactly the case `test_evaluate_uninitialized_with_demand` pins. The field table says `demand` is "The demand last emitted". The paragraph under the phase table says "The demand a decision carries is stored as the state's demand". The code's own comment on `decide` says every reason except `WAITING_FOR_INPUTS` emits the state's demand. Fix: limit both sentences to every reason except `WAITING_FOR_INPUTS`, whose decision carries NONE and leaves the state's demand as it is.
+    3. Work item `## Description`, for the human, since the builder cannot write it: it still ends at criterion 16. The rules tested in rounds 1–3 have tests but no criterion. Entry 15 lists them with their test names. Finding 1 above adds one more. Fix: the human adds those criteria before the two closing ones.
+
+    Earlier tests: the diff adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without `(void)`, unlike the code's own calls.
+18. factory: This work item has now been sent back 4 times, more than 3. What should happen? Answer with a comment, which starts the count of rounds over; close the pull request to discard the work item.
+19. 2026-11-11 human: Carry on with one more round.
+
+    Builder: fix findings 1 and 2 of entry 17 (check both counters after a second step; correct the two sentences in `core.md`). Nothing else.
+
+    Finding 3: I add no criteria. The rules the three rounds tested stay as tests; the list in entry 15 is the record.
+
+    Reviewer: the code follows the Python source branch for branch, as your entries say, and the next story replays 332,239 recorded calls through it and compares the energy, both counters, the clamp flag and every decision on every line. So from this round on, a rule that has no test of its own is a note, not a finding, when the code handles it as the Python source does. A finding is code that disagrees with the Python source or with `CLAUDE.md`, or a false sentence in a document.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
+20. factory: started review as heishamon.
+21. reviewer: Round 0 review (after the human's answer in entry 19) of `git diff develop...HEAD -- . ':!factory'`. I compared it with `docs/control/python-reference/controller.py`. No builder run came between entry 19 and this review, and the diff is the same one entry 17 reviewed. So the two fixes the human asked for are not in it yet.
+
+    The code still follows `controller.py` branch for branch:
+    - `ctl_advance` matches `advance_to`, with the same operand order for `hours`, `raw`, `integrated_s + dt` and `skipped_s + dt`.
+    - `ctl_observe` matches `observe`, including the `held is not None` guard.
+    - `ctl_set_allowed` matches `set_allowed`: it advances first, then clamps only on a changed mask.
+    - `ctl_evaluate` matches `evaluate`: the INVALID_TIME decision, the resolve and `unhealthy` at `t`, and the emitted demand in each of the four branches.
+
+    Nothing breaks the `CLAUDE.md` Architecture or embedded-safety rules. The factory's `make check` after the builder was green (entry 15).
+
+    Under the rule the human set in entry 19, rules without their own test are notes. Finding 1 below is still a finding, because the human told the builder to fix it.
+
+    Findings:
+
+    1. `tests/control/test_controller.c` `test_advance_clamps` and `test_evaluate_hold_fault_recovery`: entry 17's finding 1 is not fixed. The human ordered this fix in entry 19. Neither test checks a counter after a second step, so `= dt` in place of `+ dt` still passes. Fix:
+       - In `test_advance_clamps`, check `state.integrated_s` 600.0 after the 300→600 advance.
+       - In `test_evaluate_hold_fault_recovery`, check `skipped_s` 900.0 after the evaluate at 1200.0 (in the state or the decision).
+    2. `docs/control/core.md`, Controller section: entry 17's finding 2 is not fixed. Two sentences are false for `WAITING_FOR_INPUTS` with a demand other than NONE: that decision carries NONE, but `ctl_controller.c` leaves the state's demand as it is (`decide`, and the ternary in `ctl_evaluate`).
+       - The field table's `demand` row says "The demand last emitted, which is the relay's previous demand".
+       - The paragraph under the phase table says "The demand a decision carries is stored as the state's demand".
+
+       Fix: limit both sentences to every reason except `WAITING_FOR_INPUTS`, and say that a `WAITING_FOR_INPUTS` decision carries NONE and leaves the state's demand unchanged.
+
+    Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
+22. factory: started doing as heishamon.
+23. builder: Rework round after the human's answer (entry 19): I fixed findings 1 and 2 of entry 17 (repeated as 1 and 2 in entry 21) and changed nothing else. `HeishaMon/src/control/core/ctl_controller.c` and the header are unchanged.
+
+    What I changed:
+    - `tests/control/test_controller.c`:
+      - `test_advance_clamps` now checks `state.integrated_s` 600.0 after the 300→600 advance.
+      - `test_evaluate_hold_fault_recovery` now checks `skipped_s` 900.0 after the evaluate at 1200.0, in both the state and the decision. That is 400.0 from the step to 700.0 plus 500.0 for 700→1200.
+    - `docs/control/core.md`, Controller section:
+      - The `demand` row of the field table now reads: the relay's previous demand, which is the demand of the last decision with any reason but `WAITING_FOR_INPUTS`; a `WAITING_FOR_INPUTS` decision carries `NONE` and leaves the field as it is.
+      - The paragraph under the phase table now says the same thing: "for every reason except `WAITING_FOR_INPUTS`" the demand is stored, and a `WAITING_FOR_INPUTS` decision carries `NONE` and leaves the state's demand as it is.
+
+    Mutation checks: I applied each change to a copy of the code, ran the tests, and restored the code afterwards (`git diff` on the code is empty).
+    - `integrated_s = dt` instead of `+ dt`: the new check fails at line 215 (got 300, expected 600).
+    - `skipped_s = dt` instead of `+ dt`: the new checks fail at lines 507 and 508 (got 500, expected 900).
+
+    Not done: the reviewer's note about the `(void)` cast in `test_evaluate_before_reference`. The human asked for findings 1 and 2 and nothing else.
+
+    Decisions: none new. `docs/control/decisions.md` is unchanged.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`.
+
+    `check`: check: green
+24. factory: started review as heishamon.
+25. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'`, which covers ctl_controller.h/.c, test_controller.c, core.md and decisions.md. I compared it with `docs/control/python-reference/controller.py` and applied the rule the human set in entry 19. I re-read the whole diff, not only this round's changes.
+
+    The two fixes the human ordered are in:
+    - `test_advance_clamps` now checks `state.integrated_s` 600.0 after the 300→600 advance.
+    - `test_evaluate_hold_fault_recovery` now checks `skipped_s` 900.0 after the evaluate at 1200.0, in both the state and the decision.
+    - In `docs/control/core.md`, the `demand` row of the field table and the paragraph under the phase table now exclude `WAITING_FOR_INPUTS`. Both say that its decision carries `NONE` and leaves the state's demand as it is, which is what `decide` and the ternary in `ctl_evaluate` do.
+
+    Checklist:
+    1. Acceptance criteria: criteria 1–14 each have a test that checks what the criterion says. The factory's `make check` after the builder was green (entry 23).
+       - The code follows `controller.py` branch for branch:
+         - `ctl_advance` matches `advance_to`, with the same operand order for `hours`, `raw`, `integrated_s + dt` and `skipped_s + dt`, and it resolves at `t_last`.
+         - `ctl_observe` matches `observe`, including the `held is not None` guard.
+         - `ctl_set_allowed` advances first and clamps only when the mask changes.
+         - `ctl_evaluate` matches `evaluate`: the INVALID_TIME decision, the resolve and `unhealthy` at `t`, and the emitted demand in each of the four branches.
+       - Under entry 19, no rule without its own test counts as a finding, because each such rule is handled as the Python source handles it.
+    2. Architecture: the core includes only its own headers plus `math.h`, `stdbool.h` and `stdint.h`. Public names use `ctl_`/`CTL_`, helpers are `static`, numbers are `double`, and no file outside the three folders changed.
+    3. Embedded safety: there is no dynamic memory and no recursion. The loops are bounded by `CTL_SIGNAL_COUNT`, and outside values are checked with `isfinite`.
+    4. Quality: functions are small and do one thing, there is no dead code, and the comments explain why.
+    5. Hygiene: the claims in core.md and decisions.md match the code. These include the field table, the refusal tables, the phase table, the `set_allowed` behaviour with a NaN `t`, and the record that no criterion disagreed with the Python source. Per entry 19, the Description deliberately has no criteria for the extra tested rules; entry 15's list is the record.
+    6. Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    no findings
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
+    - `docs/control/core.md`, the paragraph under the phase table: the reflowed line that ends "so it restarts from 0;" is longer than the rest of the document's wrapped lines.
