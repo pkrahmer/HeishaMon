@@ -568,6 +568,85 @@ static void test_evaluate_fault_recovery_keeps_clamped(void)
     CHECK_TRUE(decision.clamped);
 }
 
+/* Fresh inputs after a hold bring the controller back to normal running. */
+static void test_evaluate_hold_returns_to_running(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    state.demand = CTL_DEMAND_HEATING;
+    state.energy_wh = -500.0;
+    ctl_evaluate(&state, 700.0, &config, &decision);
+    check_held(&state, &decision);
+
+    observe_three_readings(&state, 700.0, &config);
+    ctl_evaluate(&state, 700.0, &config, &decision);
+    CHECK_TEXT(ctl_demand_name(decision.demand), "HEATING");
+    CHECK_TEXT(ctl_reason_name(decision.reason), "NORMAL");
+    CHECK_TEXT(ctl_phase_name(decision.phase), "RUNNING");
+    CHECK_TEXT(ctl_phase_name(state.phase), "RUNNING");
+    CHECK_DOUBLE(state.t_healthy, 700.0);
+}
+
+static void test_evaluate_normal_marks_healthy(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    observe_three_readings(&state, 500.0, &config);
+    ctl_evaluate(&state, 500.0, &config, &decision);
+    CHECK_TEXT(ctl_reason_name(decision.reason), "NORMAL");
+    CHECK_TRUE(state.has_t_healthy);
+    CHECK_DOUBLE(state.t_healthy, 500.0);
+}
+
+static void test_evaluate_masked_marks_healthy(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    state.allowed =
+        (uint8_t)(CTL_DEMAND_BIT(CTL_DEMAND_COOLING) | CTL_DEMAND_BIT(CTL_DEMAND_NONE));
+    state.energy_wh = -1500.0;
+    observe_three_readings(&state, 500.0, &config);
+    ctl_evaluate(&state, 500.0, &config, &decision);
+    CHECK_TEXT(ctl_reason_name(decision.reason), "MASKED");
+    CHECK_DOUBLE(state.t_healthy, 500.0);
+}
+
+/* Waiting emits no demand whatever the state holds; seeding keeps the state's. */
+static void test_evaluate_uninitialized_with_demand(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    ctl_state_init(&state);
+    state.demand = CTL_DEMAND_HEATING;
+    ctl_evaluate(&state, 0.0, &config, &decision);
+    CHECK_TEXT(ctl_demand_name(decision.demand), "NO_DEMAND");
+    CHECK_TEXT(ctl_reason_name(decision.reason), "WAITING_FOR_INPUTS");
+    CHECK_TEXT(ctl_demand_name(state.demand), "HEATING");
+    CHECK_TEXT(ctl_phase_name(state.phase), "UNINITIALIZED");
+    CHECK_TRUE(!state.has_t_healthy);
+
+    observe_three_readings(&state, 0.0, &config);
+    ctl_evaluate(&state, 300.0, &config, &decision);
+    CHECK_TEXT(ctl_demand_name(decision.demand), "HEATING");
+    CHECK_TEXT(ctl_reason_name(decision.reason), "SEEDED");
+    CHECK_TEXT(ctl_demand_name(state.demand), "HEATING");
+}
+
 int main(void)
 {
     test_state_init();
@@ -590,5 +669,9 @@ int main(void)
     test_evaluate_fault_does_not_hold();
     test_evaluate_without_t_healthy_faults();
     test_evaluate_fault_recovery_keeps_clamped();
+    test_evaluate_hold_returns_to_running();
+    test_evaluate_normal_marks_healthy();
+    test_evaluate_masked_marks_healthy();
+    test_evaluate_uninitialized_with_demand();
     return check_result();
 }

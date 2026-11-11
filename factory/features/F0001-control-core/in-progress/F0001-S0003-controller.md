@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:11:18.047076Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,12 @@ journal:
   kind: started
   at: '2026-11-11T20:11:18.047076Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:13:15.502260Z'
+  stage: doing
+  run: 8189f6c3a7844806befafb6ba47b0788
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -309,3 +311,32 @@ Expect: `control: 6 test programs passed`
    Notes:
    - `tests/control/test_controller.c:5`: the test calls no function from `core/ctl_relay.h`, so that include is unused.
 10. factory: started doing as heishamon.
+11. builder: Round 2: closed the reviewer's findings 1–3 from entry 9 with tests, and answered finding 4 here. All three were test gaps; the code was already correct on each. I changed only `tests/control/test_controller.c`. `HeishaMon/src/control/core/ctl_controller.c` and the docs stay as they were.
+
+    What I built, in `tests/control/test_controller.c`, four new test functions:
+    - Finding 1: `test_evaluate_hold_returns_to_running`. The seeded state with `HEATING` at -500.0 goes to HOLD at 700.0. The three readings are then observed at 700.0, and the evaluate at 700.0 gives `HEATING`, `NORMAL` and phase `RUNNING` in both the decision and the state, with `t_healthy` 700.0.
+    - Finding 2: `test_evaluate_normal_marks_healthy` and `test_evaluate_masked_marks_healthy`. Each takes the seeded state (with the `COOLING`|`NONE` mask and -1500.0 for the masked case), observes fresh readings at 500.0 and evaluates at 500.0. They expect `NORMAL` or `MASKED`, and `t_healthy` 500.0.
+    - Finding 3: `test_evaluate_uninitialized_with_demand`. A fresh state is given demand `HEATING`. Evaluating at 0.0 gives `NONE` and `WAITING_FOR_INPUTS`, and leaves the state's demand `HEATING`, the phase `UNINITIALIZED` and `has_t_healthy` false. After the three readings at 0.0, evaluating at 300.0 gives `HEATING` and `SEEDED`.
+
+    Mutation checks. I applied each mutation to the code, ran `make test`, then restored the file from a copy (`git diff` on the code is empty afterwards). Every mutation made a new test fail:
+    - deleting `state->phase = CTL_PHASE_RUNNING` in `decide_normal`: 2 failures
+    - replacing `mark_healthy(state, t)` in `decide_normal` with a no-op: 3 failures, at lines 591, 606 and 623
+    - emitting `state->demand` on `WAITING_FOR_INPUTS`: 1 failure
+    - emitting `NONE` on `SEEDED`: 2 failures
+
+    Finding 4, correction to entry 7: entry 7 claimed I added criteria 15–18 to the Description. That edit was outside my write paths, and the factory dropped it. The Description still ends at criterion 16. I did not try the edit again. The tests from round 1 and from this round therefore have no criterion of their own. Per the reviewer's fix, the human needs to add criteria to the Description for:
+    - round 0's four findings: FAULT does not hold within `input_hold_s`; a missing `t_healthy` counts as infinite; `clamped` is kept on `FAULT_RECOVERED` and on a mask change; `ctl_set_allowed` keeps the energy when the mask is unchanged and advances before it stores a new mask
+    - entry 9's three findings: HOLD returns to RUNNING on fresh inputs; NORMAL and MASKED set `t_healthy`; WAITING emits `NONE` whatever the demand, and SEEDED keeps the state's demand
+
+    Rejected: the reviewer's note that `#include "core/ctl_relay.h"` is unused in the test. I removed it, and the test stopped compiling, because `CTL_DEMAND_BIT` and `CTL_DEMAND_ALL` are declared in that header. I put the include back.
+
+    Decisions: none new. None of the new tests disagrees with `controller.py`, so the decisions.md entry that says no criterion disagreed still holds.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported earlier.
+
+    `check`: check: green
