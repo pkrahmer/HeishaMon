@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:53:46.810045Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T22:53:39.483238Z'
   stage: doing
   run: 1d20c21a855a4802803114d66db08bef
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:53:46.810045Z'
+  stage: review
 ---
 
 # The room average
@@ -231,3 +240,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0002-room-average.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
