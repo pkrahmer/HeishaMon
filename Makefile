@@ -86,6 +86,11 @@ test:
 	  gcc $(CFLAGS) -I$(CONTROL) $(DEVICE)/host_server.c $$sources -lm -o "$$build/host_server"
 	  python3 $(DEVICE)/replay.py --command "$$build/host_server" "$$CTL_TRACES/edge_cases.trace" "$$CTL_TRACES/flaky_transport.trace"
 	fi
+	# The device tools' own tests: each tests/control/device/test_*.py, run from the root, finds the
+	# control code's sources in CTL_SOURCES and a scratch folder in CTL_BUILD.
+	for script in $$(find $(DEVICE) -maxdepth 1 -name 'test_*.py' 2>/dev/null | sort); do
+	  CTL_SOURCES="$$sources" CTL_BUILD="$$build" python3 "$$script"
+	done
 	$(green)
 
 # Every device sketch (a folder under tests/control/device/ that holds a .ino of its own name),
