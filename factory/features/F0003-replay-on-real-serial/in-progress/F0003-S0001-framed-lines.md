@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 9
 comments_read: [6808172827]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T22:06:43.998146Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -74,6 +78,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-11T22:06:41.609964Z'
+  stage: doing
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:06:43.998146Z'
   stage: doing
 ---
 
@@ -373,3 +382,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
+13. factory: started doing as heishamon.
