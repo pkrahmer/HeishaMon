@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T19:58:07.212016Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -69,6 +73,11 @@ journal:
   at: '2026-11-11T19:58:00.722789Z'
   stage: doing
   run: 8e21a5caa55047ec98ebf894b4ad5abe
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:58:07.212016Z'
+  stage: review
 ---
 
 # The signal table, the energy balance and the relay
@@ -343,3 +352,4 @@ Expect: `control: 5 test programs passed`
     Open: nothing.
 
     `check`: check: green
+12. factory: started review as heishamon.
