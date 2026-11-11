@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T21:48:18.039012Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T21:48:07.762844Z'
   stage: review
   run: 5192efe8a9cd40198875f7f92c1eb7b6
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:48:18.039012Z'
+  stage: doing
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -222,3 +231,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
    - `tests/control/device/replay/replay.ino`
 
    `tests/control/test_wire.c` is unchanged.
+6. factory: started doing as heishamon.
