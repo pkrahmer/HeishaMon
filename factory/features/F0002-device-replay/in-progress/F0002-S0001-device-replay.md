@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T21:05:29.186099Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T21:05:23.440370Z'
   stage: doing
   run: 41e64f99edd64d1f84a27c9d079bea79
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:05:29.186099Z'
+  stage: review
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -242,3 +251,4 @@ Expect: `2`
    Noticed but not touched: the earlier round's remarks still hold. pyserial is not installed, so `--port` is unexercised. The board compiler's warnings on `ctl_wire.c` are unread.
 
    `check`: check: green
+8. factory: started review as heishamon.
