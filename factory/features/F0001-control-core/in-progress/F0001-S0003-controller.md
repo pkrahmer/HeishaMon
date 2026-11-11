@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 2
+round: 3
 attempts: 0
 crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:13:21.212042Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -78,6 +74,12 @@ journal:
   kind: started
   at: '2026-11-11T20:13:21.212042Z'
   stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:14:58.451194Z'
+  stage: review
+  run: 40acf723c3044c1ab724742d6a4f7cdb
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -350,3 +352,35 @@ Expect: `control: 6 test programs passed`
 
     `check`: check: green
 12. factory: started review as heishamon.
+13. reviewer: Round 2 review of `git diff develop...HEAD -- . ':!factory'` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md). I compared it with `docs/control/python-reference/controller.py` and re-read the whole diff, not just the round-2 changes.
+
+    The three code findings from round 1 are closed:
+    - `test_evaluate_hold_returns_to_running` covers HOLD → RUNNING.
+    - `test_evaluate_normal_marks_healthy` and `test_evaluate_masked_marks_healthy` cover the move of `t_healthy` at 500.0.
+    - `test_evaluate_uninitialized_with_demand` covers WAITING emitting NONE whatever the demand, and SEEDED carrying the state's demand.
+
+    The builder was right to keep `#include "core/ctl_relay.h"`, because `CTL_DEMAND_BIT` and `CTL_DEMAND_ALL` are declared there. The code still follows the Python source branch for branch, with its operand order. The factory's `make check` after the builder was green.
+
+    Everything else passed:
+    - Architecture: the core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`; `ctl_`/`CTL_` names; `static` helpers; no file outside the three folders.
+    - Embedded safety: no dynamic memory, no recursion, loops bounded by `CTL_SIGNAL_COUNT`, `isfinite` on outside values.
+    - Docs: core.md's field table, refusal tables, phase table and defaults (10/60/300/900 s, max age 600 s) match the code.
+    - decisions.md lists the story's differences from the Python reference.
+
+    I traced every `ctl_advance` and `ctl_evaluate` call in the test file by hand to find mutations that no test catches. Each finding below is an Interface rule whose failing side no criterion covers, so it is also a gap in the story.
+
+    Findings:
+
+    1. `ctl_controller.c` `ctl_advance`, `ctl_signals_resolve(&state->signals, state->t_last, ...)`: no test covers the rule "it resolves the signals at `t_last`, the start of the interval". Every interval the tests integrate is either fresh at both ends (0→300, 300→600, 300→500) or skipped for another reason (dt > `max_step_s`, or stale at both ends), so resolving at `t` instead passes every test. Fix: add a test with the three readings at 0.0 and `t_last` at 500.0 (arranged, or reached through advances). Advancing to 700.0 must integrate (true, 200.0, `integrated_s` grows, `skipped_s` unchanged), because the readings are fresh at 500.0 although they are stale (age 700 > 600) at 700.0.
+    2. `ctl_controller.c` `ctl_evaluate`, `ctl_signals_resolve(&state->signals, t, ...)` and `ctl_signals_unhealthy(..., t, ...)`: no test covers the rule "then resolves the signals at `t`" for an evaluate at a `t` before `t_last`. Every evaluate in the tests runs at or after `t_last`, where `ctl_advance` leaves `t_last == t`, so resolving at `state->t_last` passes every test. Fix: add a test where a seeded state has the readings at 0.0 and `t_last` at 700.0 (for example after `ctl_advance` to 700.0), then `ctl_evaluate` at 500.0. The expected decision is NORMAL with `has_inputs` true, `unhealthy` 0 and `dt_s` 0.0, and the state's `t_last` stays 700.0.
+    3. `ctl_controller.c` `ctl_observe`, `state->signals.observed[signal] && t < state->signals.t[signal]`: no test covers the side "when the table holds no reading for the signal, no age refuses it". Every first reading in the tests is at t ≥ 0.0, and the stored instant of an unobserved signal is 0.0, so dropping the `observed` check passes every test. Fix: add a row or test that observes a never-held signal at a negative instant (for example `T_INDOOR` 21.0 at -10.0 on a fresh state) and expects it stored with `observed` true.
+    4. Work item `## Description` (for the human, not the builder): the Description still ends at criterion 16. These rules have tests but no criterion:
+       - round 0's four findings
+       - round 1's three findings
+       - findings 1–3 above, once tested
+
+       The human adds those criteria before the two closing ones. The builder's next entry should list the new tests for findings 1–3 so the human can word the criteria.
+
+    Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes: none.
