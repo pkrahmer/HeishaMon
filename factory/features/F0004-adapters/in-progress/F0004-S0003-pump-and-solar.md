@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 14
-comments_read: []
+comments_read: [6809683268]
 handed_over: null
 claim: null
 journal:
@@ -59,6 +59,11 @@ journal:
   stage: review
   run: 7d556b862e36440dbfc81d6e9de40470
   blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-11T23:30:08.733193Z'
+  stage: review
 ---
 
 # The pump signals and the solar gain
@@ -246,3 +251,12 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    Notes:
    - `tests/control/test_pump.c:50`: the `feed` signature is longer than 100 columns.
    - `tests/control/test_pump.c:265`: in `test_solar`, the `ctl_solar` call line is longer than 100 columns.
+10. 2026-11-11 human: The Description is corrected by this answer, which the reviewer reads as part of it:
+
+    - `ctl_pump_valve` (and `ctl_pump_defrost` alike): when the new value switches the mask (`hot_water` or `defrost`) on or off and a heat is stored, including a stored heat of 0 W, it gives `P_PRODUCED` at `t` under the new mask; a value that leaves the mask as it was gives no reading.
+    - `ctl_solar`: the product `pv * gain` must also be finite.
+
+    The code and criterion 4 were right; the bullet was mine and wrong. No change to code or tests is needed. Reviewer: the Description now matches; with no other finding, end with approval.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
