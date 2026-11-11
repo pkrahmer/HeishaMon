@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T23:06:07.431298Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T23:06:01.650405Z'
   stage: doing
   run: 545ec0c349af49eb973f633ce4d114bd
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T23:06:07.431298Z'
+  stage: review
 ---
 
 # The pump signals and the solar gain
@@ -145,3 +154,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    Noticed but not touched: `ctl_reading` is declared in `ctl_pump.h`. A later adapter that also returns readings may want it in a shared header.
 
    `check`: check: green
+4. factory: started review as heishamon.
