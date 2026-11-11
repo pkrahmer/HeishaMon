@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T21:53:42.580650Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T21:53:42.580650Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T21:55:47.130047Z'
+  stage: review
+  run: 86db899421c144bfaf1b7b368e0cd373
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -288,3 +290,24 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Findings:
+
+   1. Work item `## Description` (Interface), and journal entry 7, item 11: the Description in the committed work item is still the original text. The builder's rewrite was outside its write paths, and the factory dropped it (the same entry says so). So the Description still says that a non-positive-integer `--garble` value "garbles nothing", that the restart line is the bare `<file>:<line>: broken line, restarting (<k> of 2)`, and nothing about configuration breaks, printable-ASCII-only replies or the extra `broken line:` line on a third break. The code, `device-test.md` and `decisions.md` all do otherwise, and item 11's claim is false. The builder cannot fix this by editing. Fix: once the code findings below are done, end the next builder run with `question`. List each deviation and ask the human to adopt it into the Description or have it reverted. This follows R13 ("If the description is wrong, ask").
+   2. `tests/control/device/test_replay.py` (`test_twin_frames`): the rules "`S` is recognised after stripping" and "each frames every reply, `stats` included" have no test in either direction. Fix: pipe `S *53` and expect a line that `strip_frame` accepts and that starts with `stats calls=`. Pipe a bare `S` and expect the framed `error`.
+   3. `tests/control/device/test_replay.py`: nothing tests the failing side of "a request whose frame does not check … reaches neither `ctl_wire_handle` nor the stats". Fix: after `R`/`B`, pipe a call with a wrong checksum, then `S *53`, and expect `stats calls=0`. Also pipe `R *53` after a successful `B` and check that a framed `E` is still answered with a decision line, not `error`.
+   4. `tests/control/device/host_server.c:111` (`line[CTL_WIRE_LINE_MAX + CTL_FRAME_SUFFIX + 2]`): with `\r\n`, a framed line of exactly 128 text characters is read as too long and answered `error`. The sketch takes the same line, and the Interface says such a line fits and a trailing `\r` is ignored. No test covers the buffer boundary on either side. Fix: make room for the `\r` (`+ 3`). Add twin tests that a framed 128-character text gets a non-`error` reply with `\n` and with `\r\n`, and that a 129-character framed text gets the framed `error`.
+   5. `tests/control/device/test_replay.py` (`test_restart`, `test_restart_limit`): "at most twice" is tested only on the failing side (a third break fails). Nothing tests a trace that breaks twice and then passes with `2 restarts` and exit 0. Fix: let `garbling_twin.py` break more than one chosen reply (for example a repeatable `--at`). Expect `device replay: 1 files, 3236 calls, 0 mismatches, 2 restarts` and exit 0.
+   6. `tests/control/device/test_replay.py` (`test_twin_usage`): the nine-digit limit of `--garble` (in `decisions.md` and `device-test.md`) is tested only on the refused side (`1234567890`). Fix: add `--garble 999999999` and expect no usage line, exit 0 and framed replies.
+
+   Notes:
+   - `tests/control/device/test_replay.py` (`trace_path`): the fallback that unpacks the traces when `CTL_TRACES` is unset is unreachable under `make test`, which always sets the variable.
+   - `tests/control/device/test_replay.py` (`test_restart_after_silence`): silence is tested only on the reply to `R`, so the `<file>:<line>` form for a call that gets no reply within the timeout is not exercised.
+
+   Open, not a finding: the builder's point about a whole reply vanishing with 4 in flight (the later replies then shift onto the wrong calls, which shows up as mismatches instead of a restart) stays as noted in journal entry 7. The human may want it in the Description's question.
+
+   Earlier tests (changed, not added), each named under "Changed:" in the story's Interface, which is the human's word:
+   - `tests/control/device/host_server.c`
+   - `tests/control/device/replay.py`
+   - `tests/control/device/replay/replay.ino`
+
+   `tests/control/test_wire.c` is unchanged.
