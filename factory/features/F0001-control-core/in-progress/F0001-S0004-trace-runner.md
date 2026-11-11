@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T20:37:45.308395Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T20:37:39.405882Z'
   stage: doing
   run: 8524548b0c784940a1f748a3a0e89780
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:37:45.308395Z'
+  stage: review
 ---
 
 # The trace runner over the thirteen golden traces
@@ -241,3 +250,4 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
    Not touched: the gap in the story's criteria that the reviewer named. Criteria 5 and 6 still list fewer cases than the tests now cover; I did not rewrite the Description for this, since the tests go further than the criteria and contradict none of them.
 
    `check`: check: green
+8. factory: started review as heishamon.
