@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T21:01:54.656762Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T21:01:47.907926Z'
   stage: doing
   run: 9f91c9ab3b8846b2a25567c60c1c13cf
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:01:54.656762Z'
+  stage: review
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -178,3 +187,4 @@ Expect: `2`
    - The flashing commands in `device-test.md` use the standard ESP8266 index URL (`https://arduino.esp8266.com/stable/package_esp8266com_index.json`), not one taken from the factory image.
 
    `check`: check: green
+4. factory: started review as heishamon.
