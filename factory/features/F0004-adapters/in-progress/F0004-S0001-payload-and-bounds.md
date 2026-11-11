@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 12
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:16:17.454759Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-11T22:16:12.239905Z'
   stage: doing
   run: f55a7e9fccda4c009244178674967baf
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:16:17.454759Z'
+  stage: review
 ---
 
 # The payload parser and the plausibility bounds
@@ -151,3 +160,4 @@ Expect: `2`
    - `make test` prints compiler warnings from upstream's rules harness, and `test_types.c` prints expected-failure lines. Both are existing output that still passes, and I left them alone.
 
    `check`: check: green
+4. factory: started review as heishamon.
