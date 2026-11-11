@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T20:25:59.301056Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-11T20:25:59.295081Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:25:59.301056Z'
+  stage: doing
+---
+
 # The trace runner over the thirteen golden traces
 
 ## Description
@@ -82,3 +109,6 @@ d=$(mktemp -d); trap 'rm -rf "$d"' EXIT; gcc -std=c99 -ffp-contract=off -IHeisha
 Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
 
 ## Journal
+
+1. 2026-11-11 human: created.
+2. factory: started doing as heishamon.
