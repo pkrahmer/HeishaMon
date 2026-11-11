@@ -299,11 +299,18 @@ class SerialLink:
         """Returns True when "ready" came within READY_TIMEOUT_S; the board resets when the port
         opens and may print its boot messages first."""
         deadline = time.monotonic() + READY_TIMEOUT_S
-        while time.monotonic() < deadline:
-            line = self.port.readline()
-            if line.decode("ascii", errors="replace").strip() == "ready":
-                return True
-        return False
+        try:
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return False
+                # A read may block only for the time left, or the wait outlasts its limit.
+                self.port.timeout = left
+                line = self.port.readline()
+                if line.decode("ascii", errors="replace").strip() == "ready":
+                    return True
+        finally:
+            self.port.timeout = REPLY_TIMEOUT_S
 
     def close(self):
         self.port.close()
@@ -397,7 +404,7 @@ def replay_calls(link, path, calls, result):
     pending = collections.deque()
     next_call = 0
     stopped = False
-    while next_call < len(calls) or pending:
+    while (not stopped and next_call < len(calls)) or pending:
         if not stopped and next_call < len(calls) and len(pending) < IN_FLIGHT:
             batch = calls[next_call:next_call + IN_FLIGHT - len(pending)]
             link.send([call.request for call in batch])
@@ -431,13 +438,12 @@ def replay_file(link, path):
     except OSError as error:
         print("%s: cannot open: %s" % (path, error.strerror))
         result.failed = True
-        return result
     except FormatError as error:
         print("%s:%d: format error" % (path, error.args[0]))
         result.failed = True
-        return result
-    if configure(link, path, config, result):
-        replay_calls(link, path, calls, result)
+    else:
+        if configure(link, path, config, result):
+            replay_calls(link, path, calls, result)
     print("%s: %d calls, %d mismatches" % (path, result.calls, result.mismatches))
     return result
 

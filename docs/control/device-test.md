@@ -122,8 +122,11 @@ when one did not, and 2 on a wrong command line, when the port cannot be opened 
 ## On a mismatch
 
 A value that differs prints `<file>:<line>: <key>: expected <value>, got <value>`, with the
-trace's line and key; a trace stops after ten. A reply `error` or `bad`, or a reply with the wrong
-number of fields, prints the trace's line with the request and the reply, and stops that trace.
+trace's line and key; a trace stops after ten. A reply `error`, or a reply with the wrong number
+of fields, to a call prints `<file>:<line>: <request> -> <reply>` with the trace's line, and stops
+that trace. A reply other than `ok` to the configuration (`R`, a `C` or `B`, where `bad` comes
+from) prints `<file>: <request>: <reply>` without a line, because the requests are built from the
+header, and stops that trace too.
 
 **Stop and report it**: the trace, the first mismatch line as printed, and the stats line. The
 first mismatch is the one to read; later ones are mostly its consequences. Never change a trace,

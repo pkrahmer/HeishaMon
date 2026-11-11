@@ -241,13 +241,30 @@ false result still fail the test.
 ## 2026-11-11: The wire protocol ignores a carriage return before it measures the line
 
 **Decision.** `ctl_wire_handle` drops one trailing `\r` first and then refuses a line longer than
-`CTL_WIRE_LINE_MAX`, so a line of 128 characters with a `\r` is handled. A `B` that finds the
-configuration bad ends the session's begun state and leaves `calls` as it was. The sketch resets
-its time sums at a successful `B` and adds the time of an `O`, `A`, `M` or `E` only when the reply
-is not `error`, so that its sums cover the calls `calls` counts.
+`CTL_WIRE_LINE_MAX`, so a line of 128 characters with a `\r` is handled.
 **Reason.** A terminal that ends lines with `\r\n` must reach the same limit as one that ends them
 with `\n`.
 **Rejected.** Counting the `\r` in the limit, which would make the limit depend on the sender.
+
+## 2026-11-11: A bad `B` ends the begun session and keeps `calls`
+
+**Decision.** A `B` that finds the configuration bad clears the session's begun flag and leaves
+`calls` as it was.
+**Reason.** The configuration the earlier `B` validated is gone once a `C` changed it, so no call
+may run on the bad one; `calls` counts the answers since the last successful `B`, and a refused
+`B` starts nothing to count from.
+**Rejected.** Keeping the session begun on the old state, which would run calls on a configuration
+`ctl_config_validate` refused; and zeroing `calls`, which would make the stats line forget calls
+that were answered.
+
+## 2026-11-11: The sketch times only the calls `calls` counts
+
+**Decision.** The sketch resets its time sums at a successful `B` and adds the time of an `O`,
+`A`, `M` or `E` only when the reply is not `error`.
+**Reason.** `us_total / calls` is read as the mean time of one call; both sums must cover the same
+calls for that to hold.
+**Rejected.** Timing every line, refused ones and `C` included, which would mix the cost of the
+parser's refusals into the core's time.
 
 ## 2026-11-11: The replay script reads a whole trace before it sends any of it
 

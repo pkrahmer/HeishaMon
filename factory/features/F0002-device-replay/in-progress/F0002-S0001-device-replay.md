@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T21:03:51.422874Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T21:03:51.422874Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T21:05:23.440370Z'
+  stage: doing
+  run: 41e64f99edd64d1f84a27c9d079bea79
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -219,3 +221,24 @@ Expect: `2`
    - The architecture rules hold, and no upstream file is touched.
    - The factory's `make check` after the builder was green.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's eight findings and changed nothing else.
+
+   1. `tests/control/device/replay.py`, `replay_calls`: the loop now runs `while (not stopped and next_call < len(calls)) or pending`. Before, a file that stopped with calls not yet sent would empty `pending` and the script crashed in `popleft`. I tested this by hand with the host twin. I made a copy of `edge_cases.trace` with the recorded `E` of every `evaluate` in its first 400 lines set to 12345.0, then ran it followed by `bad/unknown_call.trace` and `bad/valid_small.trace`. The copy stopped after 10 mismatches (84 calls), the next two files ran, and the `S` line, the summary and exit 1 all followed. Earlier this path raised IndexError. The `error`/wrong-field-count stop uses the same loop and was not run separately: no valid trace makes the twin reply `error`.
+   2. `tests/control/test_wire.c`, `test_replies_equal_core`: added `twin_observe(..., CTL_SIGNAL_P_INTERNAL, 150.0)` at 260 s and `twin_allow(..., CTL_DEMAND_ALL)` at 270 s, so the accepted sides of signal 4 and mask 7 are now answered with state lines and compared with direct core calls. The expected `calls` count went from 15 to 17.
+   3. `replay.py`, `SerialLink.wait_ready`: before each read, the port's timeout is set to the time left before the deadline, and the reply timeout is restored afterwards (`finally`). The wait now lasts at most 10 s. This was not run, because pyserial and a board are missing here.
+   4. `replay.py`, `replay_file`: a file that cannot be opened or that has a format error now also prints `<file>: 0 calls, 0 mismatches`. Seen in the run above for `unknown_call.trace`.
+   5. `docs/control/device-test.md`, *On a mismatch*: I changed the document to match the code. A bad reply to a call prints `<file>:<line>: <request> -> <reply>`. A reply other than `ok` to `R`/`C`/`B` (which is where `bad` comes from) prints `<file>: <request>: <reply>` with no line number, because those requests are built from the header. I chose not to carry header line numbers into the configuration requests, since the document only needed to describe what happens.
+   6. `docs/control/decisions.md`: split the combined entry into three, each with its own reason and rejected alternative: the `\r` before the length check; a bad `B` ends the begun state and keeps `calls`; the sketch times only the calls that `calls` counts.
+   7. `test_wire.c`: renamed `check_config_after_begin` to `test_config_after_begin`.
+   8. `test_wire.c`, `decision_line`: `numbers` and `values` now have 9 entries; the unused tenth entry is gone.
+
+   Smoke test, run as written:
+   1. The first line is `tests/control/data/bad/wrong_energy.trace:12: E: expected -28.708333333333332, got -28.708333333333336`, then `exit 1`. Matches.
+   2. `exit 2`. Matches.
+   3. Permission was denied when I chained the `make device | grep -c` pipe with other commands, and I did not run it separately. The `make check` output shows exactly two lines starting with `. ` (RAM 29,280 bytes, flash 242,980 bytes), which is what the pipe counts.
+
+   `make check` is green. The test target prints `device replay: 2 files, 10639 calls, 0 mismatches`.
+
+   Noticed but not touched: the earlier round's remarks still hold. pyserial is not installed, so `--port` is unexercised. The board compiler's warnings on `ctl_wire.c` are unread.
+
+   `check`: check: green

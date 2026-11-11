@@ -238,7 +238,7 @@ static void test_config_refused(void)
     }
 }
 
-static void check_config_after_begin(void)
+static void test_config_after_begin(void)
 {
     ctl_wire_session session;
     char reply[CTL_WIRE_REPLY_SIZE];
@@ -262,12 +262,12 @@ static void state_line(char *text, const ctl_state *state)
 
 static void decision_line(char *text, const ctl_decision *decision)
 {
-    char numbers[10][17];
+    char numbers[9][17];
     char p_net[17] = "-";
-    const double values[10] = {
+    const double values[9] = {
         decision->energy_wh, decision->dt_s, decision->integrated_s, decision->skipped_s,
         decision->ledger.produced_wh, decision->ledger.solar_wh, decision->ledger.internal_wh,
-        decision->ledger.transmission_wh, decision->ledger.trim_wh, 0.0};
+        decision->ledger.transmission_wh, decision->ledger.trim_wh};
     int i;
     for (i = 0; i < 9; i++) {
         ctl_wire_format_double(values[i], numbers[i]);
@@ -355,6 +355,8 @@ static void test_replies_equal_core(void)
     twin_evaluate(&run, 180.0);
     twin_allow(&run, 200.0, CTL_DEMAND_BIT(CTL_DEMAND_HEATING) | CTL_DEMAND_BIT(CTL_DEMAND_COOLING));
     twin_observe(&run, 250.0, CTL_SIGNAL_P_SOLAR, 300.0);
+    twin_observe(&run, 260.0, CTL_SIGNAL_P_INTERNAL, 150.0);
+    twin_allow(&run, 270.0, CTL_DEMAND_ALL);
     twin_evaluate(&run, 300.0);
     /* Every required reading is older than its max_age_s of 600 s now. */
     twin_advance(&run, 900.0);
@@ -362,7 +364,7 @@ static void test_replies_equal_core(void)
     twin_evaluate(&run, NAN);
     CHECK_TRUE(run.with_inputs > 0);
     CHECK_TRUE(run.without_inputs > 0);
-    CHECK_UINT(run.session.calls, 15);
+    CHECK_UINT(run.session.calls, 17);
     request(&run.session, "B", reply);
     CHECK_UINT(run.session.calls, 0);
 }
@@ -463,7 +465,7 @@ int main(void)
     test_session_reset();
     test_config_fields();
     test_config_refused();
-    check_config_after_begin();
+    test_config_after_begin();
     test_replies_equal_core();
     test_malformed();
     test_line_length();
