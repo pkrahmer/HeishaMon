@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T19:57:30.149151Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -58,6 +62,11 @@ journal:
   at: '2026-11-11T19:57:24.420418Z'
   stage: review
   run: f2287457c100455daf8d38eb8a6e3a61
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:57:30.149151Z'
+  stage: doing
 ---
 
 # The signal table, the energy balance and the relay
@@ -317,3 +326,4 @@ Expect: `control: 5 test programs passed`
 
    Findings:
    1. `docs/control/core.md`, section "Signal table", sentence "With the defaults, `P_INTERNAL` never goes stale.": this claim does not hold. With the defaults, `ctl_signals_stale_optional` returns the bit of `P_INTERNAL` when it was never observed (criterion 4, and the first case of criterion 5), and when `at` is NaN. Fix: say that once observed, `P_INTERNAL` stays fresh at every instant that is not NaN, because its `max_age_s` is `INFINITY`. Also say that it still falls back to `fallback_w` (550 W) until its first reading.
+10. factory: started doing as heishamon.
