@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 3
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:39:33.038140Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T19:39:33.038140Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:40:45.085489Z'
+  stage: review
+  run: 23714b90e6a14163b6b2e94c8c6ceac7
 ---
 
 # The core's enums and its configuration with validation
@@ -229,3 +231,22 @@ Expect: `control: 2 test programs passed`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: I read the whole diff and compared the validation with `docs/control/python-reference/config.py` (lines 119–190). The code does what Python does, in the same order: the `isfinite` check first, then `tick > max_step / 2.0` and `integration > tick` only when the field itself is > 0, and the same `max_age` rule. The operand order of `energy_limit_wh` matches. The core includes only its own headers, `math.h`, `stdbool.h` and `stdint.h`. Every loop is bounded by `CTL_SIGNAL_COUNT`, every name lookup is bounds-checked, and there is no dynamic memory or `float`. The diff changes no test file that `develop` already holds: every non-factory path has status `A`. The factory's `make check` after the builder was green.
+
+   Findings:
+
+   1. **The story contradicts itself, and the human has not agreed to how it was read.** Location: `tests/control/test_config.c` `test_timing_limits`, and criterion 4 in the work item's `## Description`.
+      - Criterion 4 asks that `max_step_s` = 0 and `tick_interval_s` = 0 each give "exactly that field's bit". Criterion 7, and the Python, make `max_step_s` ≤ 0 also refuse the default tick.
+      - So `max_step_s` = 0 gives MAX_STEP|TICK_INTERVAL, and `tick_interval_s` = 0 gives TICK_INTERVAL|INTEGRATION_INTERVAL.
+      - The builder's reading is the only one that fits both criteria. But R5 says the Description is rewritten when the journal changes the task, and it still states the impossible rule.
+      - Fix: the builder ends with `question`, asks the human to confirm the reading, and rewrites criterion 4 from the answer. The proposed wording: "a zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds; a small positive one is valid with the bounded fields brought under it".
+   2. **The test does not check what criterion 9 says about printed output.** Location: `tests/control/test_types.c` `test_check_helper`.
+      - Criterion 9 says four failing calls "print four lines" and four passing calls "print nothing". The test checks only the counts. Nothing checks the printed output, and a helper that printed nothing would pass.
+      - Fix: put this in the same question to the human. Either they accept that the output is checked by eye in the `make test` log, and criterion 9 is reworded to say so, or they allow a change to the helper's interface that makes the output testable, such as an output `FILE *`.
+   3. **`docs/control/core.md`, first paragraph, makes two claims the code does not back.**
+      - "the golden traces exported from that reference check it bit for bit": no test of this story reads a trace.
+      - "from five measured signals": `P_INTERNAL` is not measured. Its default never goes stale, and the code comment in `ctl_config.c` calls it "usually a static estimate".
+      - Fix: say the traces are the measure the port is compared against, and say "five input signals".
+   4. **Duplicate checks.** Location: `tests/control/test_config.c` `test_signal_arrays`, the two `CHECK_UINT` lines after the loop.
+      - They repeat checks the loop already makes for `T_INDOOR` and `P_SOLAR` with `INFINITY`.
+      - Fix: delete them.
