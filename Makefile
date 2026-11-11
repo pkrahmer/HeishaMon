@@ -1,13 +1,18 @@
 # The contract between this fork and kumpel-factory is four targets: `check`, `lint`, `test`, `sync`.
 # Upstream HeishaMon builds with arduino-cli (scripts/); this file covers only what runs on the
-# host with gcc, g++ and python3. The firmware build for the two boards is not part of `check` yet.
-.PHONY: check lint test sync facts-diff facts-files
+# host with gcc, g++ and python3, plus the device test sketch compiled for the D1 mini. The
+# firmware build for the two boards is not part of `check` yet.
+.PHONY: check lint test device device-replay sync facts-diff facts-files
 .SILENT:
 
 # The fork's own folders: the control code, its host tests, its documents.
 CONTROL = HeishaMon/src/control
 CORE = $(CONTROL)/core
 TESTS = tests/control
+# The device test: a sketch that serves the core over a serial line, and its host twin.
+DEVICE = $(TESTS)/device
+SKETCH = $(DEVICE)/replay
+FQBN = esp8266:esp8266:d1_mini
 # No fused multiply-add: the core must round as the Python reference does, twice where it does.
 CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off
 
@@ -20,7 +25,7 @@ SHELL := /bin/bash
 start = started=$$(date +%s%N)
 green = tenths=$$(( ($$(date +%s%N) - started) / 100000000 )); echo "$@: green ($$((tenths / 10)).$$((tenths % 10)) s)"
 
-check: lint test
+check: lint test device
 	echo "check: green"
 
 # Nothing to fetch: the stage image (factory/stage.Containerfile) holds every tool.
@@ -77,7 +82,35 @@ test:
 	  count=$$((count + 1))
 	done
 	echo "control: $$count test programs passed"
+	# The device replay on the host: the server the board runs, built for the host, fed through a pipe.
+	if [ -f $(DEVICE)/host_server.c ]; then
+	  gcc $(CFLAGS) -I$(CONTROL) $(DEVICE)/host_server.c $$sources -lm -o "$$build/host_server"
+	  python3 $(DEVICE)/replay.py --command "$$build/host_server" "$$CTL_TRACES/edge_cases.trace" "$$CTL_TRACES/flaky_transport.trace"
+	fi
 	$(green)
+
+# The device test sketch, compiled for the D1 mini (ESP8266) with each folder of the control code
+# as a library; nothing is flashed. Without the sketch there is nothing to compile.
+device:
+	$(start)
+	if [ -d $(SKETCH) ]; then
+	  build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
+	  libraries=$$(find $(CONTROL) -mindepth 1 -maxdepth 1 -type d | sort | sed 's/^/--library /')
+	  if ! arduino-cli compile --fqbn $(FQBN) $$libraries --build-path "$$build/out" --warnings all $(SKETCH) > "$$build/compile.log" 2>&1; then
+	    cat "$$build/compile.log"; exit 1
+	  fi
+	  grep -E '^\. (Variables|Code in flash)' "$$build/compile.log"
+	fi
+	$(green)
+
+# The same replay against the board on a serial port, run by hand on the machine the board is
+# plugged into, with pyserial installed: make device-replay PORT=COM5. Never part of `check`.
+PORT ?=
+device-replay:
+	if [ -z "$(PORT)" ]; then echo "device-replay: set PORT, as in make device-replay PORT=COM5"; exit 2; fi
+	build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
+	for trace in $(TESTS)/data/*.trace.gz; do gzip -dc "$$trace" > "$$build/$$(basename "$$trace" .gz)"; done
+	python3 $(DEVICE)/replay.py --port "$(PORT)" "$$build"/*.trace
 
 # Start facts: the factory runs these before an agent and puts their output into its first
 # message; never part of `check`. The base is where the branch left origin/develop.

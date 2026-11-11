@@ -23,6 +23,7 @@ A fork of HeishaMon (github.com/heishamon/HeishaMon), the Arduino firmware that 
 - The golden traces are `tests/control/data/*.trace.gz`, exported from the Python reference; `docs/control/golden-traces.md` is their format. Nobody edits them. `make test` unpacks them into a temporary folder and names it in the environment variable `CTL_TRACES`; a test reads `$CTL_TRACES/<name>.trace`. Other test data lives beside them and is read by its path from the root of the checkout.
 - Nothing may be faked inside the core: a test calls the real functions with values. Time is a number the test passes in.
 - A test another story wrote is changed only when the story names it with the human's word.
+- The device test lives in `tests/control/device/`: the sketch `replay/replay.ino`, which serves the core over a serial line on a D1 mini (ESP8266), `host_server.c`, which serves it the same way over standard input and output on the host, and `replay.py`, which feeds a trace to either and compares. The line protocol itself is C under `HeishaMon/src/control/wire/`, pure like the core. The sketch only moves lines between the serial port and that code.
 - Upstream's two host suites (`Examples/Rules/run_tests.sh` and `tests/modbus/run_tests.py`) run in `make test` too. They are upstream's and stay as they are.
 
 ## Docs
@@ -31,9 +32,10 @@ A fork of HeishaMon (github.com/heishamon/HeishaMon), the Arduino firmware that 
 - Every header under `HeishaMon/src/control/` opens with a comment that says what the module is for. Every function a header declares has a comment that says what it returns and what it refuses. Comments say why, never what.
 
 ## Checks
-- `make check` must be green before any stage reports done. It runs `make lint` and `make test` and ends with `check: green`. Each target ends with the line `<target>: green (<seconds> s)`.
+- `make check` must be green before any stage reports done. It runs `make lint`, `make test` and `make device` and ends with `check: green`. Each target ends with the line `<target>: green (<seconds> s)`.
 - `make lint` compiles every `.c` file under `HeishaMon/src/control/` with `gcc -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off -fsyntax-only`, and it refuses an include in the core that the *Architecture* does not allow.
-- `make test` runs upstream's two host suites and then every test program of the control code.
+- `make test` runs upstream's two host suites, then every test program of the control code, then the device replay on the host: `host_server.c` built for the host and fed two traces by `replay.py`.
+- `make device` compiles the sketch `tests/control/device/replay/` for the D1 mini with arduino-cli, each folder under `HeishaMon/src/control/` as a library, and prints the memory it uses. A library folder is flat: a `.c` file includes a header of another folder by a relative path (`"../core/ctl_controller.h"`). Nothing is flashed: no stage has a board. `make device-replay PORT=<port>` runs the replay against a flashed board, by hand on the machine it is plugged into.
 - No check builds the firmware for the boards yet. A `.cpp` file is therefore compiled by no check; a story that adds one says how the human builds it.
 
 ## Not without asking (end the stage with `question`)
