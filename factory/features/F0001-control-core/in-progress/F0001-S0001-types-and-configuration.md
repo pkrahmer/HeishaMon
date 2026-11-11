@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 3
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:40:50.388507Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,13 @@ journal:
   kind: started
   at: '2026-11-11T19:40:50.388507Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: question
+  at: '2026-11-11T19:41:15.757532Z'
+  stage: doing
+  run: 85ad97290cb24b99b05d01b4596c99d9
+  blocked: question
 ---
 
 # The core's enums and its configuration with validation
@@ -260,3 +263,27 @@ Expect: `control: 2 test programs passed`
       - They repeat checks the loop already makes for `T_INDOOR` and `P_SOLAR` with `INFINITY`.
       - Fix: delete them.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed reviewer findings 3 and 4. Findings 1 and 2 need your decision, so I am asking before I change criteria 4 and 9 in the Description. `make check` is green with the fixes.
+
+   Fixed:
+   - Finding 3: in `docs/control/core.md`, the first paragraph now says "five input signals", not "measured". It also says the golden traces are the measure the port is compared against, bit for bit. It no longer claims they already check the port.
+   - Finding 4: in `tests/control/test_config.c` `test_signal_arrays`, I deleted the two `CHECK_UINT` lines after the loop. The loop already makes both checks.
+
+   Question 1, on criterion 4 and the timing fields:
+   - Criterion 4 asks that `max_step_s` = 0 and `tick_interval_s` = 0 each give only their own bit.
+   - Criterion 7, like Python's `config.py`, checks `tick > max_step/2` even when `max_step_s` is itself bad.
+   - Under that rule, `max_step_s` = 0 gives MAX_STEP|TICK_INTERVAL, and `tick_interval_s` = 0 gives TICK_INTERVAL|INTEGRATION_INTERVAL.
+   - The code and `test_config.c` `test_timing_limits` already work this way. A small positive bound is valid there only when the fields it bounds are brought under it.
+
+   Options:
+   - (a) Keep this behaviour and reword criterion 4: "a zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds; a small positive one is valid with the bounded fields brought under it". **This is my choice**: it matches Python and criterion 7.
+   - (b) Skip a bound check while the bounding field is bad. This departs from Python and breaks criterion 7's fourth bit, so criterion 7 would have to change too.
+
+   Question 2, on criterion 9 and the printed output:
+   - The test checks the failure counts, but not that four failing calls print four lines and four passing calls print nothing.
+
+   Options:
+   - (a) Accept that the lines are checked by reading the `make test` log. The test labels the deliberately failing calls. Criterion 9 would be reworded to say "the four lines appear in the `make test` output; the test checks the counts". **This is my choice**: it keeps the helper's interface as the story defines it.
+   - (b) Add `void check_set_output(FILE *out);` to `check.h`. Then the test can point the helper at a `tmpfile()` and count the lines it wrote, and the Interface section gains that function.
+
+   Once you answer, I will rewrite criteria 4 and 9 from your answer and make the matching code or test change.

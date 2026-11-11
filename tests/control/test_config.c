@@ -189,8 +189,6 @@ static void test_signal_arrays(void)
         CHECK_UINT(validate_with_fallback(signal, -INFINITY), CTL_CONFIG_BAD_FALLBACK);
         CHECK_UINT(validate_with_fallback(signal, -1000.0), 0u);
     }
-    CHECK_UINT(validate_with_max_age(CTL_SIGNAL_T_INDOOR, INFINITY), CTL_CONFIG_BAD_MAX_AGE);
-    CHECK_UINT(validate_with_max_age(CTL_SIGNAL_P_SOLAR, INFINITY), 0u);
 }
 
 static void test_trim_limit_switch(void)
