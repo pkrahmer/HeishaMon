@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T21:03:51.422874Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T21:03:46.048524Z'
   stage: review
   run: 60dc19a5d3314863a70e4a920d04b5d7
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:03:51.422874Z'
+  stage: doing
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -209,3 +218,4 @@ Expect: `2`
    - The core has no loop whose bound comes from the configuration, so a `C` after `B` cannot hang the board.
    - The architecture rules hold, and no upstream file is touched.
    - The factory's `make check` after the builder was green.
+6. factory: started doing as heishamon.
