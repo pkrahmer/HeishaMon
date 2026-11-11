@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 9
 comments_read: [6808172827]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:08:34.739455Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -86,6 +90,11 @@ journal:
   at: '2026-11-11T22:08:29.484366Z'
   stage: doing
   run: 41723177b750435dbe18c3e4a5141279
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:08:34.739455Z'
+  stage: review
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -408,3 +417,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
     `check`: check: green
 
     `check`: check: green
+15. factory: started review as heishamon.
