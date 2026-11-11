@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T20:15:03.931368Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -80,6 +84,11 @@ journal:
   at: '2026-11-11T20:14:58.451194Z'
   stage: review
   run: 40acf723c3044c1ab724742d6a4f7cdb
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:15:03.931368Z'
+  stage: doing
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -384,3 +393,4 @@ Expect: `control: 6 test programs passed`
     Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
 
     Notes: none.
+14. factory: started doing as heishamon.
