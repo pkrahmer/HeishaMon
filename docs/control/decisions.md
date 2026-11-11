@@ -76,3 +76,58 @@ failures.
 standard output and restore it; the owner chose to keep the interface as it is.
 **Rejected.** A `check_set_output(FILE *)` function that would let a test count the printed
 lines in a `tmpfile()`: it grows the interface for the sake of one test.
+
+## 2026-11-11: The signal table is a struct the caller owns and changes in place
+
+**Decision.** `ctl_signal_table` is a plain struct; `ctl_signals_set` changes it in place.
+**Reason.** The core has no dynamic memory, and a copy of five readings per set buys nothing a
+caller cannot do with an assignment of the struct.
+**Rejected.** The Python reference's copy-on-write table, which returns a new table per reading.
+
+## 2026-11-11: A set of signals or of demands is a bit mask in a `uint8_t`
+
+**Decision.** `CTL_SIGNAL_BIT` and `CTL_DEMAND_BIT` give one bit per member; a set is their union
+in a `uint8_t`.
+**Reason.** Five signals and three demands fit in one byte, and a mask compares and combines
+without loops or storage.
+**Rejected.** An array of `bool` per member, which needs a loop to compare and is larger.
+
+## 2026-11-11: `ctl_signals_resolve` returns false where Python returns `None`
+
+**Decision.** It returns a `bool` and writes `ctl_inputs` only when it returns true.
+**Reason.** C has no optional struct; errors are values, and leaving the output untouched on a
+refusal lets a caller keep its previous inputs without a copy.
+**Rejected.** A `valid` field inside `ctl_inputs`, which a caller could forget to read.
+
+## 2026-11-11: A held reading has no type of its own
+
+**Decision.** The table's three arrays, `observed`, `value` and `t`, indexed by signal, hold
+what Python's `Held` holds.
+**Reason.** The arrays match the per-signal arrays of the configuration, and the `observed` flag
+replaces the absent key of the Python mapping.
+**Rejected.** A `ctl_held` struct with an array of it: one more type for no gain.
+
+## 2026-11-11: The ledger is changed in place and has no `as_dict`
+
+**Decision.** `ctl_ledger_accumulate` adds to the caller's ledger; there is no conversion to a
+mapping.
+**Reason.** The core has no dynamic memory and no text output; a caller reads the five fields
+directly.
+**Rejected.** A function that returns a new ledger per step, or that formats it.
+
+## 2026-11-11: No function of the signal table, the balance or the relay checks its arguments
+
+**Decision.** No function takes a null pointer or a signal outside the enum; the caller
+guarantees both, and no function checks.
+**Reason.** As with the configuration, a check would add a status to functions that otherwise
+cannot fail, for what is a programming error.
+**Rejected.** A status return, or a silent ignore of a signal out of range.
+
+## 2026-11-11: `ctl_signals_init` sets every value and instant to 0
+
+**Decision.** Beside clearing every `observed` flag, `ctl_signals_init` sets the `value` and `t`
+of each signal to 0.0.
+**Reason.** Nothing reads them while a signal is not observed, but a fully defined struct can be
+compared and copied without reading indeterminate memory.
+**Rejected.** Leaving them unset, which is enough for the functions but not for a caller that
+compares two tables.

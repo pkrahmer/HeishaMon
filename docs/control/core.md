@@ -88,3 +88,86 @@ The three timing fields bound each other, and a bound is compared as the Python 
 compares it: `tick_interval_s` is refused when it is greater than `max_step_s / 2`, so a
 `max_step_s` of 0 or below refuses the default tick as well, while a NaN `max_step_s` refuses
 only itself. The same holds between `tick_interval_s` and `integration_interval_s`.
+
+## Signal table (`ctl_signals.h`)
+
+`ctl_signal_table` holds the last reading of each of the five signals: whether it was observed,
+its value and its instant. A reading stays in force until the next reading of the same signal,
+so all five signals are defined at every instant and the net power between two readings is a
+constant. The caller owns the table; `ctl_signals_init` leaves no signal observed and
+`ctl_signals_set` replaces one reading in place, checking nothing: the newest call wins, even
+when its instant lies before the one it replaces.
+
+The age of a signal at `at` is `at - t`, negative when `at` lies before the reading and
+`INFINITY` for a signal never observed. A signal is **fresh** at `at` when it was observed and
+`(at - t) <= max_age_s[signal]`: an age equal to the maximum is fresh, and a NaN `at` is never
+fresh. Staleness is the negation of that test, `!(age <= max_age)`, and not `age > max_age`,
+because the two differ for NaN. With the defaults, `P_INTERNAL` never goes stale.
+
+A set of signals is a bit mask, one `CTL_SIGNAL_BIT(signal)` per signal.
+`ctl_signals_unhealthy` returns the required signals that are not fresh,
+`ctl_signals_stale_optional` the optional ones that are not fresh, and `ctl_signals_observed`
+every signal observed, fresh or not.
+
+`ctl_signals_resolve` resolves the table to one instant. It refuses, returns false and leaves
+`inputs` untouched when any required signal is not fresh at `at`, a NaN `at` included; the
+caller must then neither integrate nor decide. Otherwise it returns true and fills `ctl_inputs`
+with the held value of each required signal and of each fresh optional signal; an optional
+signal that is not fresh is replaced by `fallback_w[signal]`, and its bit is set in
+`substituted`.
+
+## Energy balance (`ctl_balance.h`)
+
+`ctl_energy_balance` treats the house as a thermal battery. Each formula keeps the Python
+reference's operand order, sums from left to right:
+
+| Term | Formula |
+|---|---|
+| `p_transmission_w` | `transmission_w_per_k * (t_outdoor_c - t_indoor_c)` |
+| `p_model_w` | `p_produced_w + p_solar_w + p_internal_w + p_transmission_w` |
+| `p_trim_w` | `adjustment_w_per_k * deviation`, with `deviation = t_indoor_c - desired_indoor_c` |
+| `p_net_w` | `p_model_w + p_trim_w` |
+
+`p_model_w` is the prediction and `p_trim_w` the correction for what the prediction gets wrong.
+With `trim_limit_enabled`, the deviation, not the power, is clamped to `-trim_limit_k` below and
+`trim_limit_k` above, so the limit stays in kelvin when `adjustment_w_per_k` is retuned; a
+deviation equal to a limit is unchanged. A negative `p_net_w` is a deficit, a positive one a
+surplus.
+
+`ctl_ledger` integrates each term on its own, in Wh: `ctl_ledger_init` sets all five to 0, and
+`ctl_ledger_accumulate` adds to each its power times `hours`: `p_produced_w`, `p_solar_w` and
+`p_internal_w` from the inputs, `p_transmission_w` and `p_trim_w` from the balance.
+`ctl_ledger_total_wh` returns `produced_wh + solar_wh + internal_wh + transmission_wh + trim_wh`,
+summed from left to right.
+
+## Relay and clamp (`ctl_relay.h`)
+
+`ctl_relay` makes at most one transition from the demand last emitted, on the accumulated energy
+`E` and the hysteresis `H`. Demand engages at `-H` or `H` and releases at 0, so heating never
+turns straight into cooling, nor cooling into heating.
+
+| Previous | Condition, tested in this order | Next |
+|---|---|---|
+| `HEATING` | `E >= 0.0` | `NONE` |
+| | otherwise, NaN included | `HEATING` |
+| `COOLING` | `E <= 0.0` | `NONE` |
+| | otherwise, NaN included | `COOLING` |
+| `NONE`, or no member | `E <= -H` | `HEATING` |
+| | `E >= H` | `COOLING` |
+| | otherwise, NaN included | `NONE` |
+
+A set of demands is a bit mask, one `CTL_DEMAND_BIT(demand)` per demand, and `CTL_DEMAND_ALL`
+holds all three. `ctl_clamp_bounds` gives the anti-windup bounds of the energy accumulator from
+the allowed demands. The limit `L` is `ctl_config_energy_limit_wh`, 3000 Wh by default; a masked
+direction clamps at exactly its engage threshold, so unmasking it gives an immediate but bounded
+response. The bit of `NONE` plays no part.
+
+| `allowed` has the bit of | Bound | Value |
+|---|---|---|
+| `HEATING` | `low` | `-L` |
+| not `HEATING` | `low` | `-hysteresis_wh` |
+| `COOLING` | `high` | `L` |
+| not `COOLING` | `high` | `hysteresis_wh` |
+
+`ctl_clamp` returns `low` when `value < low`, `high` when `value > high`, and `value`
+otherwise, so a NaN passes through unchanged.

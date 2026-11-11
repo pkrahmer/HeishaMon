@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:51:27.911722Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T19:51:27.911722Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:54:19.964699Z'
+  stage: doing
+  run: 09c9e8a035f9412da242b7142c5f4d0d
 ---
 
 # The signal table, the energy balance and the relay
@@ -178,3 +180,41 @@ Expect: `control: 5 test programs passed`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: I built the signal table, the energy balance with its ledger, and the relay with its clamp, following the story's interface. I wrote the tests first and they failed because the headers were missing. Then I wrote the code until `make check` was green (lint green, 5 control test programs passed, `check: green`).
+
+   Code, in `HeishaMon/src/control/core/`:
+   - `ctl_signals.h` and `ctl_signals.c`
+   - `ctl_balance.h` and `ctl_balance.c`
+   - `ctl_relay.h` and `ctl_relay.c`
+
+   Tests, in `tests/control/`:
+   - `test_signals.c` covers criteria 1–5. The NaN-`at` case and the refusal cases each check every field of an `inputs` struct filled with a marker value.
+   - `test_balance.c` covers criteria 6–8. The trim clamp is one table test.
+   - `test_relay.c` covers criteria 9–11 as table tests. Neighbouring doubles come from `nextafter`, and demands are compared by their `ctl_demand_name` text.
+
+   All three use `check.h` unchanged.
+
+   Docs:
+   - `docs/control/core.md` has three new sections after the existing ones:
+     - the signal table: what it holds, what fresh means, and what `resolve` returns and when it refuses;
+     - the balance: the formulas as a table in their operand order, and the ledger;
+     - the relay: a transition table and a clamp-bounds table.
+   - `docs/control/decisions.md` has one entry for each of the six listed differences from the Python reference, each with its reason. It also has one entry for a decision of my own, below.
+
+   Decisions where the story left something open:
+   - **`ctl_signals_init` sets `value` and `t` to 0.0 as well as clearing `observed`.** The struct is then fully defined and can be copied or compared. I rejected leaving them unset. This is recorded in `decisions.md`.
+   - **Staleness is the negation of `ctl_signals_is_fresh`.** One static helper, `not_fresh`, filters by `ctl_signal_is_required` and serves both `unhealthy` and `stale_optional`. `resolve` uses those two masks, so the `!(age <= max_age)` behaviour for NaN lives in one place. I rejected a separate `age > max_age` test inside `resolve`.
+   - **The trim clamp is a static function, `trim_deviation`, using Python's comparison order** (`< -limit`, then `> limit`), so a NaN deviation passes through unchanged.
+   - **A `previous` value that is not in the enum falls through to the `NONE` branch of `ctl_relay`**, as the story says. No explicit check is needed.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, which matches.
+   - `make test | grep '^control:'` printed `control: 5 test programs passed`, which matches.
+
+   Noticed but not touched:
+   - Upstream's rules harness prints compiler warnings on stderr during `make test`, from `rules.cpp` and `settimer.cpp`. Those are upstream files.
+   - `ctl_inputs` lives in `ctl_signals.h` as the interface puts it, so `ctl_balance.h` includes `ctl_signals.h`.
+
+   Open: nothing.
+
+   `check`: check: green
