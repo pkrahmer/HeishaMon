@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:46:29.250046Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T22:46:29.250046Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:50:04.687793Z'
+  stage: doing
+  run: b0565fdc2fa84a48a796540d36271045
 ---
 
 # The room average
@@ -142,3 +144,23 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the room average.
+
+   - `HeishaMon/src/control/adapt/ctl_rooms.h` and `ctl_rooms.c`: the interface exactly as the story gives it. `ctl_rooms_offer` runs its checks in the story's order: index, then `ctl_payload_parse`, then `CTL_BOUND_TEMPERATURE` and a finite `t`, then the replay. Only an accepted payload writes to the rooms. `ctl_rooms_is_fresh` is true when `now - t <= room_timeout_s`; a NaN `now` compares false, so it is not fresh. `ctl_rooms_average_at` sums the weights, the fresh weights and weight×value in room order, and emits an average only when `fresh_weight > total_weight / 2.0`.
+   - `tests/control/test_rooms.c`: one table test or function per criterion, 1 to 7. The offering table runs in sequence on 4 default rooms. After every row it compares every field of all 16 slots with a snapshot, so a refusal that changes any room is caught. I wrote the test first and saw it fail to build before the module existed.
+   - Docs:
+     - `docs/control/adapters.md` has a new section: what it computes, the replay rule and why, the half rule with the 3-of-4 and 2-of-4 example, the weight-0 rooms, the defaults, and the three §3.1 consequences in one sentence each.
+     - `docs/control/decisions.md` has three new entries: the replay rule (with the observation of room values about 90 minutes old on the broker), the timeout as a setting, and how invalid configurations are handled.
+
+   Decisions where the story left things open (all recorded in decisions.md):
+   - The stored `timestamp_ms` is 0 when the accepted payload had no timestamp.
+   - `ctl_rooms_average_at` returns no average, with all counts and weights at 0, for a configuration that `ctl_rooms_config_valid` refuses. Rejected: making a valid configuration the caller's duty, because a count above 16 would then read past the arrays.
+   - `offer` and `is_fresh` also treat an index at or above `CTL_ROOMS_MAX` as out of range, whatever the count says.
+   - `ctl_rooms_config_defaults` sets all 16 weights to 1.0, not only the first `count`.
+   - A `now` of -infinity counts as fresh, because the story calls any negative age fresh. No test covers it.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 12 test programs passed`, one more than the 11 before. `make check` is green: lint, test and device. The device sketch build is unchanged, since the sketch does not use the new module.
+
+   Noticed but not touched: the glue that publishes weight-0 rooms in telemetry, and the conversion of the average into a `T_INDOOR` reading, are outside this story.
+
+   `check`: check: green

@@ -379,3 +379,37 @@ as they are, as in the bare number's digits.
 since 1970 need 13. The story names digits only, and a leading zero changes no value.
 **Rejected.** JSON's rule against leading zeros, which no source breaks and which would add a case
 without a reason.
+
+## 2026-11-11: A room payload whose timestamp does not advance is a replay
+
+**Decision.** `ctl_rooms_offer` refuses a payload with a timestamp when the room's last accepted
+payload had a timestamp at least as large, and leaves the room's arrival instant as it was. A
+payload without a timestamp is always taken and clears the room's stored timestamp (held as 0).
+**Reason.** The broker showed room values about 90 minutes old: a thermostat that reconnects, or a
+retained message delivered again, repeats an old reading. Taking it would reset the room's
+freshness and keep a silent room in the average. The timestamp is the only sign of age a payload
+carries, so a payload without one cannot be judged and is taken as new.
+**Rejected.** Judging age by the timestamp against the board's clock, which needs wall time the
+adapters do not have; and refusing every payload without a timestamp after a timestamped one,
+which would lock out a source that changes its shape.
+
+## 2026-11-11: The room timeout is a setting, 1800 s by default
+
+**Decision.** `room_timeout_s` is part of `ctl_rooms_config`, 1800 s by default, any finite value
+above 0 accepted; a room is still fresh at an age equal to the timeout.
+**Reason.** Room temperatures move slowly, and the thermostats report at irregular gaps; a
+generous timeout keeps the average's membership stable. With values seen about 90 minutes old on
+the broker, the right limit depends on the installation, so the owner sets it.
+**Rejected.** A fixed constant, which a house with slower thermostats could not change without a
+new build.
+
+## 2026-11-11: The room average refuses an invalid configuration as a whole
+
+**Decision.** `ctl_rooms_average_at` checks the configuration with `ctl_rooms_config_valid` and
+gives no average, with all counts and weights 0, when it is not valid; `ctl_rooms_offer` and
+`ctl_rooms_is_fresh` treat an index at or above `CTL_ROOMS_MAX` as out of range whatever the
+count says. A replaced room's stored timestamp is 0 when its payload had none.
+**Reason.** The story leaves these cases open; a count above the arrays' size must not read past
+them, and an average from a configuration that would be refused means nothing.
+**Rejected.** Assuming a valid configuration and documenting it as the caller's duty, which a
+wrong count would turn into a read past the arrays.

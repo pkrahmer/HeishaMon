@@ -47,3 +47,46 @@ the enum.
 | `CTL_BOUND_HEAT` | 0.0 | 30000.0 | W |
 | `CTL_BOUND_PV` | 0.0 | 100000.0 | W |
 | `CTL_BOUND_WEIGHT` | 0.0 | 1000.0 | |
+
+## The room average (`ctl_rooms.h`)
+
+The house has several room thermostats; the core has one indoor temperature. `ctl_rooms` keeps
+each room's last accepted reading, and `ctl_rooms_average_at` turns them into the weighted mean
+over the rooms that are fresh, `Σ wᵢ·Tᵢ / Σ wᵢ`, summed in room order. The glue offers each room's
+payload with `ctl_rooms_offer` as it arrives and asks for the average on its own 60 s clock; when
+there is one, it becomes one `T_INDOOR` reading for the core. Instants are seconds of the core's
+monotonic clock, handed in by the caller.
+
+An offered payload is parsed (`ctl_payload_parse`) and its value checked against
+`CTL_BOUND_TEMPERATURE`; a refused payload, an implausible value or an arrival instant that is not
+finite leaves the rooms as they were. A room is fresh while `now - t` is at most the room timeout,
+`t` being the arrival instant of its last accepted value.
+
+**The replay rule.** A payload with a timestamp is refused as replayed when the room's last
+accepted payload had a timestamp at least as large. A source that reconnects, or a retained
+message the broker delivers again, would otherwise make an old reading look new, and the room
+would stay in the average long after its thermostat went quiet. A payload without a timestamp
+carries nothing to compare, so it is always taken, and it clears the room's timestamp: the next
+timestamped payload is taken whatever its timestamp.
+
+**The half rule.** The average is emitted only while the fresh rooms carry strictly more than
+half of the total configured weight; otherwise nothing is emitted, and the core's own staleness
+handling of `T_INDOOR` takes over. With four rooms of weight 1.0, three fresh rooms (3.0 of 4.0)
+give an average over those three; two fresh rooms (2.0 of 4.0) give none. A room of weight 0 is
+fresh or not like any other and is counted in `fresh_count`, but it moves neither the weights nor
+the mean: a sensor to watch before it is trusted.
+
+**Defaults** (`ctl_rooms_config_defaults`): every weight 1.0, room timeout 1800 s. A
+configuration is valid with 1 to `CTL_ROOMS_MAX` (16) rooms, each weight accepted by
+`CTL_BOUND_WEIGHT` (0 to 1000), a weight sum above 0, and a finite timeout above 0;
+`ctl_rooms_average_at` gives no average for a configuration that is not valid.
+
+The three consequences of `firmware-design.md` §3.1:
+
+1. The room timeout, not the core's 600 s limit on `T_INDOOR`, is the real staleness limit of the
+   indoor signal, because the average keeps being emitted from held room values until the half
+   rule fails.
+2. Changing the list of rooms or their weights moves what the setpoint means, since the setpoint
+   and the trim were fitted against the plain mean of the archived sensors.
+3. A room leaving or joining the average makes it jump by up to several tenths of a kelvin, which
+   the trim turns into a few hundred watts.
