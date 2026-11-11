@@ -100,6 +100,7 @@ static void test_init(void)
     pump.defrost = true;
     ctl_pump_init(&pump);
     CHECK_TRUE(!pump.has_heat);
+    CHECK_DOUBLE(pump.heat_w, 0.0);
     CHECK_TRUE(!pump.hot_water);
     CHECK_TRUE(!pump.defrost);
 }
@@ -219,8 +220,6 @@ static void test_flags_before_heat(void)
     };
     ctl_pump pump;
     ctl_pump_init(&pump);
-    /* heat_w is not stated before the first heat; zero keeps the steps' last column meaningful. */
-    pump.heat_w = 0.0;
     run_steps(__FILE__, __LINE__, &pump, steps, sizeof steps / sizeof steps[0]);
     CHECK_TRUE(pump.has_heat);
 }
@@ -257,6 +256,7 @@ static void test_solar(void)
         {"1500", NAN, 100.0, false, 0.0},
         {"1500", INFINITY, 100.0, false, 0.0},
         {"1500", 0.0, 100.0, true, 0.0},
+        {"100000", 1e304, 100.0, false, 0.0},
         {"1500", 0.02, NAN, false, 0.0},
     };
     size_t i;

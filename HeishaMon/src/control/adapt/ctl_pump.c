@@ -23,9 +23,6 @@ static void write_reading(ctl_reading *reading, ctl_signal signal, double value,
     reading->t = t;
 }
 
-/* Parses the payload and checks its value against the bound and t for finiteness. A negative
- * value is refused, not clamped to 0: a meter that reports one is broken, and its other values
- * cannot be trusted either. */
 static bool parse_bounded(const char *payload, size_t length, ctl_bound bound, double t,
                           double *value)
 {
@@ -92,6 +89,8 @@ bool ctl_pump_heat(ctl_pump *pump, const char *payload, size_t length, double t,
                    ctl_reading *reading)
 {
     double value = 0.0;
+    /* CTL_BOUND_HEAT starts at 0 W, so a negative heat is refused rather than clamped: a meter
+     * that reports one is broken, and a clamped 0 W would look like a valid measurement. */
     if (!parse_bounded(payload, length, CTL_BOUND_HEAT, t, &value)) {
         return false;
     }
@@ -124,12 +123,19 @@ bool ctl_pump_defrost(ctl_pump *pump, const char *payload, size_t length, double
 bool ctl_solar(const char *payload, size_t length, double gain, double t, ctl_reading *reading)
 {
     double pv_w = 0.0;
+    double solar_w = 0.0;
     if (!isfinite(gain) || gain < 0.0) {
         return false;
     }
+    /* CTL_BOUND_PV starts at 0 W: a negative PV power is refused, not clamped, as the heat is. */
     if (!parse_bounded(payload, length, CTL_BOUND_PV, t, &pv_w)) {
         return false;
     }
-    write_reading(reading, CTL_SIGNAL_P_SOLAR, pv_w * gain, t);
+    /* The configuration bounds the gain only from below, so a huge gain can overflow. */
+    solar_w = pv_w * gain;
+    if (!isfinite(solar_w)) {
+        return false;
+    }
+    write_reading(reading, CTL_SIGNAL_P_SOLAR, solar_w, t);
     return true;
 }

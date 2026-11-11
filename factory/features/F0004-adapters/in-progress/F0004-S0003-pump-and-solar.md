@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T23:07:34.102214Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T23:07:34.102214Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T23:09:11.760942Z'
+  stage: doing
+  run: d5e65cf3ced94992aa2375b9fbf08829
 ---
 
 # The pump signals and the solar gain
@@ -185,3 +187,20 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    Earlier tests: none. `git diff --name-status develop...HEAD` shows only `A tests/control/test_pump.c` under tests.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's five findings and nothing else.
+
+   1. Description: I rewrote the `ctl_pump_valve` bullet, which `ctl_pump_defrost` refers to as "the same". A reading now comes "when that switches the mask (`hot_water` or `defrost`) on or off and a heat is stored, including a stored heat of 0 W". A value that leaves the mask as it was gives none. Because of finding 5, I also added to the `ctl_solar` bullet that it refuses a product that is not finite.
+   2. `HeishaMon/src/control/adapt/ctl_pump.c`: I took the "negative value is refused, not clamped" comment off `parse_bounded`, since that function also serves the temperature. The reason now sits at the two callers it applies to: `ctl_pump_heat` (CTL_BOUND_HEAT starts at 0 W) and `ctl_solar` (CTL_BOUND_PV starts at 0 W).
+   3. `HeishaMon/src/control/adapt/ctl_pump.h`: I rewrapped the `ctl_pump_valve` comment into whole sentences. Every line in `ctl_pump.h` and `ctl_pump.c` is now 100 columns or less.
+   4. `tests/control/test_pump.c`: I deleted the dead `pump.heat_w = 0.0;` override and its comment from `test_flags_before_heat`. `test_init` now checks `CHECK_DOUBLE(pump.heat_w, 0.0)`.
+   5. `ctl_solar` now computes `pv_w * gain` and refuses the reading when the product is not finite. I added the test row `{"100000", 1e304, ...}`, which is refused. The header comment, the `ctl_solar` row of the table in `docs/control/adapters.md` ("the product finite") and a new entry in `docs/control/decisions.md` ("The solar gain refuses a product that is not finite") all say this now. I decided this myself rather than asking, because CLAUDE.md already requires an `isfinite` check on a value from outside. I rejected an upper bound on the gain inside the adapter: it would be a second rule beside the configuration's, and a guess at the largest sensible gain.
+
+   The new row was added after the fix, so I did not see it fail. Without the check, 100000 × 1e304 is infinite and would be written as a reading, so the row would fail.
+
+   Smoke test: `make test | grep '^control:'` prints `control: 13 test programs passed`, one more than the 12 before this story. Final `make check`: `check: green` (lint, test and device all green).
+
+   Still noticed but not touched: `ctl_reading` lives in `ctl_pump.h`. A later adapter that also gives readings may want it in a shared header.
+
+   The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0003-pump-and-solar.md.
+
+   `check`: check: green

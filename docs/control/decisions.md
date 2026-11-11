@@ -443,3 +443,13 @@ the flag as it was. `ctl_pump_init` sets `heat_w` to 0.0 beside `has_heat = fals
 guessing could unmask the heat of a hot-water run. A defined `heat_w` keeps the state comparable
 as a whole.
 **Rejected.** Treating any non-zero value as set, which would read a corrupt payload as a state.
+
+## 2026-11-11: The solar gain refuses a product that is not finite
+
+**Decision.** `ctl_solar` refuses, and gives no reading, when `pv * gain` is not finite, even
+though the PV power and the gain were each accepted.
+**Reason.** The configuration bounds `solar_gain_factor` only from below, so a finite gain near
+the largest `double` turns an accepted PV power into an infinite `P_SOLAR`; a value from outside
+is checked with `isfinite` before the core uses it.
+**Rejected.** An upper bound on the gain in the adapter, which would be a second rule beside the
+configuration's and a guess at the largest sensible gain.

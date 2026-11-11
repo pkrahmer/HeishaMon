@@ -107,7 +107,7 @@ is outside its bound or not one of the values the function names, or the instant
 | `ctl_pump_heat` | `Heat_Power_Production` | `CTL_BOUND_HEAT` | `P_PRODUCED`, the value, or 0.0 while masked |
 | `ctl_pump_valve` | `ThreeWay_Valve_State` | exactly 0 or 1 | `P_PRODUCED` under the new mask, when the mask switches and a heat is stored |
 | `ctl_pump_defrost` | `Defrosting_State` | exactly 0 or 1 | `P_PRODUCED` under the new mask, when the mask switches and a heat is stored |
-| `ctl_solar` | PV DC power | `CTL_BOUND_PV`; the gain finite and ≥ 0 | `P_SOLAR`, `pv * solar_gain_factor` |
+| `ctl_solar` | PV DC power | `CTL_BOUND_PV`; the gain finite and ≥ 0; the product finite | `P_SOLAR`, `pv * solar_gain_factor` |
 
 **The mask rule.** The produced heat is reported as 0 W while the valve is on the hot-water tank
 or the pump defrosts, because that heat does not enter the rooms (`algorithm-plan.md` [A-3]).

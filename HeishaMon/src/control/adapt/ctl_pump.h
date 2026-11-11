@@ -43,11 +43,12 @@ bool ctl_pump_heat(ctl_pump *pump, const char *payload, size_t length, double t,
                    ctl_reading *reading);
 
 /* Sets hot_water to whether the payload's value is 1.0. Returns true with the stored heat as a
- * P_PRODUCED reading at t under the new mask when that switched the mask on or off and a heat is
- * stored; returns false, writing no reading, otherwise: a value that leaves hot_water as it was,
- * and a change while defrost still masks, change nothing the core sees. Refuses, returning false and leaving the pump and
- * *reading as they were, a payload the parser refuses, a value that is not exactly 0.0 or 1.0
- * and a t that is not finite. */
+ * P_PRODUCED reading at t under the new mask when that switched the mask (hot_water or defrost)
+ * on or off and a heat is stored, even a stored heat of 0 W. Returns false, writing no reading,
+ * when the mask stayed as it was, because the core already has the masked heat: so does a value
+ * that leaves hot_water as it was, or a change while defrost still masks. Refuses, returning
+ * false and leaving the pump and *reading as they were, a payload the parser refuses, a value
+ * that is not exactly 0.0 or 1.0 and a t that is not finite. */
 bool ctl_pump_valve(ctl_pump *pump, const char *payload, size_t length, double t,
                     ctl_reading *reading);
 
@@ -57,7 +58,8 @@ bool ctl_pump_defrost(ctl_pump *pump, const char *payload, size_t length, double
 
 /* Returns true with a P_SOLAR reading of the PV power times gain at t in *reading. Refuses,
  * returning false and leaving *reading as it was, a payload the parser refuses, a PV power
- * CTL_BOUND_PV refuses, a gain that is not finite or below 0, and a t that is not finite. */
+ * CTL_BOUND_PV refuses, a gain that is not finite or below 0, a product that is not finite, and
+ * a t that is not finite. */
 bool ctl_solar(const char *payload, size_t length, double gain, double t, ctl_reading *reading);
 
 #endif
