@@ -49,7 +49,7 @@ static void test_bare_numbers_accepted(void)
     static const accepted_row rows[] = {
         {"5", 5.0, false, 0},      {"-3.5", -3.5, false, 0},  {"3200", 3200.0, false, 0},
         {"21.10", 21.1, false, 0}, {"1e3", 1000.0, false, 0}, {"2.5E-1", 0.25, false, 0},
-        {" 22.7\n", 22.7, false, 0}, {"0", 0.0, false, 0},
+        {" 22.7\n", 22.7, false, 0}, {"0", 0.0, false, 0},   {"\t22.7\r\n", 22.7, false, 0},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
@@ -62,6 +62,7 @@ static void test_bare_numbers_refused(void)
     static const char *const rows[] = {
         "",    " ",   "+5",  ".5",   "5.",  "1e",  "1e+", "--1",
         "0x10", "nan", "inf", "1e999", "5 6", "5,6", "abc", "\"5\"",
+        "\f5", "5\v",
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
@@ -77,6 +78,7 @@ static void test_objects_accepted(void)
         {"{\"value\":-4.5}", -4.5, false, 0},
         {"{ \"v\" : 1.5 , \"unit\" : \"C\", \"ok\": true, \"x\": null, \"y\": false }", 1.5, false, 0},
         {"{\"s\":0,\"v\":0,\"ts\":0}", 0.0, true, 0},
+        {"{\"v\":1,\"ts\":999999999999999999}", 1.0, true, INT64_C(999999999999999999)},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {

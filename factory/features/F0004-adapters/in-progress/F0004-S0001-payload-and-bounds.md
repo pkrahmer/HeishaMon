@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 12
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:17:49.107705Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,13 @@ journal:
   kind: started
   at: '2026-11-11T22:17:49.107705Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: question
+  at: '2026-11-11T22:18:49.622034Z'
+  stage: doing
+  run: 650dc0dae76d4c019891ad11bfa6f977
+  blocked: question
 ---
 
 # The payload parser and the plausibility bounds
@@ -192,3 +195,22 @@ Expect: `2`
 
    Earlier tests: the diff changes no test file that `develop` already holds. Every test file in the diff is added (status `A`). The one modified file, `docs/control/decisions.md`, only has entries appended.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed findings 1 and 2. Finding 3 needs your decision before I can hand forward.
+
+   **Done in this round** (left in the working tree; after the edits `make check` ended `check: green`, and `control: 11 test programs passed`):
+   - Finding 1: added the row `{"v":1,"ts":999999999999999999}` to `test_objects_accepted` in `tests/control/test_payload.c`. It gives 1.0 with timestamp 999999999999999999. I also added it to criterion 3 in the `## Description`.
+   - Finding 2: added the accepted row `"\t22.7\r\n"` (gives 22.7) to `test_bare_numbers_accepted`. Added the refused rows `"\f5"` and `"5\v"` to `test_bare_numbers_refused`. I named all three in criteria 1 and 2.
+   - The parser already behaved correctly in both cases, so no code changed. The new rows fill gaps in the tests and in the story's criteria.
+
+   **Open: finding 3. Where should the adapter sources be compiled for the D1 mini?**
+
+   `make device` is green, but arduino-cli compiles only the libraries a sketch includes, and `tests/control/device/replay/replay.ino` includes no `adapt/` header. So `ctl_payload.c` and `ctl_bounds.c`, including their use of `strtod` from the board's C library, are never built for the board. Criterion 7 is not really met.
+
+   Either fix touches something this story may not change on its own. The options:
+   - **A.** Add `#include <ctl_payload.h>` and `#include <ctl_bounds.h>` (or the matching relative includes) to `replay.ino`. That sketch belongs to another story, so this needs your word. The smoke-test count of `make device | grep -c '^\. '` stays at `2`.
+   - **B.** Add a small compile-only sketch, `tests/control/device/adapt_probe/adapt_probe.ino`, that includes both headers and calls both functions. It would be my own file, but it changes the smoke test's expected count to a different number. I have not checked what the new count would be. If you choose this, the `## Smoke test` expectation needs updating.
+   - **C.** Accept the current state, and leave building the adapters for the board to a later story that wires them in.
+
+   I would choose **A**: it is a two-line change and leaves the smoke test as written. Please answer A, B or C. On A, I take your answer as the word that lets me change `replay.ino`.
+
+   The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0001-payload-and-bounds.md.
