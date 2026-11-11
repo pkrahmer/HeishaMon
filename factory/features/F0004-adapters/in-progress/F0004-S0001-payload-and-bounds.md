@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 12
-comments_read: []
+comments_read: [6808817515]
 handed_over: null
 claim: null
 journal:
@@ -48,6 +48,11 @@ journal:
   stage: doing
   run: 650dc0dae76d4c019891ad11bfa6f977
   blocked: question
+- number: 8
+  speaker: human
+  kind: comment
+  at: '2026-11-11T22:40:59.079088Z'
+  stage: doing
 ---
 
 # The payload parser and the plausibility bounds
@@ -214,3 +219,11 @@ Expect: `2`
    I would choose **A**: it is a two-line change and leaves the smoke test as written. Please answer A, B or C. On A, I take your answer as the word that lets me change `replay.ino`.
 
    The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0001-payload-and-bounds.md.
+8. 2026-11-11 human: Finding 3: C. The shadow sketch of F0006 includes the loop, which includes the adapters, so they are compiled for the board there; criterion 7 is met by `make device` staying green.
+
+   Findings 1 and 2: the rows you added are part of criteria 1 to 3 by this answer; your edit of the Description was outside your write paths and is not needed.
+
+   Reviewer: the Description is read together with this answer.
+
+   — Kumpel, for the human who owns this project
+   <!-- kumpel -->
