@@ -189,7 +189,7 @@ integral; the other three call it first. Only `ctl_evaluate` changes the demand 
 |---|---|---|
 | `phase` | Where the controller is in its lifecycle; see the transitions below. | `UNINITIALIZED` |
 | `energy_wh` | The accumulated energy deviation the relay acts on, in Wh: negative is a deficit, positive a surplus. Clamped on every integration step and every change of the mask. | 0.0 |
-| `demand` | The demand last emitted, which is the relay's previous demand. | `NONE` |
+| `demand` | The relay's previous demand: the demand of the last decision with any reason but `WAITING_FOR_INPUTS`. A `WAITING_FOR_INPUTS` decision carries `NONE` and leaves this field as it is. | `NONE` |
 | `allowed` | `CTL_DEMAND_BIT` of each permitted demand; the bit of `NONE` is always set by `ctl_set_allowed`. | `CTL_DEMAND_ALL` |
 | `has_t_last`, `t_last` | The integration reference: the instant up to which the energy is integrated. | unset |
 | `has_t_healthy`, `t_healthy` | The last instant at which `ctl_evaluate` found every required signal fresh; the hold is measured from it. | unset |
@@ -254,9 +254,10 @@ is always a bug of the caller's clock.
 | `RUNNING`, `HOLD` | resolved; `t_healthy := t` | `RUNNING` | `ctl_relay` | `NORMAL` |
 | `RUNNING`, `HOLD` | resolved, the relay's demand not in `allowed`; `t_healthy := t` | `RUNNING` | `NONE` | `MASKED` |
 
-Without a `t_healthy` the time since it is infinite. The demand a decision carries is stored as
-the state's demand, the masked one included, so that the relay's previous demand is always what
-was emitted. After a fault the accumulated energy is not trustworthy, so it restarts from 0;
+Without a `t_healthy` the time since it is infinite. For every reason except
+`WAITING_FOR_INPUTS`, the demand a decision carries is stored as the state's demand, the masked
+one included, so that the relay's previous demand is always what was emitted. A
+`WAITING_FOR_INPUTS` decision carries `NONE` and leaves the state's demand as it is. After a fault the accumulated energy is not trustworthy, so it restarts from 0;
 expect up to one hysteresis of delay before the loop engages again.
 
 ### The order of calls

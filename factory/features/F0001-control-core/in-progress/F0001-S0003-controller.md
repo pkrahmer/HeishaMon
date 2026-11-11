@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 5
 comments_read: [6806361194]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:22:06.432335Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -134,6 +130,12 @@ journal:
   kind: started
   at: '2026-11-11T20:22:06.432335Z'
   stage: doing
+- number: 23
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:22:56.621032Z'
+  stage: doing
+  run: 0f0237c3ddab4f368f975197ff64777e
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -542,3 +544,29 @@ Expect: `control: 6 test programs passed`
     Notes:
     - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
 22. factory: started doing as heishamon.
+23. builder: Rework round after the human's answer (entry 19): I fixed findings 1 and 2 of entry 17 (repeated as 1 and 2 in entry 21) and changed nothing else. `HeishaMon/src/control/core/ctl_controller.c` and the header are unchanged.
+
+    What I changed:
+    - `tests/control/test_controller.c`:
+      - `test_advance_clamps` now checks `state.integrated_s` 600.0 after the 300→600 advance.
+      - `test_evaluate_hold_fault_recovery` now checks `skipped_s` 900.0 after the evaluate at 1200.0, in both the state and the decision. That is 400.0 from the step to 700.0 plus 500.0 for 700→1200.
+    - `docs/control/core.md`, Controller section:
+      - The `demand` row of the field table now reads: the relay's previous demand, which is the demand of the last decision with any reason but `WAITING_FOR_INPUTS`; a `WAITING_FOR_INPUTS` decision carries `NONE` and leaves the field as it is.
+      - The paragraph under the phase table now says the same thing: "for every reason except `WAITING_FOR_INPUTS`" the demand is stored, and a `WAITING_FOR_INPUTS` decision carries `NONE` and leaves the state's demand as it is.
+
+    Mutation checks: I applied each change to a copy of the code, ran the tests, and restored the code afterwards (`git diff` on the code is empty).
+    - `integrated_s = dt` instead of `+ dt`: the new check fails at line 215 (got 300, expected 600).
+    - `skipped_s = dt` instead of `+ dt`: the new checks fail at lines 507 and 508 (got 500, expected 900).
+
+    Not done: the reviewer's note about the `(void)` cast in `test_evaluate_before_reference`. The human asked for findings 1 and 2 and nothing else.
+
+    Decisions: none new. `docs/control/decisions.md` is unchanged.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`.
+
+    `check`: check: green

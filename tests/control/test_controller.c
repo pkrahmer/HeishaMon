@@ -212,6 +212,7 @@ static void test_advance_clamps(void)
     CHECK_TRUE(ctl_advance(&state, 600.0, &config, &dt_s));
     CHECK_DOUBLE(state.energy_wh, -3000.0 + 2265.0 * (300.0 / 3600.0));
     CHECK_TRUE(!state.clamped);
+    CHECK_DOUBLE(state.integrated_s, 600.0);
 }
 
 typedef struct {
@@ -503,6 +504,8 @@ static void test_evaluate_hold_fault_recovery(void)
 
     ctl_evaluate(&state, 1200.0, &config, &decision);
     check_held(&state, &decision);
+    CHECK_DOUBLE(state.skipped_s, 900.0);
+    CHECK_DOUBLE(decision.skipped_s, 900.0);
 
     ctl_evaluate(&state, nextafter(1200.0, INFINITY), &config, &decision);
     check_faulted(&state, &decision);
