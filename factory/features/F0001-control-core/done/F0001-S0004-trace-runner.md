@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-11T20:38:40.668790Z'
   stage: review
   run: 122dced4d5104fac9171562a0e0071be
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-11T20:42:33.293548Z'
+  stage: approval
 ---
 
 # The trace runner over the thirteen golden traces
@@ -291,3 +296,4 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
    - `tests/control/trace.c` `format_number`: it writes with the implicit `TEXT_MAX` rather than a size the caller passes, unlike `format_signal_set`. Every caller's buffer has `TEXT_MAX` characters, so it is safe today.
    - `docs/control/decisions.md` "The trace reader is strict…": the refusal of `trim_limit_enabled` as a config key and of a non-number for `state_max_age_s`/`persist_interval_s` have no faulty trace of their own. `unknown_config_key` covers the general rule. The sentence "Each of these refusals has a faulty trace of its own" reads as if it included them.
    - Story: criteria 5 and 6 still list fewer cases than the tests now cover (named in round 0). The tests go beyond the criteria without contradicting them. The human may want to add the extra cases to the Description.
+10. factory: done (pull request merged); cost: 4 runs, 12.0 min, 67 turns, 239438 tokens in (3421213 more from cache), 70995 out, $3.30
