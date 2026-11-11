@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T19:56:30.131463Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T19:56:30.131463Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T19:57:24.420418Z'
+  stage: review
+  run: f2287457c100455daf8d38eb8a6e3a61
 ---
 
 # The signal table, the energy balance and the relay
@@ -286,3 +288,32 @@ Expect: `control: 5 test programs passed`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'`. I compared it against the story and the Python reference (`signals.py`, `balance.py`, `hysteresis.py`, and `EnergyLedger` in `types.py`), plus `ctl_types.h`, `ctl_config.c` and `check.h`.
+
+   What I checked, group by group:
+   1. **Acceptance criteria.** Criteria 1–11 each have a table or case test that tests what the criterion says. The round-0 findings are fixed:
+      - `test_relay.c` has rows for a `previous` outside the enum.
+      - `test_resolve_with_one_optional_stale` covers mixed optional freshness.
+      
+      Boundaries are tested on both sides:
+      - freshness at 700.0 and 700.001;
+      - the relay at ±H and at 0, using `nextafter`;
+      - the clamp at equality and beyond;
+      - the trim limit at the limit, beyond it, and inside it (criterion 6).
+      
+      Refusal leaves the marker untouched. The journal reports `check: green`.
+   2. **Architecture.** Core includes are only from the allowed set. Names have the `ctl_`/`CTL_` prefix and helpers are `static`. No file outside the three folders changed.
+   3. **Embedded safety.** No dynamic memory and no recursion. Every loop is bounded by `CTL_SIGNAL_COUNT`. Unchecked arguments are a decision the story made.
+   4. **Quality.** Operand order matches Python everywhere:
+      - the trim clamp's `< -limit` then `> limit`;
+      - the ledger's `+= power * hours`;
+      - the left-to-right sums;
+      - the relay branch order;
+      - the `clamp_bounds` selection.
+      
+      Staleness has one definition, `!is_fresh`.
+   5. **Hygiene.** The Description matches the build. `decisions.md` has the six listed differences plus the builder's decision about `init`. The tables in `core.md` match the code. There is one exception, below.
+   6. **Earlier tests.** Every test file in the diff has status `A`. No earlier test was changed.
+
+   Findings:
+   1. `docs/control/core.md`, section "Signal table", sentence "With the defaults, `P_INTERNAL` never goes stale.": this claim does not hold. With the defaults, `ctl_signals_stale_optional` returns the bit of `P_INTERNAL` when it was never observed (criterion 4, and the first case of criterion 5), and when `at` is NaN. Fix: say that once observed, `P_INTERNAL` stays fresh at every instant that is not NaN, because its `max_age_s` is `INFINITY`. Also say that it still falls back to `fallback_w` (550 W) until its first reading.
