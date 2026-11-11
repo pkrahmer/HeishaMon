@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:15:03.931368Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -89,6 +85,12 @@ journal:
   kind: started
   at: '2026-11-11T20:15:03.931368Z'
   stage: doing
+- number: 15
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:16:12.027909Z'
+  stage: doing
+  run: 93f245fa73d04fd8a540961e2837bc9e
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -394,3 +396,42 @@ Expect: `control: 6 test programs passed`
 
     Notes: none.
 14. factory: started doing as heishamon.
+15. builder: Round 3: closed the reviewer's findings 1–3 from entry 13 with tests. All three were test gaps, and the code was already correct on each. The only file I changed is `tests/control/test_controller.c`. `HeishaMon/src/control/core/ctl_controller.c`, the header and the docs are unchanged.
+
+    What I built: three new test functions in `tests/control/test_controller.c`.
+    - Finding 1, `test_advance_resolves_at_interval_start`: the three readings are at 0.0 and `t_last` is arranged at 500.0. `ctl_advance` to 700.0 returns true with 200.0, `t_last` becomes 700.0, `integrated_s` becomes 200.0 and `skipped_s` stays 0.0. The readings are fresh at 500.0 (age 500 ≤ 600) and stale at 700.0.
+    - Finding 2, `test_evaluate_before_reference`: the seeded state is advanced to 700.0. That interval is skipped because dt 400 > `max_step_s`, so `t_last` becomes 700.0. `ctl_evaluate` at 500.0 then gives `NORMAL`, `has_inputs` true, `unhealthy` 0 and `dt_s` 0.0, and the state's `t_last` stays 700.0.
+    - Finding 3, `test_observe_first_reading_at_negative_instant`: on a fresh state, `T_INDOOR` 21.0 at -10.0 is stored, with `observed` true, value 21.0 and instant -10.0.
+
+    Mutation checks. I applied each mutation to the code, ran `make test`, and restored the file from a copy. `git diff` on the code is empty afterwards. Each mutation made the new test fail:
+    - Resolving at `t` instead of `t_last` in `ctl_advance` fails 3 checks, at lines 660, 663 and 664.
+    - Resolving and computing `unhealthy` at `state->t_last` instead of `t` in `ctl_evaluate` fails at lines 694, 695 and 696. The 0x7 at 696 also catches the `unhealthy` call alone.
+    - Dropping the `observed` check in `ctl_observe` fails at lines 676, 677 and 678.
+
+    Finding 4, for the human: the Description still ends at criterion 16. These rules have tests but no criterion:
+    - Round 0 (entry 5):
+      - FAULT does not hold within `input_hold_s`.
+      - A missing `t_healthy` counts as infinite.
+      - `clamped` is kept on `FAULT_RECOVERED` and on a mask change.
+      - `ctl_set_allowed` keeps the energy when the mask is unchanged, and it advances before it stores a new mask.
+    - Round 1 (entry 9):
+      - HOLD returns to RUNNING on fresh inputs.
+      - NORMAL and MASKED set `t_healthy`.
+      - WAITING emits `NONE` whatever the demand, and SEEDED keeps the state's demand.
+    - Round 2 (entry 13), with this round's tests:
+      - `ctl_advance` resolves at the interval's start: `test_advance_resolves_at_interval_start`.
+      - `ctl_evaluate` resolves at `t` even when `t` is before `t_last`: `test_evaluate_before_reference`.
+      - A first reading of a signal is taken at any finite instant, even a negative one: `test_observe_first_reading_at_negative_instant`.
+
+    I did not edit the Description, because it is outside my write paths.
+
+    Decisions: none new. None of the new tests disagrees with `controller.py`, so the decisions.md entry saying no criterion disagreed still holds.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+    - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+    - The final `make check` ended with `check: green`.
+
+    Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported earlier.
+
+    `check`: check: green

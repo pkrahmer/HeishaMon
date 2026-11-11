@@ -647,6 +647,57 @@ static void test_evaluate_uninitialized_with_demand(void)
     CHECK_TEXT(ctl_demand_name(state.demand), "HEATING");
 }
 
+/* The interval is trusted by the readings at its start, not at its end. */
+static void test_advance_resolves_at_interval_start(void)
+{
+    ctl_config config;
+    ctl_state state;
+    double dt_s = -1.0;
+
+    ctl_config_defaults(&config);
+    state_with_readings(&state, &config);
+    state.t_last = 500.0;
+    CHECK_TRUE(ctl_advance(&state, 700.0, &config, &dt_s));
+    CHECK_DOUBLE(dt_s, 200.0);
+    CHECK_DOUBLE(state.t_last, 700.0);
+    CHECK_DOUBLE(state.integrated_s, 200.0);
+    CHECK_DOUBLE(state.skipped_s, 0.0);
+}
+
+/* A first reading has no older one to be compared with, whatever its instant. */
+static void test_observe_first_reading_at_negative_instant(void)
+{
+    ctl_config config;
+    ctl_state state;
+
+    ctl_config_defaults(&config);
+    ctl_state_init(&state);
+    ctl_observe(&state, CTL_SIGNAL_T_INDOOR, 21.0, -10.0, &config);
+    CHECK_TRUE(state.signals.observed[CTL_SIGNAL_T_INDOOR]);
+    CHECK_DOUBLE(state.signals.value[CTL_SIGNAL_T_INDOOR], 21.0);
+    CHECK_DOUBLE(state.signals.t[CTL_SIGNAL_T_INDOOR], -10.0);
+}
+
+/* An evaluate before the reference judges the signals at its own instant. */
+static void test_evaluate_before_reference(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+    double dt_s = -1.0;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    ctl_advance(&state, 700.0, &config, &dt_s);
+    CHECK_DOUBLE(state.t_last, 700.0);
+    ctl_evaluate(&state, 500.0, &config, &decision);
+    CHECK_TEXT(ctl_reason_name(decision.reason), "NORMAL");
+    CHECK_TRUE(decision.has_inputs);
+    CHECK_UINT(decision.unhealthy, 0u);
+    CHECK_DOUBLE(decision.dt_s, 0.0);
+    CHECK_DOUBLE(state.t_last, 700.0);
+}
+
 int main(void)
 {
     test_state_init();
@@ -673,5 +724,8 @@ int main(void)
     test_evaluate_normal_marks_healthy();
     test_evaluate_masked_marks_healthy();
     test_evaluate_uninitialized_with_demand();
+    test_advance_resolves_at_interval_start();
+    test_observe_first_reading_at_negative_instant();
+    test_evaluate_before_reference();
     return check_result();
 }
