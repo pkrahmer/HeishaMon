@@ -120,6 +120,68 @@ static void test_mismatch_limit_holds(void)
 }
 
 typedef struct {
+    long line;
+    const char *key;
+} planted_fault;
+
+/* Reads the next printed line and checks that it reports the fault: file, line and key. */
+static void check_reported(FILE *output, const char *path, const planted_fault *fault)
+{
+    char expected[512];
+    char line[512];
+    snprintf(expected, sizeof expected, "%s:%ld: %s expected ", path, fault->line, fault->key);
+    if (fgets(line, (int)sizeof line, output) == NULL) {
+        line[0] = '\0';
+    }
+    line[strcspn(line, "\n")] = '\0';
+    if (strncmp(line, expected, strlen(expected)) != 0) {
+        printf("reported \"%s\", expected a line starting \"%s\"\n", line, expected);
+    }
+    CHECK_TRUE(strncmp(line, expected, strlen(expected)) == 0);
+}
+
+/* Every key the replayer compares but E, int and pnet, which other files cover, has one wrong
+ * value; each must be reported, in the order of the file and of the pairs. */
+static void test_every_key_is_compared(void)
+{
+    static const char path[] = BAD "wrong_every_key.trace";
+    static const planted_fault faults[] = {
+        {7, "demand"},
+        {7, "reason"},
+        {7, "phase"},
+        {7, "unhealthy"},
+        {9, "skip"},
+        {10, "clamped"},
+        {16, "dt"},
+        {16, "skip"},
+        {16, "clamped"},
+        {16, "substituted"},
+        {16, "ledger.produced"},
+        {16, "ledger.solar"},
+        {16, "ledger.internal"},
+        {16, "ledger.transmission"},
+        {16, "ledger.trim"},
+    };
+    const long count = (long)(sizeof faults / sizeof faults[0]);
+    trace_result result;
+    long i;
+    FILE *output = tmpfile();
+    CHECK_TRUE(output != NULL);
+    if (output == NULL) {
+        return;
+    }
+    CHECK_TRUE(!trace_replay_to(output, path, count + 10, &result));
+    CHECK_TRUE(result.mismatches == count);
+    CHECK_TRUE(result.format_line == 0);
+    CHECK_TRUE(result.calls == 12);
+    rewind(output);
+    for (i = 0; i < count; i++) {
+        check_reported(output, path, &faults[i]);
+    }
+    fclose(output);
+}
+
+typedef struct {
     const char *path;
     long mismatches;
 } mismatch_row;
@@ -161,6 +223,16 @@ static void test_format_errors(void)
         {BAD "wrong_end_count.trace", 8},
         {BAD "no_end.trace", 8},
         {BAD "long_line.trace", 7},
+        {BAD "surplus_state_pair.trace", 7},
+        {BAD "surplus_argument.trace", 7},
+        {BAD "unknown_reason.trace", 7},
+        {BAD "unknown_phase.trace", 7},
+        {BAD "double_space.trace", 7},
+        {BAD "clamped_two.trace", 7},
+        {BAD "text_after_end.trace", 9},
+        {BAD "fallback_required.trace", 4},
+        /* A file that cannot be opened has no line at fault. */
+        {BAD "does_not_exist.trace", 0},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
@@ -187,6 +259,7 @@ int main(void)
     printf("expected mismatches and format errors follow\n");
     test_wrong_energy_is_found();
     test_mismatch_limit_holds();
+    test_every_key_is_compared();
     test_comparison_mismatches();
     test_format_errors();
     return check_result();

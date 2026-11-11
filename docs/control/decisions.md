@@ -215,7 +215,9 @@ than `0` or `1`. It reads `state_max_age_s` and `persist_interval_s` as numbers 
 It accepts a set whose names are not in alphabetical order or repeat one, and compares sets by
 their bit mask. The line buffer of 1,024 characters counts the line without its newline, so a
 line of 1,024 characters is read and one of 1,025 is refused; `trim_limit_enabled` is no key, as
-`trim_limit_k none` sets it.
+`trim_limit_k none` sets it. Each of these refusals has a faulty trace of its own under
+`tests/control/data/bad/`, as does every key the replayer compares, so that a reader that quietly
+accepted a fault or skipped a key would fail the runner's test.
 **Reason.** The format asks a reader to reject what it does not recognise; the order of a set
 says nothing the core holds, so refusing it would refuse a trace for its spelling.
 **Rejected.** Accepting trailing content after `end`, which would hide a concatenated file.

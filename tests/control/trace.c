@@ -307,8 +307,8 @@ static bool parse_call_arguments(char **fields, int count, trace_call *call)
 static bool parse_call_kind(const char *name, call_kind *kind)
 {
     static const char *const NAMES[] = {"observe", "advance", "allow", "evaluate"};
-    int index;
-    for (index = 0; index < 4; index++) {
+    size_t index;
+    for (index = 0; index < sizeof NAMES / sizeof NAMES[0]; index++) {
         if (strcmp(name, NAMES[index]) == 0) {
             *kind = (call_kind)index;
             return true;
@@ -365,20 +365,27 @@ static void compare_name(replay *run, const char *key, int expected, int actual,
     report(run, key, expected_name, actual_name);
 }
 
-static void format_signal_set(char *text, uint8_t set)
+/* Appends to text, a buffer of size characters, cutting what does not fit. */
+static void append(char *text, size_t size, const char *tail)
+{
+    size_t length = strlen(text);
+    snprintf(text + length, size - length, "%s", tail);
+}
+
+static void format_signal_set(char *text, size_t size, uint8_t set)
 {
     int index;
     text[0] = '\0';
     for (index = 0; index < CTL_SIGNAL_COUNT; index++) {
         if ((set & CTL_SIGNAL_BIT(index)) != 0) {
             if (text[0] != '\0') {
-                strcat(text, ",");
+                append(text, size, ",");
             }
-            strcat(text, ctl_signal_name((ctl_signal)index));
+            append(text, size, ctl_signal_name((ctl_signal)index));
         }
     }
     if (text[0] == '\0') {
-        strcat(text, "-");
+        append(text, size, "-");
     }
 }
 
@@ -389,8 +396,8 @@ static void compare_signal_set(replay *run, const char *key, uint8_t expected, u
     if (is_stopped(run) || expected == actual) {
         return;
     }
-    format_signal_set(expected_text, expected);
-    format_signal_set(actual_text, actual);
+    format_signal_set(expected_text, sizeof expected_text, expected);
+    format_signal_set(actual_text, sizeof actual_text, actual);
     report(run, key, expected_text, actual_text);
 }
 

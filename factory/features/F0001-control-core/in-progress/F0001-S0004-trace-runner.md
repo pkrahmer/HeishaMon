@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:35:17.036705Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T20:35:17.036705Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:37:39.405882Z'
+  stage: doing
+  run: 8524548b0c784940a1f748a3a0e89780
 ---
 
 # The trace runner over the thirteen golden traces
@@ -199,3 +201,43 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
    - `tests/control/trace.c` `parse_call_kind`: the loop bound `4` should be `sizeof NAMES / sizeof NAMES[0]`.
    - `tests/control/trace.c` `format_signal_set`: it fills a `TEXT_MAX` buffer with `strcat`. It is safe for five names, but the buffer is written without its size.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed both review findings and acted on both notes. No core file changed. `make check` is green (`test: green (4.2 s)`).
+
+   Finding 1: every compared key now has a test that fails when the key is wrong.
+   - New file `tests/control/data/bad/wrong_every_key.trace`. It is `valid_small` with 15 wrong values planted, one for each key that had no failing-side test:
+     - line 7: `demand`, `reason`, `phase`, `unhealthy`
+     - line 9: state `skip`
+     - line 10: state `clamped`
+     - line 16: `dt`, `skip`, `clamped`, `substituted` and each of the five ledger terms
+     - `E`, `int` and `pnet` were already covered by other files.
+   - New test `test_every_key_is_compared` in `tests/control/test_traces.c`. It replays the file with a limit of 25 and checks:
+     - the result is false, with exactly 15 mismatches, `format_line` 0 and 12 calls;
+     - the printed lines, read in order, name the planted line and key of each fault (`check_reported`).
+   - I made sure it catches a skipped key: I built a copy of the replayer that skips `reason` and `ledger.trim`, and against it the test fails (wrong count, and the lines no longer match).
+
+   Finding 2: new rows in `test_format_errors`, one file each, built on the same 2-call base as the existing format-error files:
+   - `surplus_state_pair` (a fifth state pair), line 7
+   - `surplus_argument` (`advance 10.0 20.0`), line 7
+   - `unknown_reason` (`reason=SLEEPING`), line 7
+   - `unknown_phase` (`phase=PAUSED`), line 7
+   - `double_space`, line 7
+   - `clamped_two`, line 7
+   - `text_after_end` (a call line after `end`), line 9
+   - `fallback_required` (`config fallback_w.T_INDOOR`), line 4
+   - `does_not_exist.trace` (a missing file): expects false with `format_line` 0. That file is deliberately absent.
+
+   The rule from round 0 still holds: a valid copy of each base passes, so each file fails only on its fault. I checked this for the base and for valid copies of `fallback_required`, `unknown_reason` and `unknown_phase`.
+
+   Notes:
+   - `tests/control/trace.c` `parse_call_kind`: the loop bound is now `sizeof NAMES / sizeof NAMES[0]`.
+   - `format_signal_set` now takes the buffer's size and appends with `snprintf` through a small `append` helper instead of `strcat`.
+
+   Docs: in `docs/control/decisions.md`, the entry on the strict reader now says that each refusal, and each compared key, has a faulty trace of its own. Nothing else changed.
+
+   Smoke tests, both as expected:
+   - 1 prints `traces: 13 files, 332239 calls, 0 mismatches` and `control: 7 test programs passed`.
+   - 2 prints `CTL_TRACES is not set; run make test` and `exit 1`.
+
+   Not touched: the gap in the story's criteria that the reviewer named. Criteria 5 and 6 still list fewer cases than the tests now cover; I did not rewrite the Description for this, since the tests go further than the criteria and contradict none of them.
+
+   `check`: check: green
