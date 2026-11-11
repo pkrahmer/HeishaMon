@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T19:35:35.867346Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-11T19:35:35.855687Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:35:35.867346Z'
+  stage: doing
+---
+
 # The core's enums and its configuration with validation
 
 ## Description
@@ -157,3 +184,6 @@ make test | grep '^control:'
 Expect: `control: 2 test programs passed`
 
 ## Journal
+
+1. 2026-11-11 human: created.
+2. factory: started doing as heishamon.
