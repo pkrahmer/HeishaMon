@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 3
 attempts: 0
@@ -102,6 +102,11 @@ journal:
   at: '2026-11-11T23:01:15.358746Z'
   stage: review
   run: 0283aa2439b6405480b3c44f1dc7b03f
+- number: 18
+  speaker: factory
+  kind: done
+  at: '2026-11-11T23:02:05.040401Z'
+  stage: approval
 ---
 
 # The room average
@@ -431,3 +436,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Notes:
     - `tests/control/test_rooms.c` `test_offer`: `check_rooms_equal(__FILE__, __LINE__, ...)` reports the line of the loop, not the row, so a failure does not say which row failed (carried over from round 2).
     - `tests/control/test_rooms.c` `test_config`: the timeout's lower limit is shown by 0 (refused) against 1800 (accepted). No row uses the smallest positive timeout.
+18. factory: done (pull request merged); cost: 8 runs, 11.9 min, 54 turns, 248448 tokens in (1340235 more from cache), 54725 out, $2.60
