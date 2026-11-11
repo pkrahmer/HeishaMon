@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T23:09:17.664389Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-11T23:09:11.760942Z'
   stage: doing
   run: d5e65cf3ced94992aa2375b9fbf08829
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-11T23:09:17.664389Z'
+  stage: review
 ---
 
 # The pump signals and the solar gain
@@ -204,3 +213,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0003-pump-and-solar.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
