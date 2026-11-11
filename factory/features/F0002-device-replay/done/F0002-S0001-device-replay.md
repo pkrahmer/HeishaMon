@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-11T21:07:00.523960Z'
   stage: review
   run: 57674cf8e3404544bdc17fee38e1b436
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-11T21:08:52.855229Z'
+  stage: approval
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -279,3 +284,4 @@ Expect: `2`
    Notes:
    - `tests/control/device/host_server.c` `read_line`: `fgets` with a 130-byte buffer refuses a 128-character line ending in `\r\n`, while the sketch's character-by-character reader keeps it. This cannot change a reply, because no valid request comes near 128 characters (the longest is about 41), so both sides answer `error` either way.
    - `tests/control/test_wire.c` `test_line_length`: as the builder noted, the accepted side of `CTL_WIRE_LINE_MAX` cannot be seen in a reply, because no valid request is that long. Criterion 5's "handled for its content, not its length" can only be checked indirectly.
+10. factory: done (pull request merged); cost: 4 runs, 11.6 min, 51 turns, 226148 tokens in (2339577 more from cache), 70111 out, $3.00
