@@ -131,3 +131,68 @@ of each signal to 0.0.
 compared and copied without reading indeterminate memory.
 **Rejected.** Leaving them unset, which is enough for the functions but not for a caller that
 compares two tables.
+
+## 2026-11-11: The controller's state is a struct the caller owns and changes in place
+
+**Decision.** `ctl_state` is a plain struct; `ctl_advance`, `ctl_observe`, `ctl_set_allowed` and
+`ctl_evaluate` change it in place and return their other results through arguments.
+**Reason.** The core has no dynamic memory, and a caller that wants the old state keeps it with
+an assignment of the struct.
+**Rejected.** The Python reference's frozen `ControllerState`, which each function replaces with
+a new one.
+
+## 2026-11-11: An optional instant is a flag beside the value
+
+**Decision.** `t_last` and `t_healthy` each have a `has_` flag; where Python's decision holds
+`None` for its inputs and balance, `ctl_decision` has `has_inputs` false and both structs zero.
+**Reason.** C has no optional double, and a NaN as the marker would be indistinguishable from a
+NaN that a bug let through.
+**Rejected.** NaN as "unset", and pointers to the inputs and balance.
+
+## 2026-11-11: `ctl_observe` takes the three parts of a reading as arguments
+
+**Decision.** The signal, the value and the instant are three arguments; there is no reading
+type.
+**Reason.** A struct used by one function only adds a type, and the caller has the three values
+at hand.
+**Rejected.** A `ctl_reading` struct mirroring Python's `Reading`.
+
+## 2026-11-11: No function of the controller checks its pointers or its signal
+
+**Decision.** No function of the controller takes a null pointer or a signal outside the enum;
+the caller guarantees both, and no function checks.
+**Reason.** As with the signal table, a check would add a status to functions that otherwise
+cannot fail, for what is a programming error.
+**Rejected.** A status return, or a silent ignore of a signal out of range.
+
+## 2026-11-11: The mutable controller, restore and snapshots are not ported
+
+**Decision.** The core has no `Controller` class, no `restore`, no `to_snapshot` and no
+`observe_all`.
+**Reason.** The state struct is already the mutable cell the Python `Controller` wraps; a loop
+over `ctl_observe` is `observe_all`; persistence needs a wall clock and storage, which belong to
+the host.
+**Rejected.** Porting them now, before the host that would use them exists.
+
+## 2026-11-11: `ctl_state_init` sets the values behind unset flags to 0
+
+**Decision.** `t_last` and `t_healthy` are 0.0 while their flags are false.
+**Reason.** Nothing reads them, but a fully defined struct can be compared and copied without
+reading indeterminate memory.
+**Rejected.** Leaving them unset.
+
+## 2026-11-11: A refused decision zeroes the inputs and the balance
+
+**Decision.** When `has_inputs` is false, `ctl_evaluate` sets every field of the decision's
+`inputs` and `balance` to 0.
+**Reason.** A decision is then fully defined whatever the outcome, and a caller that logs it
+without looking at `has_inputs` logs zeros, not what an earlier decision left there.
+**Rejected.** Leaving them as the caller passed them.
+
+## 2026-11-11: No criterion of the controller disagreed with the Python reference
+
+**Decision.** Every acceptance criterion of the controller was checked against
+`docs/control/python-reference/controller.py`; none disagreed, so none was set aside.
+**Reason.** The Python source is the measure where the two differ; recording that they did not
+saves the next reader the comparison.
+**Rejected.** Nothing.

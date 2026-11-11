@@ -173,3 +173,105 @@ response. The bit of `NONE` plays no part.
 
 `ctl_clamp` returns `low` when `value < low`, `high` when `value > high`, and `value`
 otherwise, so a NaN passes through unchanged.
+
+## Controller (`ctl_controller.h`)
+
+The controller is the state the control loop remembers and four functions that change it in
+place. Time handling is the algorithm here, so it is concentrated in `ctl_advance`: it is the
+only function that moves the integration reference and the only one that changes the energy
+integral; the other three call it first. Only `ctl_evaluate` changes the demand and the phase.
+
+### The state
+
+`ctl_state` is a struct the caller owns. `ctl_state_init` gives the state of a cold start.
+
+| Field | Meaning | After `ctl_state_init` |
+|---|---|---|
+| `phase` | Where the controller is in its lifecycle; see the transitions below. | `UNINITIALIZED` |
+| `energy_wh` | The accumulated energy deviation the relay acts on, in Wh: negative is a deficit, positive a surplus. Clamped on every integration step and every change of the mask. | 0.0 |
+| `demand` | The demand last emitted, which is the relay's previous demand. | `NONE` |
+| `allowed` | `CTL_DEMAND_BIT` of each permitted demand; the bit of `NONE` is always set by `ctl_set_allowed`. | `CTL_DEMAND_ALL` |
+| `has_t_last`, `t_last` | The integration reference: the instant up to which the energy is integrated. | unset |
+| `has_t_healthy`, `t_healthy` | The last instant at which `ctl_evaluate` found every required signal fresh; the hold is measured from it. | unset |
+| `signals` | The signal table: the last reading of each signal. | empty |
+| `integrated_s` | Seconds of elapsed time integrated, over the lifetime. Diagnostics only. | 0.0 |
+| `skipped_s` | Seconds of elapsed time advanced over without integration, over the lifetime. Diagnostics only. | 0.0 |
+| `ledger` | Each term of the balance integrated on its own, in Wh; it keeps accumulating past the clamp. | zero |
+| `clamped` | Whether the last integration step hit the anti-windup bound. | false |
+
+A value behind an unset flag is 0.0 and means nothing.
+
+### The four functions
+
+`ctl_advance(state, t, config, &dt_s)` moves the reference to `t` and returns whether it
+integrated; `dt_s` gets the length of the interval it closed, or 0.0. An interval is integrated
+only when it is trustworthy: no longer than `max_step_s` and with every required signal fresh
+at its start, which zero-order hold says was true throughout it. Then `hours = dt / 3600.0`,
+`raw = energy_wh + p_net_w * hours`, the energy becomes `raw` clamped to the bounds of
+`allowed`, the ledger accumulates over `hours`, `integrated_s` grows by `dt`, and `clamped`
+becomes whether the clamp changed `raw`. An interval that is not trustworthy adds no energy: the
+reference still moves, and `skipped_s` grows by `dt`.
+
+| `ctl_advance` refuses | and returns |
+|---|---|
+| a NaN or infinite `t`, changing nothing | false, 0.0 |
+| a `t` at or before `t_last`, changing nothing | false, 0.0 |
+| the first finite `t`, which only sets `t_last` | false, 0.0 |
+
+`ctl_observe(state, signal, value, t, config)` takes one reading. It first advances to `t`, which
+closes the open interval with the old value, and then holds the reading: a reading describes the
+world from its instant onward and never before it. It refuses, changing nothing, a NaN or
+infinite `value` or `t`, and a reading older than the one held for the same signal; one at the
+same instant is taken. A reading before `t_last` but after its own signal's last reading is held
+without integration and without moving `t_last`.
+
+`ctl_set_allowed(state, allowed, t, config)` advances to `t`, always, and then permits the
+demands of `allowed` and `NONE`. A mask that differs from the state's is stored and clamps the
+energy to its new bounds at once, so that a masked direction cannot bank windup; it does not
+touch `clamped`. It refuses nothing: with a NaN `t` the advance changes nothing, and the mask is
+still applied.
+
+`ctl_evaluate(state, t, config, &decision)` advances to `t`, resolves the signals at `t`, moves
+the phase and the demand, and fills `ctl_decision`. The decision carries `dt_s` from the advance;
+`has_inputs`, `inputs`, `balance` and `substituted` from the resolution, with `has_inputs` false
+and `substituted` 0 when it refuses; `unhealthy` from `ctl_signals_unhealthy` at `t`; and the
+phase, energy, counters, ledger and `clamped` of the state after the step. It refuses a NaN or
+infinite `t`: the state stays as it is, and the decision carries the reason `INVALID_TIME`, the
+state's demand and phase, `dt_s` 0.0, `has_inputs` false and both masks 0. A non-finite instant
+is always a bug of the caller's clock.
+
+### Phases
+
+`resolved` below means that every required signal is fresh at `t`. The rows are tested in order.
+
+| From | Condition | To | Demand | Reason |
+|---|---|---|---|---|
+| `UNINITIALIZED` | not resolved | `UNINITIALIZED` | `NONE` | `WAITING_FOR_INPUTS` |
+| `UNINITIALIZED` | resolved; `t_healthy := t` | `RUNNING` | the state's | `SEEDED` |
+| `FAULT` | resolved; `energy_wh := 0.0`, `t_healthy := t` | `RUNNING` | `NONE` | `FAULT_RECOVERED` |
+| `RUNNING`, `HOLD` | not resolved, `t - t_healthy <= input_hold_s` | `HOLD` | the state's | `HELD_STALE_INPUT` |
+| `RUNNING`, `HOLD`, `FAULT` | not resolved, otherwise | `FAULT` | `NONE` | `FAULT_TIMEOUT` |
+| `RUNNING`, `HOLD` | resolved; `t_healthy := t` | `RUNNING` | `ctl_relay` | `NORMAL` |
+| `RUNNING`, `HOLD` | resolved, the relay's demand not in `allowed`; `t_healthy := t` | `RUNNING` | `NONE` | `MASKED` |
+
+Without a `t_healthy` the time since it is infinite. The demand a decision carries is stored as
+the state's demand, the masked one included, so that the relay's previous demand is always what
+was emitted. After a fault the accumulated energy is not trustworthy, so it restarts from 0;
+expect up to one hysteresis of delay before the loop engages again.
+
+### The order of calls
+
+A host makes the calls on one monotonic clock, from one thread:
+
+1. `ctl_state_init` once, at start.
+2. `ctl_observe` as each reading arrives, at any rate, with the reading's sample instant, not its
+   arrival instant.
+3. `ctl_set_allowed` whenever the supervisor changes the permitted directions.
+4. `ctl_advance` on the fast tick (`integration_interval_s`, 10 s): the integral is exact either
+   way, but a finer grid takes a step in power into account sooner.
+5. `ctl_evaluate` on the decision tick (`tick_interval_s`, 60 s), whether or not anything was
+   observed: nothing else moves the demand, and a quiet system that is never evaluated never
+   engages. Observe everything that has arrived before the evaluate of a tick.
+
+A reading stamped far ahead of the others moves `t_last` to it and ages every other signal at
+once; the host bounds timestamps as well as values.

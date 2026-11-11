@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:02:18.756524Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T20:02:18.756524Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:06:14.417157Z'
+  stage: doing
+  run: e04c5a89206c4e03bccff1ef1a668a1f
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -165,3 +167,30 @@ Expect: `control: 6 test programs passed`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the controller as a port of `controller.py` (`initial_state`, `advance_to`, `observe`, `set_allowed`, `evaluate`) and of `Decision`.
+
+   What I built:
+   - `HeishaMon/src/control/core/ctl_controller.h`: `ctl_state`, `ctl_decision` and the five functions, as the Interface gives them. Each function has a comment that says what it returns and what it refuses.
+   - `HeishaMon/src/control/core/ctl_controller.c`: `ctl_evaluate` is split into small static functions, one per branch: `decide`, `decide_without_inputs`, `decide_normal`, `refuse_invalid_time`, `describe_state` and `clear_inputs`. Every expression keeps the Python operand order. For example, `raw = energy_wh + p_net_w * hours` with `hours = dt / 3600.0`, and `integrated_s + dt`.
+   - `tests/control/test_controller.c`: 14 test functions that cover criteria 1–14. Criteria 2 and 6 are table tests. A field-by-field `check_same_state` covers "every field as it was". It uses the shared `check.h` helper unchanged. I saw the tests fail first, at link time. As a mutation check I swapped advance and set in `ctl_observe`; criterion 7's check then failed, and I restored the code.
+   - `docs/control/core.md`: a new "Controller" section with the state's fields, the four functions and what each refuses, a phase table (from, condition, to, demand, reason), and the order of calls a host makes.
+   - `docs/control/decisions.md`: entries for the differences from the Python reference that the story lists (state changed in place, flags instead of `None`, three arguments to `ctl_observe`, no pointer or signal checks, the parts not ported). It also has the decisions below, and a note that no criterion disagreed with the Python source.
+
+   Decisions where the story left things open:
+   - `ctl_state_init` sets `t_last` and `t_healthy` to 0.0 while their flags are false, so the struct is fully defined. This matches the earlier decision for `ctl_signals_init`.
+   - When `has_inputs` is false, `ctl_evaluate` zeroes the decision's `inputs` and `balance` rather than leaving whatever the caller's struct held.
+   - The decision's demand is the state's demand after the step in every case except `WAITING_FOR_INPUTS`, which emits `NONE` explicitly, as Python does. I did this instead of having `decide` return the demand separately.
+   - `ctl_set_allowed` with a NaN `t` still applies the mask, because Python does the same: `advance_to` refuses and `set_allowed` carries on. The docs say so.
+
+   Rejected:
+   - `memcmp` to compare states in the tests: padding makes it unreliable.
+   - A `ctl_reading` struct: the story decided against it.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+   - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+   - The final `make check` ended with `check: green`.
+
+   Noticed, not touched: `make test` prints compiler warnings from upstream's rules harness (`rules.cpp:4640` "maybe-uninitialized", `settimer.cpp:24-25` unused variables) on stderr. They are upstream's files.
+
+   `check`: check: green
