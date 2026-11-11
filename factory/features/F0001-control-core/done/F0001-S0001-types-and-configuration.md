@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -75,6 +75,11 @@ journal:
   at: '2026-11-11T19:49:01.539863Z'
   stage: review
   run: 597e4419aac24a3a8eb8495eaf8c475a
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-11T19:49:51.257313Z'
+  stage: approval
 ---
 
 # The core's enums and its configuration with validation
@@ -363,3 +368,4 @@ Expect: `control: 2 test programs passed`
 
     Notes:
     - `docs/control/core.md` first paragraph: one line runs far past the width of the rest of the file, left over from the round-1 rewording. It is cosmetic and could be reflowed.
+13. factory: done (pull request merged); cost: 5 runs, 6.8 min, 30 turns, 180632 tokens in (791753 more from cache), 41956 out, $1.90
