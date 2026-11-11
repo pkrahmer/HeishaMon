@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T20:11:18.047076Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -58,6 +62,11 @@ journal:
   at: '2026-11-11T20:11:12.575529Z'
   stage: review
   run: ead775bf63184d19b58047db39129103
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:11:18.047076Z'
+  stage: doing
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -299,3 +308,4 @@ Expect: `control: 6 test programs passed`
 
    Notes:
    - `tests/control/test_controller.c:5`: the test calls no function from `core/ctl_relay.h`, so that include is unused.
+10. factory: started doing as heishamon.
