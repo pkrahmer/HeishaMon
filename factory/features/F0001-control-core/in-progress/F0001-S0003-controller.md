@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 5
 comments_read: [6806361194]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:21:34.523787Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -123,6 +119,12 @@ journal:
   kind: started
   at: '2026-11-11T20:21:34.523787Z'
   stage: review
+- number: 21
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:22:00.972273Z'
+  stage: review
+  run: c43de41673374bacbf4935937ca64135
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -503,3 +505,30 @@ Expect: `control: 6 test programs passed`
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 20. factory: started review as heishamon.
+21. reviewer: Round 0 review (after the human's answer in entry 19) of `git diff develop...HEAD -- . ':!factory'`. I compared it with `docs/control/python-reference/controller.py`. No builder run came between entry 19 and this review, and the diff is the same one entry 17 reviewed. So the two fixes the human asked for are not in it yet.
+
+    The code still follows `controller.py` branch for branch:
+    - `ctl_advance` matches `advance_to`, with the same operand order for `hours`, `raw`, `integrated_s + dt` and `skipped_s + dt`.
+    - `ctl_observe` matches `observe`, including the `held is not None` guard.
+    - `ctl_set_allowed` matches `set_allowed`: it advances first, then clamps only on a changed mask.
+    - `ctl_evaluate` matches `evaluate`: the INVALID_TIME decision, the resolve and `unhealthy` at `t`, and the emitted demand in each of the four branches.
+
+    Nothing breaks the `CLAUDE.md` Architecture or embedded-safety rules. The factory's `make check` after the builder was green (entry 15).
+
+    Under the rule the human set in entry 19, rules without their own test are notes. Finding 1 below is still a finding, because the human told the builder to fix it.
+
+    Findings:
+
+    1. `tests/control/test_controller.c` `test_advance_clamps` and `test_evaluate_hold_fault_recovery`: entry 17's finding 1 is not fixed. The human ordered this fix in entry 19. Neither test checks a counter after a second step, so `= dt` in place of `+ dt` still passes. Fix:
+       - In `test_advance_clamps`, check `state.integrated_s` 600.0 after the 300→600 advance.
+       - In `test_evaluate_hold_fault_recovery`, check `skipped_s` 900.0 after the evaluate at 1200.0 (in the state or the decision).
+    2. `docs/control/core.md`, Controller section: entry 17's finding 2 is not fixed. Two sentences are false for `WAITING_FOR_INPUTS` with a demand other than NONE: that decision carries NONE, but `ctl_controller.c` leaves the state's demand as it is (`decide`, and the ternary in `ctl_evaluate`).
+       - The field table's `demand` row says "The demand last emitted, which is the relay's previous demand".
+       - The paragraph under the phase table says "The demand a decision carries is stored as the state's demand".
+
+       Fix: limit both sentences to every reason except `WAITING_FOR_INPUTS`, and say that a `WAITING_FOR_INPUTS` decision carries NONE and leaves the state's demand unchanged.
+
+    Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
