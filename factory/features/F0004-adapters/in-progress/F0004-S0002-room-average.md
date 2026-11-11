@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T22:58:26.940155Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -80,6 +84,11 @@ journal:
   at: '2026-11-11T22:58:21.768604Z'
   stage: review
   run: 4064750ecd1244f2af9dacf07b9a2302
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:58:26.940155Z'
+  stage: doing
 ---
 
 # The room average
@@ -353,3 +362,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     Notes:
     - `tests/control/test_rooms.c` `test_offer`: `check_rooms_equal(__FILE__, __LINE__, ...)` reports the loop's line, so a failure does not name its row. Printing `i` alongside would help.
+14. factory: started doing as heishamon.
