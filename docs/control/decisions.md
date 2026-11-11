@@ -66,3 +66,13 @@ brought under it, since no default fits under a tiny bound.
 **Reason.** Seventeen digits tell apart any two doubles, so a one-bit difference is visible in
 the failure line.
 **Rejected.** `%g`, which prints 1.0 and the next double above it as the same text.
+
+## 2026-11-11: The check helper's printed lines are read in the test log, not tested
+
+**Decision.** The test of the check helper checks its counts only. The lines a failing check
+prints are read in the `make test` output, where a preceding line labels them as expected
+failures.
+**Reason.** The helper's interface writes to standard output, and C99 cannot portably capture
+standard output and restore it; the owner chose to keep the interface as it is.
+**Rejected.** A `check_set_output(FILE *)` function that would let a test count the printed
+lines in a `tmpfile()`: it grows the interface for the sake of one test.

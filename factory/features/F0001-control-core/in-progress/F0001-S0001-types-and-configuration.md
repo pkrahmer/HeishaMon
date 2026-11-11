@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 3
 comments_read: [6805629969]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:47:11.416410Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,12 @@ journal:
   kind: started
   at: '2026-11-11T19:47:11.416410Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:47:48.581823Z'
+  stage: doing
+  run: bec77441ca8a4159b8877ebd8c8ef3b7
 ---
 
 # The core's enums and its configuration with validation
@@ -308,3 +310,21 @@ Expect: `control: 2 test programs passed`
    — Kumpel, for the human who owns this project
    <!-- kumpel -->
 9. factory: started doing as heishamon.
+10. builder: Round 1, after the human's answer. I made both answers part of the Description and recorded the second one as a decision. No code or test changed in this run, because the code and tests already worked the way the human chose. `make check` is green.
+
+    Changed:
+    - Criterion 4 in the work item's `## Description` now names the exception, as the human chose in option (a). A zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds (`CTL_CONFIG_BAD_TICK_INTERVAL` or `CTL_CONFIG_BAD_INTEGRATION_INTERVAL`). A small positive one is valid once the bounded fields are brought under it. `tests/control/test_config.c` `test_timing_limits` already checks exactly this, and `docs/control/decisions.md` already had the matching entry, "A bound on a timing field is compared as in Python…".
+    - Criterion 9 in the Description now says the test checks the counts, as the human chose in option (a). The four printed lines are read in the `make test` output under the line that labels them as expected failures, and that is also where you see that passing calls print nothing. The helper's interface is unchanged.
+    - `docs/control/decisions.md` has a new entry, "The check helper's printed lines are read in the test log, not tested", with its reason. The rejected option is `check_set_output(FILE *)`.
+
+    Earlier fixes, unchanged since the last round: findings 3 (`docs/control/core.md` wording) and 4 (duplicate checks deleted in `test_config.c`).
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` gives `lint: green ` (matches).
+    - `make test | grep '^control:'` gives `control: 2 test programs passed` (matches).
+
+    Noticed, not touched: upstream's Rules harness still prints compiler warnings to stderr during `make test`. They are upstream's files.
+
+    The factory left out changes outside the write paths: factory/features/F0001-control-core/in-progress/F0001-S0001-types-and-configuration.md.
+
+    `check`: check: green
