@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: [6806361194]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T20:23:03.700510Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -136,6 +140,11 @@ journal:
   at: '2026-11-11T20:22:56.621032Z'
   stage: doing
   run: 0f0237c3ddab4f368f975197ff64777e
+- number: 24
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:23:03.700510Z'
+  stage: review
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -570,3 +579,4 @@ Expect: `control: 6 test programs passed`
     Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`.
 
     `check`: check: green
+24. factory: started review as heishamon.
