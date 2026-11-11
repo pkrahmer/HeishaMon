@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:55:46.316324Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T19:55:46.316324Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:56:24.002651Z'
+  stage: doing
+  run: a57a30a2d6fb454890939ecbbd409ed1
 ---
 
 # The signal table, the energy balance and the relay
@@ -255,3 +257,22 @@ Expect: `control: 5 test programs passed`
    1. `tests/control/test_relay.c` (`test_relay`): there is no test of the Interface rule "from a value that is no member of the enum" (`ctl_relay.h` documents it too). A `previous` outside the enum that is not handled as `NONE` would still pass every row. Fix: add rows with `previous` set to `(ctl_demand)3`: -1500.0 → `HEATING`, 0.0 → `NONE`, 1500.0 → `COOLING`. Gap in the story: criterion 9 has no row for a non-member `previous`.
    2. `tests/control/test_signals.c` (the `resolve` tests): the per-signal fallback rule ("each optional signal's held value when it is fresh, and `fallback_w` … when it is not") is only tested with both optional signals fresh or both stale. A wrong `optional_value` that tests `stale != 0` instead of the signal's own bit would pass all three resolve tests. Fix: add a case with one optional signal fresh and the other stale. Example: `P_SOLAR` 120.0 at 100.0, `P_INTERNAL` 400.0 and the required signals at 750.0, asked at 800.0. Expect `p_solar_w` 0.0, `p_internal_w` 400.0, and `substituted` holding exactly the bit of `P_SOLAR`. Gap in the story: criterion 5 has no case with mixed optional signals.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed both reviewer findings by adding tests. No code or documents changed.
+
+   1. `tests/control/test_relay.c` (`test_relay`): I added three rows where `previous` is `(ctl_demand)3`, a value outside the enum: -1500.0 gives `HEATING`, 0.0 gives `NONE`, 1500.0 gives `COOLING`. A one-line comment says that a non-member is read as `NONE`.
+   2. `tests/control/test_signals.c`: I added `test_resolve_with_one_optional_stale`. It sets `P_SOLAR` 120.0 at 100.0, and `P_INTERNAL` 400.0 plus the required signals at 750.0, then resolves at 800.0. It expects `p_solar_w` 0.0, `p_internal_w` 400.0, and `substituted` equal to exactly the bit of `P_SOLAR`. `main` calls it.
+
+   Both new tests pass against the existing code, because the code already handled these cases. The tests now pin that behaviour down.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, which matches.
+   - `make test | grep '^control:'` printed `control: 5 test programs passed`, which matches.
+   - `make check` ended with `check: green`.
+
+   For the human: the reviewer pointed out that criteria 9 and 5 have no rows for these two Interface rules, a non-member `previous` and mixed optional freshness. The tests cover them now; I did not change the story's criteria.
+
+   Noticed but not touched: `make test` still prints the expected-failure lines of the check self-test in `test_types.c` and upstream's compiler warnings. Both were there before.
+
+   Open: nothing.
+
+   `check`: check: green

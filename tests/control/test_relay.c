@@ -31,6 +31,10 @@ static void test_relay(void)
         {CTL_DEMAND_COOLING, 0.0, CTL_DEMAND_NONE},
         {CTL_DEMAND_COOLING, -2000.0, CTL_DEMAND_NONE},
         {CTL_DEMAND_COOLING, NAN, CTL_DEMAND_COOLING},
+        /* A previous demand outside the enum is read as NONE. */
+        {(ctl_demand)3, -1500.0, CTL_DEMAND_HEATING},
+        {(ctl_demand)3, 0.0, CTL_DEMAND_NONE},
+        {(ctl_demand)3, 1500.0, CTL_DEMAND_COOLING},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {

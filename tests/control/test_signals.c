@@ -161,6 +161,22 @@ static void test_resolve_with_stale_solar(void)
     check_inputs(&inputs, 0.0, 550.0, OPTIONAL_BITS);
 }
 
+/* Each optional signal falls back on its own freshness, not on the other's. */
+static void test_resolve_with_one_optional_stale(void)
+{
+    ctl_signal_table table;
+    ctl_config config;
+    ctl_inputs inputs;
+
+    ctl_config_defaults(&config);
+    ctl_signals_init(&table);
+    ctl_signals_set(&table, CTL_SIGNAL_P_SOLAR, 120.0, 100.0);
+    ctl_signals_set(&table, CTL_SIGNAL_P_INTERNAL, 400.0, 750.0);
+    set_required(&table, 750.0);
+    CHECK_TRUE(ctl_signals_resolve(&table, 800.0, &config, &inputs));
+    check_inputs(&inputs, 0.0, 400.0, CTL_SIGNAL_BIT(CTL_SIGNAL_P_SOLAR));
+}
+
 static void fill_with_marker(ctl_inputs *inputs)
 {
     inputs->t_indoor_c = -777.0;
@@ -222,6 +238,7 @@ int main(void)
     test_resolve_with_fallbacks();
     test_resolve_with_every_signal();
     test_resolve_with_stale_solar();
+    test_resolve_with_one_optional_stale();
     test_resolve_refuses();
     return check_result();
 }
