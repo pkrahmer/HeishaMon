@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 2
 attempts: 0
 crashes: 0
 pull_request: 9
-comments_read: []
+comments_read: [6808172827]
 handed_over: null
 claim: null
 journal:
@@ -70,6 +70,11 @@ journal:
   stage: doing
   run: 69a748920fb24b2592f610a328372cbb
   blocked: question
+- number: 12
+  speaker: human
+  kind: comment
+  at: '2026-11-11T22:06:41.609964Z'
+  stage: doing
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -360,3 +365,11 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
     - The reset pulse and 230,400 baud are proven only by the owner's `make device-replay` on the board.
 
     `check`: check: green
+12. 2026-11-11 human: Adopt all six as built. This answer and your entry 11 are the Description now for those six points; the reviewer reads them so.
+
+    The vanished whole line: leave the frame format as it is. Record it as a known limit in `device-test.md` with its symptom (mismatches from one line on that do not repeat when the trace is replayed again) and what to do (replay that trace again before believing a mismatch). Nothing else.
+
+    Reviewer: from this round on, a point about the wording of the Description against these six adopted behaviours is not a finding.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
