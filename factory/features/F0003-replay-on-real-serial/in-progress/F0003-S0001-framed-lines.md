@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 2
 attempts: 0
 crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T21:55:52.846253Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,13 @@ journal:
   kind: started
   at: '2026-11-11T21:55:52.846253Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: question
+  at: '2026-11-11T21:58:45.827962Z'
+  stage: doing
+  run: 69a748920fb24b2592f610a328372cbb
+  blocked: question
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -321,3 +324,39 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
    `tests/control/test_wire.c` is unchanged.
 10. factory: started doing as heishamon.
+11. builder: Round 2. I fixed review findings 2 to 6 in code and tests. `make check` is green. Both smoke commands give exactly their `Expect:` lines: `device replay: 1 files, 3236 calls, 0 mismatches, 1 restarts`, and then `ready *6b`, `ok *04`, `error *78`. I am ending with `question` because finding 1 needs the human: the Description and the built behaviour still disagree, and I cannot edit the Description.
+
+    What I changed:
+    - `tests/control/device/test_replay.py`:
+      - `test_twin_stats` (finding 2): `S *53` gets a framed reply that starts with `stats calls=`, and a bare `S` gets the framed `error`.
+      - `test_twin_refuses_broken_frames` (finding 3): after R, the trace's C lines and B, it sends an `E` with a wrong checksum and expects `error`. `S *53` then reports `calls=0`, `R *53` gets `error`, and a correctly framed `E` still gets a 16-field decision line, so the session was not reset.
+      - `test_twin_line_length` (finding 4): a framed 128-character text with `\n` or `\r\n`, a 129-character text and a 400-character text. Each gets the framed `error`, and the request after it gets `ok *04`, which shows that the twin stays in step with the lines.
+      - `test_two_restarts` (finding 5): breaks reply 500 and reply 1000, expects `device replay: 1 files, 3236 calls, 0 mismatches, 2 restarts` and exit 0.
+      - `test_twin_usage` (finding 6): `--garble 999999999` is accepted. There is no usage line, the exit status is 0 and the replies are framed.
+    - `tests/control/device/host_server.c`: the line buffer is `+ 3` now, so a framed line of 128 characters fits with `\r\n` (finding 4).
+    - `tests/control/device/garbling_twin.py`: `--at` can be given more than once, and the reply count runs over the twin's whole run.
+    - `docs/control/device-test.md` (Restarts section): mentions the repeatable `--at` and the two-restart case.
+
+    One limit on finding 4: no valid request is 128 characters long, so a 128-character line is answered `error` whether the twin reads it whole or as too long. The reviewer's suggested test (a framed 128-character text gets a reply other than `error`) cannot be written. The test checks the reply and that the next line still lines up. It does not tell the old buffer from the new one.
+
+    A mutation check (a twin that takes a bare `S`) made `test_twin_stats` fail as it should.
+
+    **Question for the human (finding 1).** The Description differs from what was built in the points below. My rewrite in round 1 was outside my write paths and was dropped. For each point, please adopt the built behaviour into the Description or tell me to revert the code:
+
+    1. **Restart line.** Built: `<file>:<line>: broken line, restarting (<k> of 2): <what came>`. `<what came>` is the broken line in safe form, `<request> -> <reply>`, or `no reply within 10 s`. The Description has the bare form without `: <what came>`. Criterion 8 needs the escapes to appear in that line.
+    2. **`--garble` values.** Built: one to nine decimal digits, with `0` garbling nothing. Anything else (a sign, letters, ten or more digits) prints the usage line and exits with 2. The Description says another value than a positive integer "garbles nothing".
+    3. **Breaks during configuration.** Built: a break while sending R, C or B also restarts the trace, printed as `<file>: broken line, restarting …` without a line number. Any reply other than `ok` counts as a break, a stale state line included. Only `bad …` to `B` fails the trace without a restart. The Description says nothing about this.
+    4. **What counts as broken.** Built: a reply whose frame checks but whose text holds a byte outside printable ASCII is a broken line. So is a reply with the right number of fields where one field does not parse. Safe printing escapes control characters as well as bytes above 0x7f.
+    5. **Third break.** Built: `<file>:<line>: broken line: <what came>` is printed before `<file>: failed after 2 restarts`.
+    6. **Test files.** Built: `tests/control/device/test_replay.py` and `garbling_twin.py`, which are not in the Interface's list of new files.
+
+    My preference is to adopt all six. Each is recorded in `docs/control/decisions.md` and described in `device-test.md`.
+
+    Also open, for your decision: with 4 requests in flight, a reply that vanishes whole (not cut short) shifts the later replies onto the wrong calls. That shows up as mismatches, not a restart. A dropped newline breaks the frame, so this needs a whole line to vanish. I left the rule as the Interface states it. The alternative is to put a sequence number in each frame, which would change the frame format.
+
+    Noticed but did not touch:
+    - The fallback in `trace_path` (unpacking the traces when `CTL_TRACES` is unset) is unreachable under `make test`.
+    - Silence is tested only for the reply to `R`.
+    - The reset pulse and 230,400 baud are proven only by the owner's `make device-replay` on the board.
+
+    `check`: check: green

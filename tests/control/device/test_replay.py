@@ -85,6 +85,48 @@ def test_twin_frames(twin):
     check(status, 0)
 
 
+def test_twin_stats(twin):
+    """S is recognised only once its frame is cut off, and the stats line is framed too."""
+    lines, _, _ = twin_lines([twin], [b"S *53", b"S"])
+    check(len(lines), 3)
+    stats = replay.strip_frame(lines[1]) if len(lines) > 1 else None
+    check(stats is not None and stats.startswith("stats calls="), True)
+    check(lines[2:], [replay.frame("error")])
+
+
+def begun_requests(trace):
+    """The framed requests that reset, configure and begin the trace's session."""
+    config, _ = replay.read_trace(trace)
+    return [replay.frame(request) for request in ["R"] + config + ["B"]]
+
+
+def test_twin_refuses_broken_frames(twin, trace):
+    """A request whose frame does not check reaches neither the protocol nor the stats."""
+    _, calls = replay.read_trace(trace)
+    evaluate = next(call.request for call in calls if call.request.startswith("E "))
+    begin = begun_requests(trace)
+    wrong = evaluate.encode("ascii") + b" *%02x" % (replay.checksum(evaluate.encode("ascii")) ^ 1)
+    lines, _, _ = twin_lines([twin], begin + [wrong, b"S *53", b"R *53",
+                                              replay.frame(evaluate)])
+    replies = [replay.strip_frame(line) for line in lines[1 + len(begin):]]
+    check(len(replies), 4)
+    check(replies[0], "error")
+    check(replies[1].split(" ")[1] if replies[1:] and replies[1] else None, "calls=0")
+    check(replies[2:3], ["error"])
+    check(len(replies[3].split(" ")) if replies[3:] and replies[3] else None, 16)
+
+
+def test_twin_line_length(twin):
+    """A framed text of CTL_WIRE_LINE_MAX characters is read whole with either line end, so that
+    the next line starts where it should; a longer one is refused as too long. No valid request
+    is that long, so each is answered with error, and the request after it is answered as it
+    should be."""
+    for text, line_end in (("x" * 128, b""), ("x" * 128, b"\r"), ("x" * 129, b""),
+                           ("x" * 400, b"\r")):
+        lines, _, _ = twin_lines([twin], [replay.frame(text) + line_end, b"R *52"])
+        check(lines[1:], [replay.frame("error"), b"ok *04"])
+
+
 def test_twin_garbles(twin):
     lines, _, _ = twin_lines([twin, "--garble", "3"], [b"R *52"] * 5)
     check(len(lines), 6)
@@ -100,6 +142,10 @@ def test_twin_usage(twin):
         check(lines, [])
         check(status, 2)
         check(error, b"usage: host_server [--garble <n>]\n")
+    lines, status, error = twin_lines([twin, "--garble", "999999999"], [b"R *52"])
+    check(lines, [replay.frame("ready"), b"ok *04"])
+    check(status, 0)
+    check(error, b"")
 
 
 def test_twin_garbles_nothing(twin):
@@ -143,6 +189,16 @@ def test_restart_after_answer(twin, trace):
         check(lines[-1] if lines else None,
               "device replay: 1 files, %d calls, 0 mismatches, 1 restarts" % EDGE_CASES_CALLS)
         check(status, 0)
+
+
+def test_two_restarts(twin, trace):
+    """A trace that breaks in its first two attempts still passes on its third."""
+    command = garbling_command(twin, "--at", str(GARBLED_REPLY), "--at", str(2 * GARBLED_REPLY))
+    lines, status = run_replay(command, trace)
+    check(len(restart_lines(lines)), 2)
+    check(lines[-1] if lines else None,
+          "device replay: 1 files, %d calls, 0 mismatches, 2 restarts" % EDGE_CASES_CALLS)
+    check(status, 0)
 
 
 def test_restart_after_silence(twin, trace):
@@ -295,12 +351,16 @@ def main():
     edge_cases = trace_path(folder, EDGE_CASES)
     flaky_transport = trace_path(folder, FLAKY_TRANSPORT)
     test_twin_frames(twin)
+    test_twin_stats(twin)
+    test_twin_refuses_broken_frames(twin, edge_cases)
+    test_twin_line_length(twin)
     test_twin_garbles(twin)
     test_twin_usage(twin)
     test_twin_garbles_nothing(twin)
     test_no_restart(twin, edge_cases, flaky_transport)
     test_restart(twin, edge_cases)
     test_restart_after_answer(twin, edge_cases)
+    test_two_restarts(twin, edge_cases)
     test_restart_after_silence(twin, edge_cases)
     test_restart_limit(twin, edge_cases)
     test_safe_printing(twin, edge_cases)

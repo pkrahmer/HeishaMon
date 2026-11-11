@@ -5,9 +5,10 @@ every reply, in one of the ways a serial line or a board can. It proves that rep
 trace on each kind of break, gives up after its restarts, and prints what the link delivers
 safely.
 
-    garbling_twin.py [--at <n>] [--how <how>] [--byte <xx>] -- <program> [<argument>...]
+    garbling_twin.py [--at <n>]... [--how <how>] [--byte <xx>] -- <program> [<argument>...]
 
---at <n>    the reply to break, counting from 1; every reply when not given
+--at <n>    a reply to break, counting from 1 over the twin's whole run; repeatable, so that
+            later attempts of a trace break too; every reply when not given
 --how       frame: the first character replaced by --byte, the checksum kept (the default)
             error: a framed "error"
             fields: a framed "ok", the wrong number of fields for a call
@@ -30,7 +31,8 @@ HOWS = ("frame", "error", "fields", "value", "silent")
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--at", type=int, default=0, help="the reply to break, 0 for every one")
+    parser.add_argument("--at", type=int, action="append", default=[],
+                        help="a reply to break; every one when not given")
     parser.add_argument("--how", choices=HOWS, default="frame", help="how the reply breaks")
     parser.add_argument("--byte", default="23", help="the replacing byte in hexadecimal")
     parser.add_argument("program", nargs="+", help="the program that serves the protocol")
@@ -71,7 +73,7 @@ def main(argv):
     out.write(server.stdout.readline())
     out.flush()
     for count, line in enumerate(server.stdout, start=1):
-        if arguments.at in (0, count):
+        if not arguments.at or count in arguments.at:
             line = broken(line.rstrip(b"\n"), arguments.how, byte)
             if line is None:
                 continue

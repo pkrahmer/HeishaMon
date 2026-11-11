@@ -107,8 +107,9 @@ static void answer(ctl_wire_session *session, char *line, read_status status, ch
 int main(int argc, char **argv)
 {
     static ctl_wire_session session;
-    /* A framed line of CTL_WIRE_LINE_MAX characters, its newline and the zero. */
-    char line[CTL_WIRE_LINE_MAX + CTL_FRAME_SUFFIX + 2];
+    /* A framed line of CTL_WIRE_LINE_MAX characters, a carriage return, its newline and the
+     * zero: the frame's check ignores the carriage return, so the line must fit with it. */
+    char line[CTL_WIRE_LINE_MAX + CTL_FRAME_SUFFIX + 3];
     char reply[CTL_WIRE_REPLY_SIZE + CTL_FRAME_SUFFIX];
     unsigned long garble;
     unsigned long replies = 0;

@@ -118,10 +118,11 @@ The host twin proves this without a board: `host_server --garble <n>` replaces t
 character of its `n`-th reply after `ready` with `#` and keeps the old checksum. Any other
 argument than none or `--garble` and one to nine decimal digits (a sign and a longer number
 included) prints `usage: host_server [--garble <n>]` and exits with 2; `--garble 0` garbles
-nothing. `tests/control/device/garbling_twin.py` runs the host twin and breaks its `n`-th reply,
-or every reply, in the other ways: a framed `error`, the wrong number of fields, a field that does
+nothing. `tests/control/device/garbling_twin.py` runs the host twin and breaks the replies it is
+given by number (`--at`, repeatable), or every reply, in the other ways: a framed `error`, the wrong number of fields, a field that does
 not parse, no reply at all, or a broken frame with a chosen byte. `test_replay.py` replays
-`edge_cases` with each break once (one restart, 0 mismatches) and with every reply broken (the
+`edge_cases` with each break once (one restart, 0 mismatches), with a break in each of
+its first two attempts (2 restarts, and the trace passes), and with every reply broken (the
 trace fails after 2 restarts, the broken bytes printed safely), and replays `edge_cases` and
 `flaky_transport` through the plain twin with 0 restarts.
 
