@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 14
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T23:07:34.102214Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T23:07:28.550692Z'
   stage: review
   run: 9662c72272934661b764a38e21e32ba7
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T23:07:34.102214Z'
+  stage: doing
 ---
 
 # The pump signals and the solar gain
@@ -175,3 +184,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - The docs criterion is met: adapters.md has the five-function table, the mask rule with criterion 4's sequence, and a DC-not-AC sentence that matches §1.9. decisions.md has the defrost entry and the negative-value entry. Their claims match the code, apart from finding 2's comment.
 
    Earlier tests: none. `git diff --name-status develop...HEAD` shows only `A tests/control/test_pump.c` under tests.
+6. factory: started doing as heishamon.
