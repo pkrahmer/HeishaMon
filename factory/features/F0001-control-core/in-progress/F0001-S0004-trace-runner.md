@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T20:35:17.036705Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T20:35:11.322140Z'
   stage: review
   run: 9d8e3ee744f84116b5eba75fe4c0a1bc
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:35:17.036705Z'
+  stage: doing
 ---
 
 # The trace runner over the thirteen golden traces
@@ -189,3 +198,4 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
    Notes:
    - `tests/control/trace.c` `parse_call_kind`: the loop bound `4` should be `sizeof NAMES / sizeof NAMES[0]`.
    - `tests/control/trace.c` `format_signal_set`: it fills a `TEXT_MAX` buffer with `strcat`. It is safe for five names, but the buffer is written without its size.
+6. factory: started doing as heishamon.
