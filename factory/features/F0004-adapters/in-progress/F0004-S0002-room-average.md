@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T22:55:21.004602Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -58,6 +62,11 @@ journal:
   at: '2026-11-11T22:55:14.970378Z'
   stage: review
   run: 1e6095e0f57b4c8cb1f88ea3393dea5e
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:55:21.004602Z'
+  stage: doing
 ---
 
 # The room average
@@ -288,3 +297,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
      - decisions.md records the replay rule with the 90-minute observation, the timeout as a setting, and the handling of invalid configurations.
      - The three consequences match `firmware-design.md` §3.1.
    - Earlier tests: none. `tests/control/test_rooms.c` is the only test file in the diff, and it is new (status A).
+10. factory: started doing as heishamon.
