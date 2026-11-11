@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T21:05:29.186099Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T21:05:29.186099Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T21:07:00.523960Z'
+  stage: review
+  run: 57674cf8e3404544bdc17fee38e1b436
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -252,3 +254,28 @@ Expect: `2`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: no findings
+
+   I read the diff again in full, with all eight findings from the earlier round checked against the code:
+   1. `replay.py` `replay_calls` now loops on `(not stopped and next_call < len(calls)) or pending`. A file that stops drains the replies still in flight and ends without calling `popleft` on an empty deque.
+   2. `test_wire.c` `test_replies_equal_core` now answers signal 4 (`P_INTERNAL`) and mask 7 (`CTL_DEMAND_ALL`) with state lines and compares both with direct core calls. The expected `calls` is 17.
+   3. `SerialLink.wait_ready` now gives each read only the time left before the 10-second deadline, and restores the reply timeout in `finally`.
+   4. `replay_file` prints `<file>: <calls> calls, <mismatches> mismatches` on every path, including when the file cannot be opened or has a format error.
+   5. *On a mismatch* in `device-test.md` now describes both outputs as `replay.py` prints them: `<file>:<line>: <request> -> <reply>` for a call, and `<file>: <request>: <reply>` for the configuration.
+   6. `decisions.md` now has three separate entries, each with its own reason and rejected alternative: the `\r` before the length check, a bad `B` keeping `calls`, and the sketch's timing.
+   7. The test is renamed `test_config_after_begin`.
+   8. `decision_line` now uses arrays of 9; nothing is left unused.
+
+   Checked again and found sound:
+   - Criteria 1–5 have table tests that match them. Criteria 6–8 are covered by the Makefile, which this story does not change, and by the smoke tests.
+   - The bounds in `ctl_wire.c`: `bounded_length` reads at most 130 characters, `split` is bounded, and the reply appender never writes past `reply_size`.
+   - The architecture rules hold: `wire/` is plain C99, includes the core by relative path and uses no dynamic memory. No upstream file is touched.
+   - The sketch's timing overflows only past about 71 minutes of total call time (`uint32_t`), well beyond the largest trace.
+   - The docs' claims match the code.
+   - The factory's `make check` after the builder was green (journal entry 7).
+
+   Earlier tests: none. Every test file in `git diff --name-status develop...HEAD` has status `A`.
+
+   Notes:
+   - `tests/control/device/host_server.c` `read_line`: `fgets` with a 130-byte buffer refuses a 128-character line ending in `\r\n`, while the sketch's character-by-character reader keeps it. This cannot change a reply, because no valid request comes near 128 characters (the longest is about 41), so both sides answer `error` either way.
+   - `tests/control/test_wire.c` `test_line_length`: as the builder noted, the accepted side of `CTL_WIRE_LINE_MAX` cannot be seen in a reply, because no valid request is that long. Criterion 5's "handled for its content, not its length" can only be checked indirectly.
