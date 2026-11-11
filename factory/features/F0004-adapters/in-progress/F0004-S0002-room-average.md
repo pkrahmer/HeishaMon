@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:51:38.148830Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T22:51:38.148830Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T22:53:39.483238Z'
+  stage: doing
+  run: 1d20c21a855a4802803114d66db08bef
 ---
 
 # The room average
@@ -204,3 +206,28 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - Docs: adapters.md and decisions.md cover what criterion 9 asks for, and every claim in them matches the code.
    - Earlier tests: none. The diff adds `tests/control/test_rooms.c` (status A) and changes no existing test file.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the six review findings. I changed no code. `HeishaMon/src/control/adapt/ctl_rooms.c` and `.h` already behaved as the new tests expect.
+
+   - `tests/control/test_rooms.c`:
+     - `test_config` (findings 1 and 2): new rows for a timeout of `INFINITY`, refused, and a count of 1, accepted.
+     - `test_offer` (finding 3): a new row where `t = INFINITY` gives `IMPLAUSIBLE`.
+     - `test_offer` (finding 4): new rows that fail two checks at once:
+       - index 4 with `abc` gives `BAD_INDEX`;
+       - `abc` with a NaN `t` gives `UNPARSED`;
+       - after `ts` 100 is accepted, `{"ts":100,"v":61}` gives `IMPLAUSIBLE`, and `{"ts":100,"v":22.0}` with an infinite `t` also gives `IMPLAUSIBLE`, not `REPLAYED`.
+     - Each new row also checks that all 16 slots are unchanged afterwards.
+     - New `test_out_of_range` (finding 5): `ctl_rooms_is_fresh` with index 4, or with `CTL_ROOMS_MAX`, on 4 rooms gives false; index 3 on the same rooms gives true. `ctl_rooms_average_at` with a count of 17, or with a weight of -1.0, gives `has_average` false and every count and weight 0.
+   - Mutation check, on a temporary copy of the module: the new rows fail when `!isfinite(t)` is replaced by `t != t`, and when the replay check is moved before the bounds check. The unchanged module passes.
+   - Work item Description (finding 6):
+     - The Interface now states that an index not below `CTL_ROOMS_MAX` is out of range for both offer and freshness, that `timestamp_ms` is 0 when the payload had none, and that an invalid configuration gives all-false and all-zero averages.
+     - Criteria 1 and 2 name the new rows.
+     - A new criterion 8 covers out of range. `make check` and docs are now criteria 9 and 10.
+     - `docs/control/decisions.md` already recorded these decisions, so I did not change it.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 12 test programs passed`, one more than the 11 before the story. `make check` is green.
+
+   Noticed but not touched: nothing new.
+
+   The factory left out changes outside the write paths: factory/features/F0004-adapters/in-progress/F0004-S0002-room-average.md.
+
+   `check`: check: green

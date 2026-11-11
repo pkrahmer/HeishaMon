@@ -58,6 +58,8 @@ static void test_config(void)
             {TIMEOUT, 0.0, false},
             {TIMEOUT, -1.0, false},
             {TIMEOUT, NAN, false},
+            {TIMEOUT, INFINITY, false},
+            {COUNT, 1.0, true},
             {COUNT, 16.0, true},
             {WEIGHT_1, 1000.0, true},
             {WEIGHT_1, 0.0, true},
@@ -107,7 +109,13 @@ static void test_offer(void)
         {0, "61", 10.0, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
         {0, "{\"v\":-60.5}", 10.0, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
         {0, "21.0", NAN, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
+        {0, "21.0", INFINITY, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
+        /* Rows that fail two checks show which check comes first. */
+        {4, "abc", 10.0, CTL_ROOM_BAD_INDEX, 0.0, false, 0},
+        {0, "abc", NAN, CTL_ROOM_UNPARSED, 0.0, false, 0},
         {0, "{\"ts\":100,\"v\":21.0}", 20.0, CTL_ROOM_ACCEPTED, 21.0, true, 100},
+        {0, "{\"ts\":100,\"v\":61}", 25.0, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
+        {0, "{\"ts\":100,\"v\":22.0}", INFINITY, CTL_ROOM_IMPLAUSIBLE, 0.0, false, 0},
         {0, "{\"ts\":100,\"v\":22.0}", 30.0, CTL_ROOM_REPLAYED, 0.0, false, 0},
         {0, "{\"ts\":99,\"v\":22.0}", 40.0, CTL_ROOM_REPLAYED, 0.0, false, 0},
         {0, "{\"ts\":101,\"v\":22.0}", 50.0, CTL_ROOM_ACCEPTED, 22.0, true, 101},
@@ -157,6 +165,42 @@ static void test_freshness_at_the_limit(void)
         CHECK_TRUE(ctl_rooms_is_fresh(&rooms, &config, 0, rows[i].now) == rows[i].fresh);
     }
     CHECK_TRUE(!ctl_rooms_is_fresh(&rooms, &config, 1, 1000.0));
+}
+
+static void test_out_of_range(void)
+{
+    ctl_rooms_config config;
+    ctl_rooms rooms;
+    size_t i;
+    ctl_rooms_config_defaults(&config, 4);
+    ctl_rooms_init(&rooms);
+    for (i = 0; i < CTL_ROOMS_MAX; i++) {
+        rooms.has_value[i] = true;
+        rooms.value_c[i] = 21.0;
+    }
+    CHECK_TRUE(ctl_rooms_is_fresh(&rooms, &config, 3, 0.0));
+    CHECK_TRUE(!ctl_rooms_is_fresh(&rooms, &config, 4, 0.0));
+    CHECK_TRUE(!ctl_rooms_is_fresh(&rooms, &config, CTL_ROOMS_MAX, 0.0));
+
+    {
+        enum { COUNT_17, NEGATIVE_WEIGHT };
+        static const int rows[] = {COUNT_17, NEGATIVE_WEIGHT};
+        for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+            ctl_rooms_average average;
+            ctl_rooms_config_defaults(&config, 4);
+            if (rows[i] == COUNT_17) {
+                config.count = 17;
+            } else {
+                config.weight[1] = -1.0;
+            }
+            ctl_rooms_average_at(&rooms, &config, 0.0, &average);
+            CHECK_TRUE(!average.has_average);
+            CHECK_DOUBLE(average.average_c, 0.0);
+            CHECK_UINT((uint32_t)average.fresh_count, 0u);
+            CHECK_DOUBLE(average.fresh_weight, 0.0);
+            CHECK_DOUBLE(average.total_weight, 0.0);
+        }
+    }
 }
 
 static const double ROOM_VALUES[4] = {21.0, 22.0, 23.0, 24.0};
@@ -288,6 +332,7 @@ int main(void)
     test_config();
     test_offer();
     test_freshness_at_the_limit();
+    test_out_of_range();
     test_equal_weights();
     test_weights();
     test_half_rule();
