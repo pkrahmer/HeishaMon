@@ -62,11 +62,16 @@ int ctl_router_state_for(ctl_demand demand)
     }
 }
 
-/* The name is a literal of this file, shorter than the field; the value is one digit. */
+/* The name is a literal of this file, shorter than the field; the value is one digit. A full
+ * list takes nothing more, so that the array is bounded by its own size and not by the callers. */
 static void add_command(ctl_commands *commands, const char *name, int digit)
 {
-    ctl_command *command = &commands->command[commands->count];
+    ctl_command *command;
     size_t i;
+    if (commands->count >= CTL_ROUTER_COMMANDS_MAX) {
+        return;
+    }
+    command = &commands->command[commands->count];
     for (i = 0; i + 1 < CTL_ROUTER_NAME_MAX && name[i] != '\0'; i++) {
         command->name[i] = name[i];
     }

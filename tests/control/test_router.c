@@ -42,6 +42,7 @@ static void check_commands(const char *file, int line, const ctl_commands *actua
 }
 
 #define CHECK_COMMANDS(actual, expected) check_commands(__FILE__, __LINE__, (actual), (expected))
+#define CHECK_STATUS(actual, expected) CHECK_UINT((uint32_t)(actual), (uint32_t)(expected))
 
 /* Compares every field, so that a change no check names is caught too. */
 static void check_router_equal(const char *file, int line, const ctl_router *actual,
@@ -49,7 +50,7 @@ static void check_router_equal(const char *file, int line, const ctl_router *act
 {
     check_uint(file, line, (uint32_t)actual->wanted_state, (uint32_t)expected->wanted_state);
     check_uint(file, line, (uint32_t)actual->sent_state, (uint32_t)expected->sent_state);
-    check_true(file, line, actual->has_sent == expected->has_sent, "has_sent");
+    check_uint(file, line, (uint32_t)actual->has_sent, (uint32_t)expected->has_sent);
     check_double(file, line, actual->sent_at, expected->sent_at);
     check_double(file, line, actual->changed_at, expected->changed_at);
     check_uint(file, line, (uint32_t)actual->retries, (uint32_t)expected->retries);
@@ -72,10 +73,15 @@ static void landed_zero(ctl_router *router, const ctl_router_config *config)
     step_reported(router, config, CTL_DEMAND_NONE, 0, 10.0, &commands);
 }
 
+/* Each row keeps its own line, so that a failure names the row. */
 typedef struct {
+    int line;
     ctl_router_config config;
     bool valid;
 } config_row;
+
+#define CONFIG_ROW(min_change, retry, retries, heat, valid) \
+    {__LINE__, config_with((min_change), (retry), (retries), (heat)), (valid)}
 
 static ctl_router_config config_with(double min_change, double retry, int retries, int heat)
 {
@@ -89,35 +95,36 @@ static ctl_router_config config_with(double min_change, double retry, int retrie
 
 static void test_config(void)
 {
+    const config_row rows[] = {
+        CONFIG_ROW(300.0, 120.0, 3, -1, true),
+        CONFIG_ROW(-1.0, 120.0, 3, -1, false),
+        CONFIG_ROW(300.0, -1.0, 3, -1, false),
+        CONFIG_ROW(NAN, 120.0, 3, -1, false),
+        CONFIG_ROW(300.0, NAN, 3, -1, false),
+        CONFIG_ROW(INFINITY, 120.0, 3, -1, false),
+        CONFIG_ROW(300.0, 120.0, -1, -1, false),
+        CONFIG_ROW(300.0, 120.0, 11, -1, false),
+        CONFIG_ROW(300.0, 120.0, 3, 2, false),
+        CONFIG_ROW(300.0, 120.0, 3, -2, false),
+        CONFIG_ROW(0.0, 0.0, 3, -1, true),
+        CONFIG_ROW(300.0, 120.0, 0, -1, true),
+        CONFIG_ROW(300.0, 120.0, 10, -1, true),
+        CONFIG_ROW(300.0, 120.0, 3, 0, true),
+        CONFIG_ROW(300.0, 120.0, 3, 1, true),
+    };
     ctl_router_config defaults;
-    config_row rows[14];
-    size_t count = 0;
     size_t i;
 
     ctl_router_config_defaults(&defaults);
     CHECK_DOUBLE(defaults.min_change_interval_s, 300.0);
     CHECK_DOUBLE(defaults.retry_interval_s, 120.0);
     CHECK_UINT((uint32_t)defaults.max_retries, 3u);
-    CHECK_TRUE(defaults.heat_cool_heat_value == -1);
+    CHECK_UINT((uint32_t)defaults.heat_cool_heat_value, (uint32_t)-1);
+    CHECK_UINT((uint32_t)ctl_router_config_valid(&defaults), 1u);
 
-    rows[count].config = defaults; rows[count++].valid = true;
-    rows[count].config = config_with(-1.0, 120.0, 3, -1); rows[count++].valid = false;
-    rows[count].config = config_with(300.0, -1.0, 3, -1); rows[count++].valid = false;
-    rows[count].config = config_with(NAN, 120.0, 3, -1); rows[count++].valid = false;
-    rows[count].config = config_with(300.0, NAN, 3, -1); rows[count++].valid = false;
-    rows[count].config = config_with(INFINITY, 120.0, 3, -1); rows[count++].valid = false;
-    rows[count].config = config_with(300.0, 120.0, -1, -1); rows[count++].valid = false;
-    rows[count].config = config_with(300.0, 120.0, 11, -1); rows[count++].valid = false;
-    rows[count].config = config_with(300.0, 120.0, 3, 2); rows[count++].valid = false;
-    rows[count].config = config_with(0.0, 0.0, 3, -1); rows[count++].valid = true;
-    rows[count].config = config_with(300.0, 120.0, 0, -1); rows[count++].valid = true;
-    rows[count].config = config_with(300.0, 120.0, 10, -1); rows[count++].valid = true;
-    rows[count].config = config_with(300.0, 120.0, 3, 0); rows[count++].valid = true;
-    rows[count].config = config_with(300.0, 120.0, 3, 1); rows[count++].valid = true;
-
-    for (i = 0; i < count; i++) {
-        const bool valid = ctl_router_config_valid(&rows[i].config);
-        check_true(__FILE__, __LINE__, valid == rows[i].valid, "valid == rows[i].valid");
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+        check_uint(__FILE__, rows[i].line, (uint32_t)ctl_router_config_valid(&rows[i].config),
+                   (uint32_t)rows[i].valid);
     }
 }
 
@@ -145,10 +152,10 @@ static void test_init(void)
     ctl_router router;
     ctl_router_init(&router);
     CHECK_UINT((uint32_t)router.wanted_state, 0u);
-    CHECK_TRUE(router.sent_state == -1);
-    CHECK_TRUE(!router.has_sent);
+    CHECK_UINT((uint32_t)router.sent_state, (uint32_t)-1);
+    CHECK_UINT((uint32_t)router.has_sent, 0u);
     CHECK_UINT((uint32_t)router.retries, 0u);
-    CHECK_TRUE(router.status == CTL_ROUTER_IDLE);
+    CHECK_STATUS(router.status, CTL_ROUTER_IDLE);
 }
 
 static void test_first_step_and_landing(void)
@@ -162,15 +169,15 @@ static void test_first_step_and_landing(void)
     ctl_router_init(&router);
     ctl_router_step(&router, &config, CTL_DEMAND_NONE, false, 0, 0.0, &commands);
     CHECK_COMMANDS(&commands, &zero);
-    CHECK_TRUE(router.status == CTL_ROUTER_WAITING);
+    CHECK_STATUS(router.status, CTL_ROUTER_WAITING);
 
     step_reported(&router, &config, CTL_DEMAND_NONE, 0, 10.0, &commands);
     CHECK_COMMANDS(&commands, &NOTHING);
-    CHECK_TRUE(router.status == CTL_ROUTER_IDLE);
+    CHECK_STATUS(router.status, CTL_ROUTER_IDLE);
 
     step_reported(&router, &config, CTL_DEMAND_NONE, 0, 20.0, &commands);
     CHECK_COMMANDS(&commands, &NOTHING);
-    CHECK_TRUE(router.status == CTL_ROUTER_IDLE);
+    CHECK_STATUS(router.status, CTL_ROUTER_IDLE);
 }
 
 typedef struct {
@@ -205,7 +212,7 @@ static void test_heat_cool(void)
             step_reported(&router, &config, rows[i].second, 0, 800.0, &commands);
         }
         CHECK_COMMANDS(&commands, &rows[i].commands);
-        CHECK_TRUE(router.status == CTL_ROUTER_WAITING);
+        CHECK_STATUS(router.status, CTL_ROUTER_WAITING);
     }
 }
 
@@ -242,7 +249,7 @@ static void test_pacing(void)
             ctl_commands commands;
             step_reported(&router, &config, step->demand, 0, step->now, &commands);
             CHECK_COMMANDS(&commands, &step->commands);
-            CHECK_TRUE(router.status == step->status);
+            CHECK_STATUS(router.status, step->status);
         }
     }
 }
@@ -266,22 +273,24 @@ static const repeat_step REPEATS[] = {
 };
 
 /* Sends 2 at 0.0 from a fresh router and walks the repeats to the fault, with the pump never
- * confirming: it reports 0 when the state is known, nothing when it is not. */
+ * confirming. When the state is not known the report is the sent state itself, so that the router
+ * must disregard a report it is told is unknown. */
 static void run_to_fault(ctl_router *router, const ctl_router_config *config, bool state_known)
 {
     const expected_commands two = {{THERMOSTAT, NULL}, {"2", NULL}};
+    const int reported = state_known ? 0 : 2;
     ctl_commands commands;
     size_t i;
 
     ctl_router_init(router);
-    ctl_router_step(router, config, CTL_DEMAND_HEATING, state_known, 0, 0.0, &commands);
+    ctl_router_step(router, config, CTL_DEMAND_HEATING, state_known, reported, 0.0, &commands);
     CHECK_COMMANDS(&commands, &two);
     for (i = 0; i < sizeof REPEATS / sizeof REPEATS[0]; i++) {
-        ctl_router_step(router, config, CTL_DEMAND_HEATING, state_known, 0, REPEATS[i].now,
+        ctl_router_step(router, config, CTL_DEMAND_HEATING, state_known, reported, REPEATS[i].now,
                         &commands);
         CHECK_COMMANDS(&commands, REPEATS[i].sends ? &two : &NOTHING);
         CHECK_UINT((uint32_t)router->retries, (uint32_t)REPEATS[i].retries);
-        CHECK_TRUE(router->status == REPEATS[i].status);
+        CHECK_STATUS(router->status, REPEATS[i].status);
         CHECK_UINT((uint32_t)router->sent_state, 2u);
         CHECK_DOUBLE(router->changed_at, 0.0);
     }
@@ -326,7 +335,7 @@ static void test_leaving_fault(void)
         run_to_fault(&router, &config, true);
         step_reported(&router, &config, rows[i].demand, rows[i].reported, 610.0, &commands);
         CHECK_COMMANDS(&commands, &rows[i].commands);
-        CHECK_TRUE(router.status == rows[i].status);
+        CHECK_STATUS(router.status, rows[i].status);
         CHECK_UINT((uint32_t)router.retries, 0u);
     }
 }
@@ -345,8 +354,53 @@ static void test_landing_while_change_pending(void)
     CHECK_UINT((uint32_t)router.retries, 1u);
     step_reported(&router, &config, CTL_DEMAND_NONE, 2, 150.0, &commands);
     CHECK_COMMANDS(&commands, &NOTHING);
-    CHECK_TRUE(router.status == CTL_ROUTER_WAITING);
+    CHECK_STATUS(router.status, CTL_ROUTER_WAITING);
     CHECK_UINT((uint32_t)router.retries, 1u);
+}
+
+/* A repeat sends what the first send sent, the heat/cool mode included. */
+static void test_repeat_with_heat_cool(void)
+{
+    const expected_commands both = {{THERMOSTAT, HEAT_COOL}, {"2", "1"}};
+    ctl_router_config config;
+    ctl_router router;
+    ctl_commands commands;
+    ctl_router_config_defaults(&config);
+    config.heat_cool_heat_value = 1;
+    ctl_router_init(&router);
+    step_reported(&router, &config, CTL_DEMAND_HEATING, 0, 0.0, &commands);
+    CHECK_COMMANDS(&commands, &both);
+    step_reported(&router, &config, CTL_DEMAND_HEATING, 0, 120.0, &commands);
+    CHECK_COMMANDS(&commands, &both);
+    CHECK_UINT((uint32_t)router.retries, 1u);
+}
+
+typedef struct {
+    bool state_known;
+    int reported;
+} report_row;
+
+/* Only a send waits for its confirmation: once a state has landed, a report that is lost or
+ * differs later is no reason to write the pump's EEPROM again. */
+static void test_no_repeat_after_landing(void)
+{
+    const report_row rows[] = {
+        {false, 0},
+        {true, 1},
+    };
+    size_t i;
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+        ctl_router_config config;
+        ctl_router router;
+        ctl_commands commands;
+        ctl_router_config_defaults(&config);
+        landed_zero(&router, &config);
+        ctl_router_step(&router, &config, CTL_DEMAND_NONE, rows[i].state_known, rows[i].reported,
+                        200.0, &commands);
+        CHECK_COMMANDS(&commands, &NOTHING);
+        CHECK_STATUS(router.status, CTL_ROUTER_IDLE);
+        CHECK_UINT((uint32_t)router.retries, 0u);
+    }
 }
 
 static void test_no_retries_faults_at_once(void)
@@ -360,7 +414,7 @@ static void test_no_retries_faults_at_once(void)
     step_reported(&router, &config, CTL_DEMAND_HEATING, 0, 0.0, &commands);
     step_reported(&router, &config, CTL_DEMAND_HEATING, 0, 120.0, &commands);
     CHECK_COMMANDS(&commands, &NOTHING);
-    CHECK_TRUE(router.status == CTL_ROUTER_FAULT);
+    CHECK_STATUS(router.status, CTL_ROUTER_FAULT);
 }
 
 static void test_not_finite_now(void)
@@ -417,6 +471,8 @@ int main(void)
     test_repeats_unknown_confirmation();
     test_leaving_fault();
     test_landing_while_change_pending();
+    test_repeat_with_heat_cool();
+    test_no_repeat_after_landing();
     test_no_retries_faults_at_once();
     test_not_finite_now();
     test_invalid_config();

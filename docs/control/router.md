@@ -55,6 +55,11 @@ The pacing counts from the last new state, not from a repeat, so that repeats of
 do not hold back the next change. A pump whose state is not known (`state_known` false) never
 confirms, so the router repeats and faults as if the command had been dropped.
 
+Only a send waits for its confirmation. Once a state has landed the status is `IDLE`, and a report
+that is lost or differs later sends nothing: a repeat then would write the pump's EEPROM again for
+a state the pump has already shown. A repeat sends exactly the commands of the send it repeats,
+the heat/cool mode included.
+
 ## The configuration (`ctl_router_config`)
 
 | Setting | Default | Accepted | Why this default |
