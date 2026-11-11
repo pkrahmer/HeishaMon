@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: round_cap
-round: 4
+blocked: null
+round: 0
 attempts: 0
 crashes: 0
 pull_request: 5
-comments_read: []
+comments_read: [6806361194]
 handed_over: null
 claim: null
 journal:
@@ -109,6 +109,11 @@ journal:
   stage: review
   run: c808905e9eb34ac98f6a252f2ec11752
   blocked: round_cap
+- number: 19
+  speaker: human
+  kind: comment
+  at: '2026-11-11T20:21:31.387285Z'
+  stage: review
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -478,3 +483,13 @@ Expect: `control: 6 test programs passed`
     Notes:
     - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without `(void)`, unlike the code's own calls.
 18. factory: This work item has now been sent back 4 times, more than 3. What should happen? Answer with a comment, which starts the count of rounds over; close the pull request to discard the work item.
+19. 2026-11-11 human: Carry on with one more round.
+
+    Builder: fix findings 1 and 2 of entry 17 (check both counters after a second step; correct the two sentences in `core.md`). Nothing else.
+
+    Finding 3: I add no criteria. The rules the three rounds tested stay as tests; the list in entry 15 is the record.
+
+    Reviewer: the code follows the Python source branch for branch, as your entries say, and the next story replays 332,239 recorded calls through it and compares the energy, both counters, the clamp flag and every decision on every line. So from this round on, a rule that has no test of its own is a note, not a finding, when the code handles it as the Python source does. A finding is code that disagrees with the Python source or with `CLAUDE.md`, or a false sentence in a document.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
