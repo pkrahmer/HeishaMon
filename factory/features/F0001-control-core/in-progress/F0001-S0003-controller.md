@@ -1,17 +1,13 @@
 ---
 stage: review
-blocked: null
-round: 3
+blocked: round_cap
+round: 4
 attempts: 0
 crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:16:17.516847Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -100,6 +96,19 @@ journal:
   kind: started
   at: '2026-11-11T20:16:17.516847Z'
   stage: review
+- number: 17
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:17:42.159142Z'
+  stage: review
+  run: c808905e9eb34ac98f6a252f2ec11752
+- number: 18
+  speaker: factory
+  kind: question
+  at: '2026-11-11T20:17:42.159142Z'
+  stage: review
+  run: c808905e9eb34ac98f6a252f2ec11752
+  blocked: round_cap
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -445,3 +454,27 @@ Expect: `control: 6 test programs passed`
 
     `check`: check: green
 16. factory: started review as heishamon.
+17. reviewer: Round 3 review of `git diff develop...HEAD -- . ':!factory'`: ctl_controller.h/.c, test_controller.c, core.md and decisions.md. I compared the diff with `docs/control/python-reference/controller.py` and with `Decision` in `types.py`, and re-read the whole diff, not just this round's changes.
+
+    The three findings from round 2 are closed:
+    - `test_advance_resolves_at_interval_start` fails if the signals are resolved at `t`.
+    - `test_evaluate_before_reference` fails if evaluate resolves, or computes `unhealthy`, at `t_last`.
+    - `test_observe_first_reading_at_negative_instant` fails if the `observed` guard is dropped.
+
+    The code still follows the Python source branch for branch, including the operand order, the emitted demand in each branch and the INVALID_TIME decision. The factory's `make check` after the builder was green.
+
+    - Architecture holds: includes are limited to the core's own headers plus `math.h`, `stdbool.h` and `stdint.h`; names use `ctl_`/`CTL_`; helpers are `static`; no file outside the three folders changed.
+    - Embedded safety holds: no dynamic memory or recursion, loops are bounded by `CTL_SIGNAL_COUNT`, and outside values are checked with `isfinite`.
+    - Docs: the core.md defaults (10/60/300/900 s, max age 600 s) match `ctl_config.c`, apart from finding 2.
+
+    Findings:
+
+    1. `ctl_controller.c` `integrate` (`state->integrated_s = state->integrated_s + dt`) and `ctl_advance` (`state->skipped_s = state->skipped_s + dt`): the Interface rules "integrated_s grows by dt" and "adds dt to skipped_s" are only tested from 0.0, so `= dt` in either place passes every test. Every checked integration or skip starts with the counter at 0.0 (criteria 3, 4, 11, the 700.0 step of 14, and the round-1/3 tests); counters after a second step are never checked (the 1200.0 step of criterion 14, the 300→600 step of criterion 5, the 300→500 step of `test_evaluate_normal_marks_healthy`). No criterion covers this, so it is also a gap in the story. Fix: check `integrated_s` 600.0 after the second step of the criterion 5 test, and `skipped_s` 900.0 after the evaluate at 1200.0 in the criterion 14 test (700→1200 is skipped because the readings are 700 s old at 700.0).
+    2. `docs/control/core.md`, Controller section: two claims are false for `WAITING_FOR_INPUTS` with a demand other than NONE, which is exactly the case `test_evaluate_uninitialized_with_demand` pins. The field table says `demand` is "The demand last emitted". The paragraph under the phase table says "The demand a decision carries is stored as the state's demand". The code's own comment on `decide` says every reason except `WAITING_FOR_INPUTS` emits the state's demand. Fix: limit both sentences to every reason except `WAITING_FOR_INPUTS`, whose decision carries NONE and leaves the state's demand as it is.
+    3. Work item `## Description`, for the human, since the builder cannot write it: it still ends at criterion 16. The rules tested in rounds 1–3 have tests but no criterion. Entry 15 lists them with their test names. Finding 1 above adds one more. Fix: the human adds those criteria before the two closing ones.
+
+    Earlier tests: the diff adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without `(void)`, unlike the code's own calls.
+18. factory: This work item has now been sent back 4 times, more than 3. What should happen? Answer with a comment, which starts the count of rounds over; close the pull request to discard the work item.
