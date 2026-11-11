@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -97,6 +97,11 @@ journal:
   at: '2026-11-11T22:09:21.808772Z'
   stage: review
   run: 9b30ade049fe4e2495ce042d8a788ed0
+- number: 17
+  speaker: factory
+  kind: done
+  at: '2026-11-11T22:11:14.199104Z'
+  stage: approval
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -448,3 +453,4 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
     - `tests/control/device/replay/replay.ino`
 
     `tests/control/test_wire.c` is unchanged.
+17. factory: done (pull request merged); cost: 7 runs, 20.7 min, 78 turns, 379788 tokens in (3215560 more from cache), 101940 out, $4.58
