@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 12
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T22:17:49.107705Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T22:17:43.071706Z'
   stage: review
   run: f1c998008d4e42dab391c20db1ffb9ee
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:17:49.107705Z'
+  stage: doing
 ---
 
 # The payload parser and the plausibility bounds
@@ -182,3 +191,4 @@ Expect: `2`
    - Docs: `adapters.md` and the three `decisions.md` entries match the code.
 
    Earlier tests: the diff changes no test file that `develop` already holds. Every test file in the diff is added (status `A`). The one modified file, `docs/control/decisions.md`, only has entries appended.
+6. factory: started doing as heishamon.
