@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:37:45.308395Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-11T20:37:45.308395Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:38:40.668790Z'
+  stage: review
+  run: 122dced4d5104fac9171562a0e0071be
 ---
 
 # The trace runner over the thirteen golden traces
@@ -251,3 +253,41 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Review, round 1. I read the code in `tests/control/trace.c`, `trace.h` and `test_traces.c`, and every new file under `tests/control/data/bad/`. I did not rely on the journal's account.
+
+   Both findings from round 0 are fixed:
+   - Finding 1: `wrong_every_key.trace` plants exactly 15 faults: 4 on line 7, 1 on line 9, 1 on line 10 and 9 on line 16. Every value the replay checks against is the core's own output and never one read from the trace, so one fault cannot cause another. `test_every_key_is_compared` pins the count at 15 and checks the line and key of each printed mismatch in order. Every compared key (demand, reason, phase, E, dt, int, skip, clamped, pnet, unhealthy, substituted, and the five ledger terms) now fails a test when it is wrong.
+   - Finding 2: `test_format_errors` now has a row for each case:
+     - a surplus pair
+     - a surplus argument
+     - an unknown reason
+     - an unknown phase
+     - a double space
+     - `clamped=2`
+     - text after `end`
+     - `fallback_w.T_INDOOR`
+     - a missing file, which expects `format_line` 0
+
+     I checked each expected `format_line` against its file.
+
+   Checklist:
+   1. Acceptance criteria:
+      - Criteria 1–7 each have a test that checks what the criterion says.
+      - The 1,024-character line limit is tested on both sides (`longest_line` and `long_line`). I traced `next_line` for both cases, with and without a trailing newline.
+      - The mismatch limit is pinned at exactly 3 of 6.
+      - The journal reports `make check` green after the builder.
+   2. Architecture: only new files under `tests/control/` and two docs under `docs/control/` changed. The helper includes only the core's headers. No upstream file was touched.
+   3. Embedded safety: no code that runs on the board changed. The helper has no dynamic memory and no recursion, and every loop has a bound.
+   4. Quality: both round-0 notes are addressed.
+   5. Hygiene:
+      - The journal records the main decision (`trace_replay_to`) and what was rejected (`dup2` and a global output setting).
+      - `core.md` *How the core is proven* matches the code: exact `==` or both NaN, ten mismatches per golden trace, and the output line.
+      - `decisions.md` records that the traces showed no fault.
+   6. Earlier tests: the diff modifies no existing test file. The only non-added paths are `docs/control/core.md` and `docs/control/decisions.md`.
+
+   no findings
+
+   Notes:
+   - `tests/control/trace.c` `format_number`: it writes with the implicit `TEXT_MAX` rather than a size the caller passes, unlike `format_signal_set`. Every caller's buffer has `TEXT_MAX` characters, so it is safe today.
+   - `docs/control/decisions.md` "The trace reader is strict…": the refusal of `trim_limit_enabled` as a config key and of a non-number for `state_max_age_s`/`persist_interval_s` have no faulty trace of their own. `unknown_config_key` covers the general rule. The sentence "Each of these refusals has a faulty trace of its own" reads as if it included them.
+   - Story: criteria 5 and 6 still list fewer cases than the tests now cover (named in round 0). The tests go beyond the criteria without contradicting them. The human may want to add the extra cases to the Description.
