@@ -11,7 +11,6 @@ CORE = $(CONTROL)/core
 TESTS = tests/control
 # The device test: a sketch that serves the core over a serial line, and its host twin.
 DEVICE = $(TESTS)/device
-SKETCH = $(DEVICE)/replay
 FQBN = esp8266:esp8266:d1_mini
 # No fused multiply-add: the core must round as the Python reference does, twice where it does.
 CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off
@@ -87,20 +86,29 @@ test:
 	  gcc $(CFLAGS) -I$(CONTROL) $(DEVICE)/host_server.c $$sources -lm -o "$$build/host_server"
 	  python3 $(DEVICE)/replay.py --command "$$build/host_server" "$$CTL_TRACES/edge_cases.trace" "$$CTL_TRACES/flaky_transport.trace"
 	fi
+	# The device tools' own tests: each tests/control/device/test_*.py, run from the root, finds the
+	# control code's sources in CTL_SOURCES and a scratch folder in CTL_BUILD.
+	for script in $$(find $(DEVICE) -maxdepth 1 -name 'test_*.py' 2>/dev/null | sort); do
+	  CTL_SOURCES="$$sources" CTL_BUILD="$$build" python3 "$$script"
+	done
 	$(green)
 
-# The device test sketch, compiled for the D1 mini (ESP8266) with each folder of the control code
-# as a library; nothing is flashed. Without the sketch there is nothing to compile.
+# Every device sketch (a folder under tests/control/device/ that holds a .ino of its own name),
+# compiled for the D1 mini (ESP8266) with each folder of the control code as a library; nothing is
+# flashed. Each sketch prints its name and its memory lines.
 device:
 	$(start)
-	if [ -d $(SKETCH) ]; then
-	  build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
-	  libraries=$$(find $(CONTROL) -mindepth 1 -maxdepth 1 -type d | sort | sed 's/^/--library /')
-	  if ! arduino-cli compile --fqbn $(FQBN) $$libraries --build-path "$$build/out" --warnings all $(SKETCH) > "$$build/compile.log" 2>&1; then
-	    cat "$$build/compile.log"; exit 1
+	build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
+	libraries=$$(find $(CONTROL) -mindepth 1 -maxdepth 1 -type d | sort | sed 's/^/--library /')
+	for sketch in $$(find $(DEVICE) -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
+	  name=$$(basename "$$sketch")
+	  [ -f "$$sketch/$$name.ino" ] || continue
+	  if ! arduino-cli compile --fqbn $(FQBN) $$libraries --build-path "$$build/$$name" --warnings all "$$sketch" > "$$build/$$name.log" 2>&1; then
+	    cat "$$build/$$name.log"; exit 1
 	  fi
-	  grep -E '^\. (Variables|Code in flash)' "$$build/compile.log"
-	fi
+	  echo "$$name:"
+	  grep -E '^\. (Variables|Code in flash)' "$$build/$$name.log"
+	done
 	$(green)
 
 # The same replay against the board on a serial port, run by hand on the machine the board is
