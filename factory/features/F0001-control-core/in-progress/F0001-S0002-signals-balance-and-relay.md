@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:58:38.770725Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -89,6 +85,12 @@ journal:
   kind: started
   at: '2026-11-11T19:58:38.770725Z'
   stage: doing
+- number: 15
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:59:07.820356Z'
+  stage: doing
+  run: 6be36c68583f43bb81e36a5e77ac28df
 ---
 
 # The signal table, the energy balance and the relay
@@ -383,3 +385,19 @@ Expect: `control: 5 test programs passed`
     Findings:
     1. `docs/control/core.md`, section "Signal table", the sentence that begins "until its first reading, and at a NaN `at`, it is not fresh and falls back to `fallback_w` (550 W)". The fallback part is wrong for a NaN `at`. At a NaN `at` every required signal is also not fresh, so `ctl_signals_resolve` refuses and nothing falls back. The paragraph on `resolve` in the same section says so too. Fix: limit the fallback to "until its first reading", for example: "until its first reading it falls back to `fallback_w` (550 W); at a NaN `at` it is not fresh, like every signal."
 14. factory: started doing as heishamon.
+15. builder: Round 3. I fixed the reviewer's one finding. Only the document changed. No code or tests changed.
+
+    1. `docs/control/core.md`, section "Signal table": the sentence wrongly said `P_INTERNAL` falls back to `fallback_w` at a NaN `at`. The fallback now applies only before the first reading. The sentence reads: "until its first reading it falls back to `fallback_w` (550 W); at a NaN `at` it is not fresh, like every signal." This matches the paragraph on `resolve`: at a NaN `at` it refuses, so nothing falls back.
+
+    Smoke test:
+    - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, which matches.
+    - `make test | grep '^control:'` printed `control: 5 test programs passed`, which matches.
+    - `make check` ended with `check: green`.
+
+    Noticed but not touched: nothing new.
+
+    Open: nothing.
+
+    `check`: check: green
+
+    `check`: check: green

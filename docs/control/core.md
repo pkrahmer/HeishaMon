@@ -104,7 +104,7 @@ The age of a signal at `at` is `at - t`, negative when `at` lies before the read
 fresh. Staleness is the negation of that test, `!(age <= max_age)`, and not `age > max_age`,
 because the two differ for NaN. With the defaults, `P_INTERNAL` has a `max_age_s` of
 `INFINITY`, so once observed it stays fresh at every instant that is not NaN; until its first
-reading, and at a NaN `at`, it is not fresh and falls back to `fallback_w` (550 W).
+reading it falls back to `fallback_w` (550 W); at a NaN `at` it is not fresh, like every signal.
 
 A set of signals is a bit mask, one `CTL_SIGNAL_BIT(signal)` per signal.
 `ctl_signals_unhealthy` returns the required signals that are not fresh,
