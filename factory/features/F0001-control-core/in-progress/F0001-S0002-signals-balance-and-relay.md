@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 4
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T19:58:38.770725Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -80,6 +84,11 @@ journal:
   at: '2026-11-11T19:58:32.395132Z'
   stage: review
   run: 65ec893d93194b67800c56ccdbed5837
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-11T19:58:38.770725Z'
+  stage: doing
 ---
 
 # The signal table, the energy balance and the relay
@@ -373,3 +382,4 @@ Expect: `control: 5 test programs passed`
 
     Findings:
     1. `docs/control/core.md`, section "Signal table", the sentence that begins "until its first reading, and at a NaN `at`, it is not fresh and falls back to `fallback_w` (550 W)". The fallback part is wrong for a NaN `at`. At a NaN `at` every required signal is also not fresh, so `ctl_signals_resolve` refuses and nothing falls back. The paragraph on `resolve` in the same section says so too. Fix: limit the fallback to "until its first reading", for example: "until its first reading it falls back to `fallback_w` (550 W); at a NaN `at` it is not fresh, like every signal."
+14. factory: started doing as heishamon.
