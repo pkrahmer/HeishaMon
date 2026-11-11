@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T22:51:38.148830Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-11T22:51:32.649621Z'
   stage: review
   run: 694d8aa53daa4987befb4b5f97b37290
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:51:38.148830Z'
+  stage: doing
 ---
 
 # The room average
@@ -194,3 +203,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - Embedded safety: no dynamic memory and no recursion. Every loop is bounded by `CTL_ROOMS_MAX`, or by `count` after it was validated. Indexes are guarded against `CTL_ROOMS_MAX`, `t` is checked with `isfinite`, and NaN `now` is handled.
    - Docs: adapters.md and decisions.md cover what criterion 9 asks for, and every claim in them matches the code.
    - Earlier tests: none. The diff adds `tests/control/test_rooms.c` (status A) and changes no existing test file.
+6. factory: started doing as heishamon.
