@@ -27,14 +27,13 @@ The fork gets the control core as plain C99 under `HeishaMon/src/control/core/`:
 The build order; start one at a time, the next when the one before is archived in `done/`.
 
 - S0001: The core's enums and its configuration with validation
-- S0002: The value types, the signal table and the resolution into inputs
-- S0003: The energy balance, the relay and the clamp
-- S0004: The controller: advance, observe, set_allowed and evaluate
-- S0005: The trace runner over the thirteen golden traces
+- S0002: The signal table, the energy balance and the relay
+- S0003: The controller: advance, observe, set_allowed and evaluate
+- S0004: The trace runner over the thirteen golden traces
 
-Each of S0001 to S0004 carries its own table-driven tests, taken from the rules of `docs/control/reference.md`. S0005 comes last because a trace needs the whole core. A difference it finds in the core is fixed in S0005 itself, and its journal names the module and the rule that was wrong.
+Each of S0001 to S0003 carries its own table-driven tests, taken from the rules of `docs/control/reference.md`. S0004 comes last because a trace needs the whole core. A difference it finds in the core is fixed in S0004 itself, and its journal names the module and the rule that was wrong.
 
-S0002 to S0005 are written when the story before is merged, so that each builds on the names and the decisions that exist by then.
+S0002 to S0004 are written when the story before is merged, so that each builds on the names and the decisions that exist by then.
 
 ## The human's changes
 
