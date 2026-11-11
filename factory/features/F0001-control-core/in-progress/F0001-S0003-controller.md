@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 5
 comments_read: [6806361194]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T20:22:06.432335Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -125,6 +129,11 @@ journal:
   at: '2026-11-11T20:22:00.972273Z'
   stage: review
   run: c43de41673374bacbf4935937ca64135
+- number: 22
+  speaker: factory
+  kind: started
+  at: '2026-11-11T20:22:06.432335Z'
+  stage: doing
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -532,3 +541,4 @@ Expect: `control: 6 test programs passed`
 
     Notes:
     - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
+22. factory: started doing as heishamon.
