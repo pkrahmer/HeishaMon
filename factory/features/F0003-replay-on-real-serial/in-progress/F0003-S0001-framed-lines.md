@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 9
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T21:45:39.531791Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T21:45:39.531791Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T21:48:07.762844Z'
+  stage: review
+  run: 5192efe8a9cd40198875f7f92c1eb7b6
 ---
 
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
@@ -190,3 +192,33 @@ Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its fram
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `tests/control/test_replay_script.c` and `docs/control/decisions.md` (entry "The script's tests are a Python program that a C test runs"): `make test` already runs every `tests/control/device/test_*.py` with `CTL_SOURCES` and `CTL_BUILD` set (CLAUDE.md *Checks*; `Makefile:89-92`). So `test_replay.py` runs twice, and the decision's reason ("a Python test outside `make test`, which nothing would run") is false. Fix: delete `test_replay_script.c`, drop its row and the claim in `device-test.md`, and rewrite or remove the decision entry.
+   2. `tests/control/device/test_replay.py:39-46,148`: the test walks `HeishaMon/src/control` itself and builds in its own `tempfile` folder. CLAUDE.md says such a test takes the sources from `CTL_SOURCES` and its scratch folder from `CTL_BUILD`. Fix: use both variables.
+   3. `tests/control/device/replay.py:494-503` (`configure`): any reply to `R` or a `C` other than `ok` or `error` fails the trace without a restart. That includes a framed but stale state line left over from the previous attempt, which is a reply with the wrong number of fields and so a restart under the Interface and your own decision ("a break while sending R, C or B also restarts"). Fix: only a `bad …` reply to `B` fails without a restart; every other non-`ok` reply raises `BrokenLine`.
+   4. `tests/control/device/test_replay.py`: only the broken-frame trigger of a restart is tested. Nothing tests a restart after an `error` reply, after a reply with the wrong number of fields (or a field that does not parse), or after no reply within 10 s. No criterion names these either, which is a gap against the story. Fix: add these cases, for example as modes of `garbling_twin.py` that go wrong once.
+   5. `tests/control/device/test_replay.py:103`: `startswith(trace + ":")` also passes for the configuration form `<file>: broken line…`. The Interface's "with the line of the call" is therefore untested. Fix: expect `<trace>:<n>: broken line, restarting (1 of 2)`, where `<n>` is the trace line of the call whose reply was the 500th.
+   6. `tests/control/device/test_replay.py` (criterion 9): no check asserts `0 restarts` for the plain twin. `replay.py` exits 0 whatever the number of restarts, so `make test` stays green even if the host replay restarts. Fix: replay `edge_cases` and `flaky_transport` through the twin with no option, and expect exactly `device replay: 2 files, 10639 calls, 0 mismatches, 0 restarts`.
+   7. `tests/control/device/replay.py:347-353,369-383`: the reset pulse (DTR off, RTS on, 0.2 s, RTS off) and `wait_ready` ignoring every other line have no criterion and no test. This is a gap against the story. Fix: test `SerialLink.reset` with a stand-in port object that records the `dtr`/`rts`/sleep sequence, and test `wait_ready` with a twin that prints junk and an unframed `ready` before the framed one.
+   8. `tests/control/device/replay/replay.ino:44` (`send_text`) writes the board's reply buffer with `strcpy`, without its size. `host_server.c:84,86` (`strcpy`, `sprintf`) do the same. Fix: write with the buffer's size (`snprintf(reply, sizeof reply - CTL_FRAME_SUFFIX, "%s", text)` and `snprintf` for the stats line).
+   9. `replay.ino:37` and `host_server.c:73`: the status of `ctl_frame_add` is discarded with `(void)`. CLAUDE.md *Errors are values* requires the caller to check it. Fix: check it, and on false send a fixed framed `error` (or otherwise handle the refusal).
+   10. `tests/control/device/replay/replay.ino:14-15`: the comment narrates an event ("At 921,600 baud the line dropped…; … replayed every trace") instead of a timeless why. Fix: state the lasting reason and cite a `docs/control/decisions.md` entry for the speed and the in-flight count.
+   11. The work item's `## Description` no longer matches what was built. It still says:
+       - the restart line is `<file>:<line>: broken line, restarting (<k> of 2)`, while the code appends `: <what came>`;
+       - "another value than a positive integer garbles nothing", while the code exits with 2 on any non-digit, a sign, or more than nine digits;
+       - nothing about configuration breaks printed as `<file>`, the extra `broken line:` line on the third break, or printable-ASCII-only replies counting as broken.
+       
+       Fix: rewrite the Interface bullets to the built behaviour.
+   12. `docs/control/device-test.md` ("Restarts"):
+       - It says any argument other than "`--garble` and decimal digits" is refused, but more than nine digits is refused too (`host_server.c:56`).
+       - It says a third break prints `<file>: failed after 2 restarts`, but `<place>: broken line: <what>` is printed first (`replay.py:563`).
+       
+       Fix: state both.
+
+   Earlier tests (changed, not added), each named under "Changed:" in the story's Interface, which is the human's word:
+   - `tests/control/device/host_server.c`
+   - `tests/control/device/replay.py`
+   - `tests/control/device/replay/replay.ino`
+
+   `tests/control/test_wire.c` is unchanged.
