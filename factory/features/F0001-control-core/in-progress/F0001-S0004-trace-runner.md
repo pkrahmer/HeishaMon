@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 6
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:33:36.518051Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T20:33:36.518051Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:35:11.322140Z'
+  stage: review
+  run: 9d8e3ee744f84116b5eba75fe4c0a1bc
 ---
 
 # The trace runner over the thirteen golden traces
@@ -177,3 +179,13 @@ Expect: two lines, `CTL_TRACES is not set; run make test` and `exit 1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Review, round 0. I read the code, not only the journal. The diff adds files only. No test file that `develop` already had is changed, renamed or deleted: the only changed files that are not new are `docs/control/core.md`, `docs/control/decisions.md` and the work item. Criteria 1–5 and 7 have tests, and those tests check what the criteria say. For criterion 6, `match_nan`, `mismatch_nan`, `match_negative_zero` and the pnet files cover the rule both ways. The 1,024-character limit is tested on both sides (`longest_line` line 7 has 1,024 characters, `long_line` line 7 has 1,025). The mismatch limit is pinned exactly (3 of 6). After the builder, `make check` was green. Architecture holds: only test files and docs changed, and the helper includes only the core's headers. The docs table matches section 2 and the trace headers ("15 % of true" is backed by `docs/control/algorithm-plan.md:311`).
+
+   Findings:
+
+   1. `tests/control/test_traces.c` (`test_comparison_mismatches`) and `tests/control/data/bad/`: the Interface says every pair of an `evaluate` line is compared, but only `E`, `int`, `pnet` and a NaN `E` have a failing-side test. A replayer that never compared `demand`, `reason`, `phase`, `dt`, `skip`, `clamped`, `unhealthy`, `substituted` or any ledger term would still pass every test. This is a gap in the story too: criterion 6 names only nan, -0.0 and pnet. Fix: add one faulty trace, built from `valid_small`, with exactly one wrong value for each of these keys (one per ledger term), each on its own line or with the count known. Replay it with a limit above that count, and check that `mismatches` equals the number of planted faults.
+   2. `tests/control/test_traces.c` (`test_format_errors`) and `tests/control/data/bad/`: some format errors the Interface names have no row. These are a surplus field (for example a fifth state pair, or a second argument to `advance`) and an unknown enum name in the decision pairs (a `reason` or `phase` name). Some refusals that the builder decided and recorded in `docs/control/decisions.md` also have none: a non-comment line after `end`, a double space, `clamped=2`, and `fallback_w.T_INDOOR`. The same goes for the file that cannot be opened, which should give false with `format_line` 0. This is also a gap in the story, because criterion 5 lists none of these. Fix: add one small file and one table row for each, with its expected `format_line`; for the missing file, add a row with a path that does not exist and expect `format_line` 0.
+
+   Notes:
+   - `tests/control/trace.c` `parse_call_kind`: the loop bound `4` should be `sizeof NAMES / sizeof NAMES[0]`.
+   - `tests/control/trace.c` `format_signal_set`: it fills a `TEXT_MAX` buffer with `strcat`. It is safe for five names, but the buffer is written without its size.
