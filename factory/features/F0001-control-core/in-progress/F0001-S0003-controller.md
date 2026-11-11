@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 5
 comments_read: [6806361194]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:23:03.700510Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -145,6 +141,12 @@ journal:
   kind: started
   at: '2026-11-11T20:23:03.700510Z'
   stage: review
+- number: 25
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:23:31.311145Z'
+  stage: review
+  run: 80897d52f4594971b37ba189567d382d
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -580,3 +582,29 @@ Expect: `control: 6 test programs passed`
 
     `check`: check: green
 24. factory: started review as heishamon.
+25. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'`, which covers ctl_controller.h/.c, test_controller.c, core.md and decisions.md. I compared it with `docs/control/python-reference/controller.py` and applied the rule the human set in entry 19. I re-read the whole diff, not only this round's changes.
+
+    The two fixes the human ordered are in:
+    - `test_advance_clamps` now checks `state.integrated_s` 600.0 after the 300→600 advance.
+    - `test_evaluate_hold_fault_recovery` now checks `skipped_s` 900.0 after the evaluate at 1200.0, in both the state and the decision.
+    - In `docs/control/core.md`, the `demand` row of the field table and the paragraph under the phase table now exclude `WAITING_FOR_INPUTS`. Both say that its decision carries `NONE` and leaves the state's demand as it is, which is what `decide` and the ternary in `ctl_evaluate` do.
+
+    Checklist:
+    1. Acceptance criteria: criteria 1–14 each have a test that checks what the criterion says. The factory's `make check` after the builder was green (entry 23).
+       - The code follows `controller.py` branch for branch:
+         - `ctl_advance` matches `advance_to`, with the same operand order for `hours`, `raw`, `integrated_s + dt` and `skipped_s + dt`, and it resolves at `t_last`.
+         - `ctl_observe` matches `observe`, including the `held is not None` guard.
+         - `ctl_set_allowed` advances first and clamps only when the mask changes.
+         - `ctl_evaluate` matches `evaluate`: the INVALID_TIME decision, the resolve and `unhealthy` at `t`, and the emitted demand in each of the four branches.
+       - Under entry 19, no rule without its own test counts as a finding, because each such rule is handled as the Python source handles it.
+    2. Architecture: the core includes only its own headers plus `math.h`, `stdbool.h` and `stdint.h`. Public names use `ctl_`/`CTL_`, helpers are `static`, numbers are `double`, and no file outside the three folders changed.
+    3. Embedded safety: there is no dynamic memory and no recursion. The loops are bounded by `CTL_SIGNAL_COUNT`, and outside values are checked with `isfinite`.
+    4. Quality: functions are small and do one thing, there is no dead code, and the comments explain why.
+    5. Hygiene: the claims in core.md and decisions.md match the code. These include the field table, the refusal tables, the phase table, the `set_allowed` behaviour with a NaN `t`, and the record that no criterion disagreed with the Python source. Per entry 19, the Description deliberately has no criteria for the extra tested rules; entry 15's list is the record.
+    6. Earlier tests: the diff only adds `tests/control/test_controller.c` (status A). It changes, renames or deletes no test file that `develop` already holds.
+
+    no findings
+
+    Notes:
+    - `tests/control/test_controller.c` `test_evaluate_before_reference`: the return value of `ctl_advance` is discarded without the `(void)` cast that the code's own calls use.
+    - `docs/control/core.md`, the paragraph under the phase table: the reflowed line that ends "so it restarts from 0;" is longer than the rest of the document's wrapped lines.
