@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 8
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:54:33.859265Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T20:54:33.859265Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T21:01:47.907926Z'
+  stage: doing
+  run: 9f91c9ab3b8846b2a25567c60c1c13cf
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -131,3 +133,48 @@ Expect: `2`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the device replay: the line protocol, the test sketch with its host twin, and the replay script. Every part is proven on the host. The sketch only compiles here, because no board is attached.
+
+   What I built:
+   - `HeishaMon/src/control/wire/ctl_wire.h` and `ctl_wire.c`. This is the protocol as the Interface defines it. It is plain C99 with no dynamic memory, every loop is bounded, and it includes the core's headers by relative path. Each handler parses all of its fields before it changes the session, so an `error` reply never leaves a partial change behind. The reply is written through a bounded appender, so a small buffer is cut short and never overrun.
+   - `tests/control/test_wire.c`, which covers criteria 1–5:
+     - a table test for double formatting and parsing, including NaN and the inputs that must be refused;
+     - the session before and after `B`, a bad configuration giving `bad 00000008`, and `R`;
+     - every `C` field, the `trim_limit_enabled` flag and the refused `C` lines;
+     - a twin run in which every reply is compared with a line formatted from direct core calls. It has 15 calls, including an `E` with all required signals stale (`-`), an `E` with inputs, and an `E` at NaN.
+     - the malformed table, which checks that the session's bytes are unchanged afterwards (memcmp), plus extra rows for an empty line, leading or trailing spaces, `S`, `B 1`, `M .. 07` and `O .. 00`;
+     - line length, a trailing `\r`, and a reply cut to its size.
+     I first ran it without `ctl_wire.c` and it failed to link (20 undefined references).
+   - `tests/control/device/host_server.c` (the host twin), `tests/control/device/replay/replay.ino` (the sketch: 921,600 baud, `setRxBufferSize(1024)`, static session, `micros()` timing, `ESP.getFreeHeap()`, core headers inside `extern "C"`), and `tests/control/device/replay.py` (standard library only; pyserial is imported only by the serial link).
+   - Docs: `docs/control/device-test.md` is new. `docs/control/core.md` gets one sentence at the end of *How the core is proven*. `docs/control/decisions.md` gets two entries.
+
+   Decisions (recorded in decisions.md):
+   - **Carriage return before the length check:** one trailing `\r` is dropped before the line is measured against `CTL_WIRE_LINE_MAX`. A `B` that finds the configuration bad clears `begun` and leaves `calls` as it was.
+   - **Sketch timing:** the time sums reset on a successful `B`, and a call's time is added only when its reply is not `error`.
+   - **The script reads a whole trace before sending any of it:** a malformed trace prints `<file>:<line>: format error` and nothing of it is sent. This lets the script keep 16 requests in flight. I rejected reading line by line like the C runner.
+   - **Script output and exits:**
+     - a reply that is no answer prints `<file>:<line>: <request> -> <reply>`;
+     - mismatch values are spelled the way the trace spells them (repr, enum names, signal sets, `none`);
+     - the script waits for `ready` from the host twin too;
+     - it exits with 2 when the link cannot be opened (no pyserial, or no such port).
+
+   Verification:
+   - I ran the script over every file in `tests/control/data/bad/`. It reports a format error at the same lines as the C runner for the malformed ones, passes the `match_*` and `valid_small` files, and finds the mismatches in the `mismatch_*` and `wrong_*` files. These runs are by hand, not part of `make test`.
+   - All 13 traces through the host twin: `13 files, 332239 calls, 0 mismatches`, in 2.8 s.
+   - I checked by hand that a file stops at 10 mismatches, and that the next file still passes after replies still in flight were drained.
+
+   Smoke test, run as written:
+   1. First line `tests/control/data/bad/wrong_energy.trace:12: E: expected -28.708333333333332, got -28.708333333333336`, then `exit 1`. Matches.
+   2. `exit 2`. Matches.
+   3. `make device | grep -c '^\. '` printed `2`. Matches.
+
+   `make check` is green: test prints `device replay: 2 files, 10639 calls, 0 mismatches`; device uses 29,280 bytes of RAM and 242,980 bytes of flash.
+
+   Noticed but not touched:
+   - Criterion 5's test cannot tell from the reply alone that a 128-character line was refused for its content rather than its length, because no valid request is that long. It checks `error` and also that the same line with a `\r` added is still handled.
+   - With a `\r\n` line end, the host twin's buffer of `CTL_WIRE_LINE_MAX + 2` (as the story specifies) refuses a 128-character line. The sketch's buffer has room for it.
+   - A second arduino-cli compile, to read the warnings from our own files, was denied permission, so warnings from `ctl_wire.c` on the board's compiler are unchecked. `make device` compiles and is green.
+   - pyserial is not installed on this machine, so the `--port` path ran only as far as its exit 2.
+   - The flashing commands in `device-test.md` use the standard ESP8266 index URL (`https://arduino.esp8266.com/stable/package_esp8266com_index.json`), not one taken from the factory image.
+
+   `check`: check: green

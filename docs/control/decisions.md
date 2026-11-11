@@ -237,3 +237,28 @@ for a file it cannot open.
 **Reason.** No line of the file was read, so there is no line to name; the printed line and the
 false result still fail the test.
 **Rejected.** `format_line` 1, which would blame a line that does not exist.
+
+## 2026-11-11: The wire protocol ignores a carriage return before it measures the line
+
+**Decision.** `ctl_wire_handle` drops one trailing `\r` first and then refuses a line longer than
+`CTL_WIRE_LINE_MAX`, so a line of 128 characters with a `\r` is handled. A `B` that finds the
+configuration bad ends the session's begun state and leaves `calls` as it was. The sketch resets
+its time sums at a successful `B` and adds the time of an `O`, `A`, `M` or `E` only when the reply
+is not `error`, so that its sums cover the calls `calls` counts.
+**Reason.** A terminal that ends lines with `\r\n` must reach the same limit as one that ends them
+with `\n`.
+**Rejected.** Counting the `\r` in the limit, which would make the limit depend on the sender.
+
+## 2026-11-11: The replay script reads a whole trace before it sends any of it
+
+**Decision.** `replay.py` reads and checks a trace completely first; a malformed one prints
+`<file>:<line>: format error` and nothing of it is sent. A reply that is no answer prints
+`<file>:<line>: <request> -> <reply>`. Mismatch values are spelled as the trace spells them:
+numbers by Python's `repr`, enums and signal sets by name, a missing balance as `none`. The
+script waits for `ready` from the host twin too, and exits with 2 when the link cannot be opened
+(no pyserial, no such port), as when no `ready` came.
+**Reason.** A trace read in full can be sent sixteen requests ahead, which a serial line at
+921,600 baud needs to stay busy; and the file is refused for the same lines the C trace runner
+refuses, without half a replay before it.
+**Rejected.** Reading line by line like the C runner, which would interleave format errors with
+replies in flight.

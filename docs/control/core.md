@@ -328,3 +328,6 @@ The first such line is the one to read: later ones are mostly its consequences.
 When a trace differs, the core is wrong: fix the core, never the trace, and add no tolerance.
 When the Python core changes on purpose, the traces are exported again in the Python project and
 replaced here as a whole, in the same change as the C core's port of that change.
+
+The same traces are replayed through the core on the board, a D1 mini, to prove that its compiler
+computes every value as the host's does: `device-test.md` says how.
