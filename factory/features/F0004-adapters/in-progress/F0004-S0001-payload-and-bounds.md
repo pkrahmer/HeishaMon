@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 12
 comments_read: [6808817515]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T22:42:41.910915Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-11T22:42:41.910915Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T22:44:01.012722Z'
+  stage: review
+  run: fdf663f8e39f4a518052ac3dae5ca934
 ---
 
 # The payload parser and the plausibility bounds
@@ -274,3 +276,33 @@ Expect: `2`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: Round 1 review, after the human's answer (entry 8). I reviewed `git diff develop...HEAD -- . ':!factory'` from the context block, read together with the Description and that answer. I went through all six checklist groups.
+
+    no findings
+
+    What I checked, group by group:
+    - **Acceptance criteria.** Every row of criteria 1 to 4 is in the matching table test of `tests/control/test_payload.c`. So are the rows the human's answer added: `"\t22.7\r\n"` is accepted, `"\f5"` and `"5\v"` are refused, and `{"v":1,"ts":999999999999999999}` is accepted. Each refused row checks that the marker is unchanged, field by field.
+      - Criterion 5: `test_length_limit` parses 256 bytes and refuses the same text at 257 bytes. That text would otherwise be valid, so the refusal comes from the limit itself. `"22.7xyz"` with a length of 4 is accepted.
+      - Criterion 6: `tests/control/test_bounds.c` covers both limits of every bound, the next doubles beyond them (`nextafter`), heat at ±0.001 beyond, NaN, both infinities and bound 4.
+      - The 18/19-digit `"ts"` limit is now tested on both sides.
+      - Criterion 7 is met under the human's answer C.
+      - The factory's `make check` after the builder was green (entry 10).
+    - **Architecture.** All files are in the fork's folders. The `.c` files are host C99 without Arduino. Public names start with `ctl_`, and the helpers are `static`. Errors are returned as bool values. `adapt/` is not the core, so it may include `stdlib.h` and `string.h`.
+    - **Embedded safety.**
+      - No allocation, no recursion, and no variable-length array.
+      - Every loop is bounded by `at->end`, and `at->end` is at most `CTL_PAYLOAD_MAX`.
+      - `keys[count]` is guarded by `count == MEMBERS_MAX`. That guard can never trigger, since at most 51 members fit in 256 bytes.
+      - `convert_number` copies at most 256 bytes into a buffer of 257.
+      - `take_word` checks the remaining length before its `memcmp`.
+      - The timestamp's `sum` cannot overflow at 18 digits.
+      - A value is checked with `isfinite`, both in the parser and in `ctl_bounds_accept`.
+    - **Quality.** No dead code. No second copy of an existing helper: `tests/control/` holds only `check.c` and `trace.c`.
+    - **Work item hygiene.** The journal gives the main decisions and what was rejected.
+      - Every claim in `docs/control/adapters.md` matches the code: the shapes, the refusals, the backslash rule, the 18 digits, and the bounds table. The required sections and the one example per shape are there.
+      - `docs/control/decisions.md` records the parser-for-these-shapes decision and the `strtod`-after-the-form-check decision, plus the `"ts"` leading-zero decision. No file under `HeishaMon/` calls `setlocale`, as the `strtod` entry says.
+    - **Earlier tests.** The diff changes no test file that `develop` already holds; both test files have status `A`.
+
+    Not raised: no row accepts a `+` in the exponent (such as `1e+3`). That is an accepted case the Interface allows; it is neither a failing side nor a limit. The code handles it in `scan_number`.
+
+    Notes:
+    - `tests/control/test_payload.c` `check_accepted`: a failed `check_double` reports the loop's `__LINE__` and the two values but not the row's text. So a wrong value does not show which row produced it unless the reader matches it by eye.
