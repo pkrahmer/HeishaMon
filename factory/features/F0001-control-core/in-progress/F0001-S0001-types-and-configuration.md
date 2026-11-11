@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 3
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T19:35:35.867346Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T19:35:35.867346Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T19:39:27.255646Z'
+  stage: doing
+  run: 7ac65157a1154913940af53a19208d67
 ---
 
 # The core's enums and its configuration with validation
@@ -187,3 +189,33 @@ Expect: `control: 2 test programs passed`
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the core's enums and its configuration with validation, the shared check helper and both documents. `make check` is green.
+
+   Paths:
+   - Core: `HeishaMon/src/control/core/ctl_types.h` and `ctl_types.c` hold the four enums, their names as text and `ctl_signal_is_required`. `HeishaMon/src/control/core/ctl_config.h` and `ctl_config.c` hold the defaults, the validation as problem bits and the energy limit.
+   - Tests: `tests/control/check.h` and `check.c` are the shared helper. `tests/control/test_types.c` covers the helper first (criterion 9), then the names and the required signals. `tests/control/test_config.c` covers the defaults, range limits, timing limits, NaN and infinity, the signal arrays, the trim-limit switch, several problems in one call and the energy limit.
+   - Docs: `docs/control/core.md` and `docs/control/decisions.md` are new.
+
+   I wrote the tests first and saw them fail: the headers were missing. Then I wrote the code.
+
+   Decisions where the story left something open (all recorded in `decisions.md`):
+   - **The timing fields depend on each other, and that clashes with criterion 4.** Criterion 7 requires a bad `max_step_s` (-1) to refuse the default tick too, because 60 > -0.5. So the bound is compared as Python compares it (`tick > max_step/2`, `integration > tick`), even when the bounding field is itself bad. As a result:
+     - `max_step_s` = 0 cannot give only its own bit. It gives MAX_STEP|TICK_INTERVAL, since no positive tick fits under 0.
+     - `tick_interval_s` = 0 gives TICK_INTERVAL|INTEGRATION_INTERVAL for the same reason.
+     - A small positive `max_step_s` or `tick_interval_s` is valid only if the fields it bounds are made small enough to fit under it.
+     - So `test_config.c` has a separate timing table for these four rows instead of single-field rows. Every other row of criterion 4 changes exactly one field and expects exactly one bit.
+     - A NaN or infinite bound refuses only its own field, so criterion 5 gets exact single bits.
+     - Rejected: skipping the bound check while the bound is bad. It contradicts criterion 7.
+     - The reviewer may want the human's word on this reading of criterion 4.
+   - **Range rules are written as "finite and in range".** A NaN then fails every rule. `max_age_s` has its own rule: an entry must not be NaN and must be > 0, and must also be finite for a required signal.
+   - **Name lookups use tables indexed by the enum value**, with a bounds check on an `int` cast, so -1 gives "INVALID".
+   - **`check_double` prints values with `%.17g`** so that a one-bit difference shows; `check_uint` prints hex.
+   - **Expected failure output is labelled.** `test_types.c` prints a line before each group of deliberately failing helper calls, so the expected failure lines in `make test` output are labelled. The four-line output of criterion 9 is seen in the output, not captured. C99 cannot portably capture stdout and restore it without adding to the helper's interface, so I rejected that.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` gives `lint: green ` (matches).
+   - `make test | grep '^control:'` gives `control: 2 test programs passed` (matches).
+
+   Noticed, not touched: upstream's Rules harness prints compiler warnings (`rules.cpp:4640` `-Wmaybe-uninitialized`, unused variables in `settimer.cpp`) to stderr during `make test`. They are upstream's files.
+
+   `check`: check: green
