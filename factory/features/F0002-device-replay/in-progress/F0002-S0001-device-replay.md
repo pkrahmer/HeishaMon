@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 8
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T21:01:54.656762Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T21:01:54.656762Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T21:03:46.048524Z'
+  stage: review
+  run: 60dc19a5d3314863a70e4a920d04b5d7
 ---
 
 # The device replay: a line protocol, a test sketch and a replay script
@@ -188,3 +190,22 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `tests/control/device/replay.py`, `replay_calls`: when a file stops (10 mismatches, or a reply `error`/`bad`/wrong field count) while calls are still unsent, `pending` drains to empty while `next_call < len(calls)` keeps the loop running, and `pending.popleft()` raises IndexError. The script then dies with a traceback: no per-file line, no next file, no `S`, no summary. Every trace in `tests/control/data/bad/` has at most 12 calls, which is under IN_FLIGHT, so the by-hand checks never reached this path. On the board it would hit the first real trace that stops. Fix: once `stopped`, end the loop when `pending` is empty, e.g. `while (not stopped and next_call < len(calls)) or pending`.
+   2. `tests/control/test_wire.c`, `test_replies_equal_core` / `test_malformed`: the demand-mask limit is tested only on its refused side (`8`, `g`). The `M ... 7` in `test_session_before_begin` runs before `B`, so it replies `error`. The accepted side, mask 7 (`CTL_DEMAND_ALL`), is never answered with a state line. Likewise no `O` uses signal 4 (`P_INTERNAL`). Fix: add a `twin_allow(..., CTL_DEMAND_ALL)` and a `twin_observe(..., CTL_SIGNAL_P_INTERNAL, ...)` to the twin run.
+   3. `tests/control/device/replay.py`, `SerialLink.wait_ready`: the deadline is checked only before each `readline`, and each read can block for REPLY_TIMEOUT_S (10 s). The wait for `ready` can therefore last almost 20 s, but the Interface says at most 10 seconds. Fix: set the port's timeout to the time left before each read, or read with a short timeout in the loop.
+   4. `tests/control/device/replay.py`, `replay_file`: a trace that cannot be opened or is malformed returns before the line `<file>: <calls> calls, <mismatches> mismatches`, which the Interface requires after each file. Fix: print it, with 0 calls, on those paths too.
+   5. `docs/control/device-test.md`, *On a mismatch*: it says an `error` or `bad` reply "prints the trace's line with the request and the reply". `configure` in `replay.py` prints `<file>: <request>: <reply>` with no trace line. Fix: make the document match the code, or carry the header line number into the config requests and print it.
+   6. `docs/control/decisions.md`, entry "The wire protocol ignores a carriage return before it measures the line": it holds three decisions under one title (the `\r` before the length check, a bad `B` ending `begun` while keeping `calls`, and the sketch's timing sums), but its reason and rejected alternative cover only the `\r`. CLAUDE.md asks for one entry per decision, each with its own reason and what was rejected. Fix: split it into three entries.
+   7. `tests/control/test_wire.c`, `check_config_after_begin`: this is a test, but it carries the `check_` prefix that the file uses for helpers (`check_same_config`). Fix: rename it `test_config_after_begin`.
+   8. `tests/control/test_wire.c`, `decision_line`: `values[9]` (`0.0`) and `numbers[9]` are declared but never used. This is dead code. Fix: size both arrays to 9.
+
+   Earlier tests: none. `git diff --name-status develop...HEAD` shows every test file as `A`.
+
+   Checked and found sound:
+   - Criteria 1, 3, 4, 5 and 8 have tests that match them. Every `C` row sets a value other than its default.
+   - The bounds and buffer sizes in `ctl_wire.c` are correct, and an `error` reply leaves the session unchanged.
+   - The core has no loop whose bound comes from the configuration, so a `C` after `B` cannot hang the board.
+   - The architecture rules hold, and no upstream file is touched.
+   - The factory's `make check` after the builder was green.
