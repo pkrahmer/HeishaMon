@@ -37,14 +37,14 @@ static void test_config(void)
     size_t i;
     ctl_rooms_config_defaults(&defaults, 4);
     CHECK_UINT((uint32_t)defaults.count, 4u);
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < CTL_ROOMS_MAX; i++) {
         CHECK_DOUBLE(defaults.weight[i], 1.0);
     }
     CHECK_DOUBLE(defaults.room_timeout_s, 1800.0);
     CHECK_TRUE(ctl_rooms_config_valid(&defaults));
 
     {
-        enum { COUNT, WEIGHT_1, ALL_WEIGHTS, TIMEOUT };
+        enum { COUNT, WEIGHT_1, WEIGHT_BEYOND_COUNT, ALL_WEIGHTS, TIMEOUT };
         static const struct {
             int field;
             double value;
@@ -63,17 +63,27 @@ static void test_config(void)
             {COUNT, 16.0, true},
             {WEIGHT_1, 1000.0, true},
             {WEIGHT_1, 0.0, true},
+            /* Only the first count weights are configured; a refused weight beyond them is ignored. */
+            {WEIGHT_BEYOND_COUNT, -1.0, true},
+            {WEIGHT_BEYOND_COUNT, 1000.001, true},
         };
         for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
             ctl_rooms_config config = zero_config;
             size_t j;
             ctl_rooms_config_defaults(&config, 4);
+            /* A count of 16 needs the slots beyond 4 to hold accepted weights. */
+            for (j = 4; j < CTL_ROOMS_MAX; j++) {
+                config.weight[j] = 1.0;
+            }
             switch (rows[i].field) {
             case COUNT:
                 config.count = (size_t)rows[i].value;
                 break;
             case WEIGHT_1:
                 config.weight[1] = rows[i].value;
+                break;
+            case WEIGHT_BEYOND_COUNT:
+                config.weight[4] = rows[i].value;
                 break;
             case ALL_WEIGHTS:
                 for (j = 0; j < config.count; j++) {
@@ -83,10 +93,6 @@ static void test_config(void)
             default:
                 config.room_timeout_s = rows[i].value;
                 break;
-            }
-            /* A count of 16 needs the slots beyond 4 to hold accepted weights. */
-            for (j = 4; j < CTL_ROOMS_MAX; j++) {
-                config.weight[j] = 1.0;
             }
             CHECK_TRUE(ctl_rooms_config_valid(&config) == rows[i].valid);
         }

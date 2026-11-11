@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 13
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T22:58:26.940155Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -89,6 +85,12 @@ journal:
   kind: started
   at: '2026-11-11T22:58:26.940155Z'
   stage: doing
+- number: 15
+  speaker: builder
+  kind: result
+  at: '2026-11-11T23:00:17.349580Z'
+  stage: doing
+  run: e54f0301f0964ec9937df9ad1967fc99
 ---
 
 # The room average
@@ -363,3 +365,20 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Notes:
     - `tests/control/test_rooms.c` `test_offer`: `check_rooms_equal(__FILE__, __LINE__, ...)` reports the loop's line, so a failure does not name its row. Printing `i` alongside would help.
 14. factory: started doing as heishamon.
+15. builder: Round 3: fixed both findings from the round-2 review. I changed no code: `HeishaMon/src/control/adapt/ctl_rooms.c` already does what the new checks expect.
+
+    - `tests/control/test_rooms.c`, `test_config`:
+      - Finding 1: the defaults block now checks `weight[i] == 1.0` for every `i < CTL_ROOMS_MAX`. Before, it checked only the first 4.
+      - Finding 2: a new row kind, `WEIGHT_BEYOND_COUNT`, sets `weight[4]` on a count of 4. The rows `-1.0` and `1000.001` are both accepted. To make room for it, I moved the loop that sets slots 4 to 15 to 1.0 (needed for the count-16 row) so it runs before a row's change instead of after it. Every other row works the same way as before.
+    - Mutation check on temporary copies of the module:
+      - A `ctl_rooms_config_defaults` that sets only the first `count` weights fails at the defaults check, line 41.
+      - A `ctl_rooms_config_valid` whose bound check runs over all `CTL_ROOMS_MAX` weights fails at the new rows, line 97.
+      - The unchanged module passes.
+    - Description: not rewritten. The work item is outside the builder's write paths, so my round-1 rewrite was dropped. Criterion 1 should now say "all 16 weights 1.0" and "a refused weight beyond `count` is ignored", as the round-2 review asked; the reviewer, who may write the work item, would need to add that wording. `docs/control/decisions.md` needs no change, because it already records that only the first `count` weights are configured and that the defaults set all 16.
+    - I did not act on the reviewer's note about `check_rooms_equal` naming the loop line instead of the row. It was a note, not a finding, and the check helpers have no message argument to carry the row number.
+
+    Smoke test: `make test | grep '^control:'` gives `control: 12 test programs passed`, one more than the 11 before this story. `make check` is green: lint, test and device.
+
+    Noticed but not touched: nothing new.
+
+    `check`: check: green
