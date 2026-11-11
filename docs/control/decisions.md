@@ -237,3 +237,45 @@ for a file it cannot open.
 **Reason.** No line of the file was read, so there is no line to name; the printed line and the
 false result still fail the test.
 **Rejected.** `format_line` 1, which would blame a line that does not exist.
+
+## 2026-11-11: The wire protocol ignores a carriage return before it measures the line
+
+**Decision.** `ctl_wire_handle` drops one trailing `\r` first and then refuses a line longer than
+`CTL_WIRE_LINE_MAX`, so a line of 128 characters with a `\r` is handled.
+**Reason.** A terminal that ends lines with `\r\n` must reach the same limit as one that ends them
+with `\n`.
+**Rejected.** Counting the `\r` in the limit, which would make the limit depend on the sender.
+
+## 2026-11-11: A bad `B` ends the begun session and keeps `calls`
+
+**Decision.** A `B` that finds the configuration bad clears the session's begun flag and leaves
+`calls` as it was.
+**Reason.** The configuration the earlier `B` validated is gone once a `C` changed it, so no call
+may run on the bad one; `calls` counts the answers since the last successful `B`, and a refused
+`B` starts nothing to count from.
+**Rejected.** Keeping the session begun on the old state, which would run calls on a configuration
+`ctl_config_validate` refused; and zeroing `calls`, which would make the stats line forget calls
+that were answered.
+
+## 2026-11-11: The sketch times only the calls `calls` counts
+
+**Decision.** The sketch resets its time sums at a successful `B` and adds the time of an `O`,
+`A`, `M` or `E` only when the reply is not `error`.
+**Reason.** `us_total / calls` is read as the mean time of one call; both sums must cover the same
+calls for that to hold.
+**Rejected.** Timing every line, refused ones and `C` included, which would mix the cost of the
+parser's refusals into the core's time.
+
+## 2026-11-11: The replay script reads a whole trace before it sends any of it
+
+**Decision.** `replay.py` reads and checks a trace completely first; a malformed one prints
+`<file>:<line>: format error` and nothing of it is sent. A reply that is no answer prints
+`<file>:<line>: <request> -> <reply>`. Mismatch values are spelled as the trace spells them:
+numbers by Python's `repr`, enums and signal sets by name, a missing balance as `none`. The
+script waits for `ready` from the host twin too, and exits with 2 when the link cannot be opened
+(no pyserial, no such port), as when no `ready` came.
+**Reason.** A trace read in full can be sent sixteen requests ahead, which a serial line at
+921,600 baud needs to stay busy; and the file is refused for the same lines the C trace runner
+refuses, without half a replay before it.
+**Rejected.** Reading line by line like the C runner, which would interleave format errors with
+replies in flight.
