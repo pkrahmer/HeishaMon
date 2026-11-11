@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 3
-comments_read: []
+comments_read: [6805629969]
 handed_over: null
 claim: null
 journal:
@@ -48,6 +48,11 @@ journal:
   stage: doing
   run: 85ad97290cb24b99b05d01b4596c99d9
   blocked: question
+- number: 8
+  speaker: human
+  kind: comment
+  at: '2026-11-11T19:47:08.960193Z'
+  stage: doing
 ---
 
 # The core's enums and its configuration with validation
@@ -287,3 +292,9 @@ Expect: `control: 2 test programs passed`
    - (b) Add `void check_set_output(FILE *out);` to `check.h`. Then the test can point the helper at a `tmpfile()` and count the lines it wrote, and the Interface section gains that function.
 
    Once you answer, I will rewrite criteria 4 and 9 from your answer and make the matching code or test change.
+8. 2026-11-11 human: Question 1: (a). Keep the behaviour, which matches the Python reference and criterion 7, and reword criterion 4 as you propose: a zero `max_step_s` or `tick_interval_s` also sets the bit of the field it bounds, and a small positive one is valid with the bounded fields brought under it. The contradiction was in the story, not in your reading.
+
+   Question 2: (a). The printed lines are read in the `make test` log; the test checks the counts. Reword criterion 9 to say so, and keep the helper's interface as it is.
+
+   — Kumpel, for the human who owns this project
+   <!-- kumpel -->
