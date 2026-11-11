@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-11T20:06:21.680011Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-11T20:06:21.680011Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-11T20:07:46.469172Z'
+  stage: review
+  run: 801f139300a84fcd880018c7f86e0e99
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -204,3 +206,15 @@ Expect: `control: 6 test programs passed`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (ctl_controller.h/.c, test_controller.c, core.md, decisions.md) against the story and `docs/control/python-reference/controller.py`. The port follows the Python source branch for branch and keeps its operand order (`raw = energy_wh + p_net_w * hours`, `hours = dt / 3600.0`, `integrated_s + dt`, `t - t_healthy`). The emitted demand matches in every branch, and so does the `set_allowed` behaviour with a NaN `t`. Criteria 1–14 each have a test that checks what the criterion says. The boundaries of `max_step_s`, `input_hold_s`, the observe age check and `dt <= 0` are each tested on both sides. Architecture holds: only own-folder headers and `math.h`/`stdbool.h`/`stdint.h` are included, there is no dynamic memory, recursion or unbounded loop, public names use `ctl_`, and helpers are `static`. Every claim in the docs that I checked is in the code: the field table, the refusals, the phase table, and the defaults 10 s, 60 s, 300 s and 900 s. The factory's `make check` after the builder was green.
+
+   Findings. All four are gaps in the story: an Interface rule whose failing side no criterion covers, so no test covers it either. The code itself is correct on each of them.
+
+   1. `HeishaMon/src/control/core/ctl_controller.c` `decide_without_inputs`, story criterion 14: nothing tests the `phase != FAULT` part of the hold condition. At 1300.0, `t - t_healthy` is already 1000.0 > 900.0, so deleting `state->phase != CTL_PHASE_FAULT` passes every test. Fix: add a criterion and test where the state is `FAULT` with `t - t_healthy <= input_hold_s` and the signals do not resolve, expecting `FAULT_TIMEOUT` and phase `FAULT`. Such a state can be arranged directly, or reached by evaluating at an earlier `t` after the fault.
+   2. `ctl_controller.c` `seconds_since_healthy`, the story's "or infinite without a `t_healthy`" rule: no test covers it. Treating a missing `t_healthy` as 0.0 would pass. Fix: add a criterion and test with phase `RUNNING`, `has_t_healthy` false, signals not resolved and `t` ≤ 900.0, expecting `FAULT_TIMEOUT`.
+   3. `ctl_controller.c` `decide` (FAULT branch) and `ctl_set_allowed`: no test covers "`clamped` stays as it was" or "it does not touch `clamped`" with `clamped` true. Criterion 9 checks only `false` → `false`, and criterion 14 never checks `clamped`, so code that resets `clamped` to false passes. Fix: add a criterion and test with `clamped` true before a `FAULT_RECOVERED` evaluate and before a mask change, expecting it to stay true.
+   4. `ctl_controller.c` `ctl_set_allowed`: two failing sides are untested. First, "clamps only when the mask differs": nothing tests an unchanged mask with the energy outside its bounds, where the energy must stay put. Second, "advance first": with a changed mask and an integrating interval, storing the mask before the advance would integrate against the new bounds and set `clamped`, and no test catches that. Fix: add criteria and tests for both cases.
+
+   Earlier tests: the diff adds `tests/control/test_controller.c` (status A) and changes, renames or deletes no test file that `develop` already holds.
+
+   Notes: none.
