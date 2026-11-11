@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 5
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T20:07:52.333835Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-11T20:07:52.333835Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-11T20:09:40.789828Z'
+  stage: doing
+  run: fd965028e1864583a58cfd5898dd9c3e
 ---
 
 # The controller: advance, observe, set_allowed and evaluate
@@ -228,3 +230,33 @@ Expect: `control: 6 test programs passed`
 
    Notes: none.
 6. factory: started doing as heishamon.
+7. builder: Round 1: addressed the reviewer's four findings. Each was a test gap; the code was already correct on all four. `HeishaMon/src/control/core/ctl_controller.c` and the docs are unchanged.
+
+   What I changed:
+   - `tests/control/test_controller.c`: six new test functions.
+     - Finding 1: `test_evaluate_fault_does_not_hold`. The state is seeded, the phase is set to `FAULT`, and the evaluate runs at 700.0, which is 400.0 after `t_healthy`. Expected: `FAULT_TIMEOUT` and phase `FAULT`.
+     - Finding 2: `test_evaluate_without_t_healthy_faults`. A fresh state is set to `RUNNING`/`HEATING` with no `t_healthy`, and the evaluate runs at 100.0. Expected: `FAULT_TIMEOUT`.
+     - Finding 3: `test_evaluate_fault_recovery_keeps_clamped` (`clamped` true before `FAULT_RECOVERED` stays true in the state and the decision) and `test_set_allowed_keeps_clamped` (a mask change with `clamped` true).
+     - Finding 4: `test_set_allowed_unchanged_mask_keeps_energy` (an unchanged mask leaves -2000.0 outside the cooling bounds as it is) and `test_set_allowed_advances_before_the_new_mask`. In that second test the energy is -1400.0 and the call sets `COOLING` at 300.0. Integrating within the old bounds gives about -1627.9, unclamped, and the new mask then clamps it to -1500.0 with `clamped` false. If the mask were stored first, the integration would clamp and set `clamped` true.
+   - The work item's Description: the reviewer asked for criteria, so I added them as 15–18, one per finding, before the two closing criteria. The closing ones are now 19 (`make check`) and 20 (docs).
+
+   Mutation checks: I applied each mutation to a copy of the code and restored it after each run. Every one made a new test fail:
+   - dropping `phase != FAULT` from the hold condition
+   - treating a missing `t_healthy` as 0
+   - resetting `clamped` on `FAULT_RECOVERED`
+   - resetting `clamped` in `ctl_set_allowed`
+   - clamping even when the mask is unchanged
+   - storing the mask before the advance
+
+   Docs: `docs/control/core.md` already describes all four behaviours in the phase table and the `ctl_set_allowed` paragraph, so it stays as it is. None of the new criteria disagrees with `controller.py`, so the decisions.md entry saying no criterion disagreed still holds.
+
+   Smoke test:
+   - `make lint | tail -1 | sed 's/(.*//'` printed `lint: green `, as expected.
+   - `make test | grep '^control:'` printed `control: 6 test programs passed`, as expected.
+   - The final `make check` ended with `check: green`.
+
+   Noticed, not touched: upstream's rules harness still prints compiler warnings on stderr during `make test`, as reported in round 0.
+
+   The factory left out changes outside the write paths: factory/features/F0001-control-core/in-progress/F0001-S0003-controller.md.
+
+   `check`: check: green

@@ -306,6 +306,52 @@ static void test_set_allowed(void)
     check_one_step_integrated(&state);
 }
 
+static void test_set_allowed_unchanged_mask_keeps_energy(void)
+{
+    const uint8_t cooling_and_none =
+        (uint8_t)(CTL_DEMAND_BIT(CTL_DEMAND_COOLING) | CTL_DEMAND_BIT(CTL_DEMAND_NONE));
+    ctl_config config;
+    ctl_state state;
+
+    ctl_config_defaults(&config);
+    ctl_state_init(&state);
+    state.allowed = cooling_and_none;
+    state.energy_wh = -2000.0;
+    ctl_set_allowed(&state, CTL_DEMAND_BIT(CTL_DEMAND_COOLING), 0.0, &config);
+    CHECK_UINT(state.allowed, cooling_and_none);
+    CHECK_DOUBLE(state.energy_wh, -2000.0);
+}
+
+/* Integrating against the new bounds would clamp and set the flag; the old bounds do not. */
+static void test_set_allowed_advances_before_the_new_mask(void)
+{
+    ctl_config config;
+    ctl_state state;
+
+    ctl_config_defaults(&config);
+    state_with_readings(&state, &config);
+    state.energy_wh = -1400.0;
+    ctl_set_allowed(&state, CTL_DEMAND_BIT(CTL_DEMAND_COOLING), 300.0, &config);
+    CHECK_DOUBLE(state.t_last, 300.0);
+    CHECK_DOUBLE(state.integrated_s, 300.0);
+    CHECK_DOUBLE(state.energy_wh, -1500.0);
+    CHECK_TRUE(!state.clamped);
+}
+
+static void test_set_allowed_keeps_clamped(void)
+{
+    ctl_config config;
+    ctl_state state;
+
+    ctl_config_defaults(&config);
+    ctl_state_init(&state);
+    state.energy_wh = -2000.0;
+    state.clamped = true;
+    ctl_set_allowed(&state, CTL_DEMAND_BIT(CTL_DEMAND_COOLING), 0.0, &config);
+    CHECK_DOUBLE(state.energy_wh, -1500.0);
+    CHECK_TRUE(state.clamped);
+}
+
 static void test_evaluate_invalid_time(void)
 {
     const double times[] = {NAN, INFINITY};
@@ -475,6 +521,53 @@ static void test_evaluate_hold_fault_recovery(void)
     CHECK_DOUBLE(state.t_healthy, 1400.0);
 }
 
+/* A fault is left only by fresh inputs, never by the hold's grace period. */
+static void test_evaluate_fault_does_not_hold(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    state.phase = CTL_PHASE_FAULT;
+    ctl_evaluate(&state, 700.0, &config, &decision);
+    CHECK_DOUBLE(state.t_healthy, 300.0);
+    check_faulted(&state, &decision);
+}
+
+static void test_evaluate_without_t_healthy_faults(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    ctl_state_init(&state);
+    state.phase = CTL_PHASE_RUNNING;
+    state.demand = CTL_DEMAND_HEATING;
+    ctl_evaluate(&state, 100.0, &config, &decision);
+    check_faulted(&state, &decision);
+}
+
+static void test_evaluate_fault_recovery_keeps_clamped(void)
+{
+    ctl_config config;
+    ctl_state state;
+    ctl_decision decision;
+
+    ctl_config_defaults(&config);
+    seeded_state(&state, &config);
+    ctl_evaluate(&state, 1300.0, &config, &decision);
+    check_faulted(&state, &decision);
+    state.clamped = true;
+    observe_three_readings(&state, 1400.0, &config);
+    ctl_evaluate(&state, 1400.0, &config, &decision);
+    CHECK_TEXT(ctl_reason_name(decision.reason), "FAULT_RECOVERED");
+    CHECK_TRUE(state.clamped);
+    CHECK_TRUE(decision.clamped);
+}
+
 int main(void)
 {
     test_state_init();
@@ -486,10 +579,16 @@ int main(void)
     test_observe_closes_interval_with_old_value();
     test_observe_before_reference();
     test_set_allowed();
+    test_set_allowed_unchanged_mask_keeps_energy();
+    test_set_allowed_advances_before_the_new_mask();
+    test_set_allowed_keeps_clamped();
     test_evaluate_invalid_time();
     test_evaluate_cold_start();
     test_evaluate_normal();
     test_evaluate_masked();
     test_evaluate_hold_fault_recovery();
+    test_evaluate_fault_does_not_hold();
+    test_evaluate_without_t_healthy_faults();
+    test_evaluate_fault_recovery_keeps_clamped();
     return check_result();
 }
