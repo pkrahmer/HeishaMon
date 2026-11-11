@@ -90,3 +90,41 @@ The three consequences of `firmware-design.md` §3.1:
    and the trim were fitted against the plain mean of the archived sensors.
 3. A room leaving or joining the average makes it jump by up to several tenths of a kelvin, which
    the trim turns into a few hundred watts.
+
+## The pump signals and the solar gain (`ctl_pump.h`)
+
+HeishaMon publishes the outdoor temperature (`Outside_Temp`), the produced heat
+(`Heat_Power_Production`, in W), the position of the three-way valve (`ThreeWay_Valve_State`, 1
+while the pump heats the hot-water tank) and the defrost flag (`Defrosting_State`); the PV system
+publishes its DC power. Each function takes one payload and the instant it arrived, and returns
+true when it wrote one `ctl_reading` (signal, value, instant) for the core. It returns false and
+leaves the reading, and the pump's state, as they were when the payload does not parse, the value
+is outside its bound or not one of the values the function names, or the instant is not finite.
+
+| Function | Payload | Bound or values | Reading |
+|---|---|---|---|
+| `ctl_pump_outdoor` | `Outside_Temp` | `CTL_BOUND_TEMPERATURE` | `T_OUTDOOR`, the value |
+| `ctl_pump_heat` | `Heat_Power_Production` | `CTL_BOUND_HEAT` | `P_PRODUCED`, the value, or 0.0 while masked |
+| `ctl_pump_valve` | `ThreeWay_Valve_State` | exactly 0 or 1 | `P_PRODUCED` under the new mask, when the mask switches and a heat is stored |
+| `ctl_pump_defrost` | `Defrosting_State` | exactly 0 or 1 | `P_PRODUCED` under the new mask, when the mask switches and a heat is stored |
+| `ctl_solar` | PV DC power | `CTL_BOUND_PV`; the gain finite and ≥ 0 | `P_SOLAR`, `pv * solar_gain_factor` |
+
+**The mask rule.** The produced heat is reported as 0 W while the valve is on the hot-water tank
+or the pump defrosts, because that heat does not enter the rooms (`algorithm-plan.md` [A-3]).
+`ctl_pump` keeps the last accepted heat before the mask, so that the end of a hot-water run or a
+defrost gives the stored heat back at once, not at the next power report. Only a switch of the
+mask itself gives a reading; a flag that changes while the other one still masks gives none. A
+flag also changes while no heat is stored, and the first heat after it is masked. For example,
+on one pump:
+
+| Input | Instant | Reading | Flags after it |
+|---|---|---|---|
+| heat `3200` | 0.0 | `P_PRODUCED` 3200.0 | — |
+| defrost `1` | 10.0 | `P_PRODUCED` 0.0 | defrost |
+| valve `1` | 20.0 | none: already masked | defrost, hot water |
+| defrost `0` | 30.0 | none: the valve still masks | hot water |
+| valve `0` | 40.0 | `P_PRODUCED` 3200.0 | — |
+
+**DC, not AC.** The solar gain is the PV array's DC power times `solar_gain_factor`, because the
+inverter's AC output is what remains after the battery has taken its share and so follows dispatch
+rather than sunshine (`algorithm-plan.md` §1.9).

@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 14
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-11T23:02:43.647717Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-11T23:02:43.647717Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-11T23:06:01.650405Z'
+  stage: doing
+  run: 545ec0c349af49eb973f633ce4d114bd
 ---
 
 # The pump signals and the solar gain
@@ -126,3 +128,20 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
 1. 2026-11-11 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the pump and solar adapter, with its test and documents.
+
+   - `HeishaMon/src/control/adapt/ctl_pump.h`, `ctl_pump.c`: `ctl_reading`, `ctl_pump` and the six functions from the Interface. The code is pure C99. It uses `ctl_payload_parse`, `ctl_bounds_accept` and `ctl_signal` (included from `../core/ctl_types.h`). A refused input leaves both `*reading` and the pump's state as they were.
+   - `tests/control/test_pump.c`: table tests for outdoor (criterion 1) and solar (criterion 6), and step sequences for heat without a mask (2), the valve mask (3), the defrost mask (4) and flags set before any heat (5). Each refused row checks that a reading filled with marker values stays unchanged, and that the pump's state stays the same too. I also added rows for a non-finite `t` on every function and for the payloads `x` and `-1` on the flags. I watched the test fail first: it did not compile while the header was missing.
+   - `docs/control/adapters.md`: a new section with the table of the five functions (payload, bound or values, reading), the mask rule with criterion 4's sequence as its example table, and the DC-not-AC sentence pointing to `algorithm-plan.md` §1.9.
+   - `docs/control/decisions.md`: three entries. Defrost masks the produced heat as hot water does. A negative value is refused, not clamped. The flags accept exactly 0 and 1.
+
+   Decisions where the story was open:
+   - **When a flag gives a reading.** A valve or defrost change gives a reading when the mask as a whole (`hot_water || defrost`) switches on or off, and a heat is stored. I compare the mask's state, not the masked value. A switch therefore gives a 0.0 reading even when the stored heat is 0 W, which matches the Description's "gives P_PRODUCED under the new mask". `test_zero_heat_switch` covers this case. I rejected comparing the masked values, because that would stay silent on a switch while the stored heat is 0 W.
+   - `ctl_pump_init` sets `heat_w` to 0.0, so the state is defined throughout.
+   - `ctl_solar` checks the gain before it parses the payload. Both are refused anyway, so the order changes nothing a caller sees.
+
+   Smoke test: `make test | grep '^control:'` prints `control: 13 test programs passed`. There were 12 test programs before, so this meets the Expect line. The final `make check` ended with `check: green` (lint, test and device all green).
+
+   Noticed but not touched: `ctl_reading` is declared in `ctl_pump.h`. A later adapter that also returns readings may want it in a shared header.
+
+   `check`: check: green

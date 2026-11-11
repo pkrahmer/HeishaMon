@@ -413,3 +413,33 @@ count says. A replaced room's stored timestamp is 0 when its payload had none.
 them, and an average from a configuration that would be refused means nothing.
 **Rejected.** Assuming a valid configuration and documenting it as the caller's duty, which a
 wrong count would turn into a read past the arrays.
+
+## 2026-11-11: Defrost masks the produced heat as hot water does
+
+**Decision.** `P_PRODUCED` is reported as 0 W while the pump defrosts, by the same mask as the
+hot-water valve; a reading is given when the mask as a whole switches, so a flag that changes
+while the other still masks gives none. A switch gives a reading even when the stored heat is
+0 W.
+**Reason.** A defrost draws heat from the water circuit to the outdoor unit; like hot-water heat,
+none of it enters the rooms ([A-3] in `algorithm-plan.md`). Emitting on the mask's switch, not on
+each flag's, keeps one reading per change of what the core sees.
+**Rejected.** Ignoring defrost because it is short, which counts heat the rooms never got; and
+emitting on every flag change, which repeats a 0 W the core already has.
+
+## 2026-11-11: A negative pump or PV value is refused, not clamped
+
+**Decision.** A produced heat below 0 W or a PV power below 0 W is refused like any value outside
+its bound, and the core sees no reading; it is not clamped to 0.
+**Reason.** A meter that reports a negative power is broken or misread, and a clamped 0 W would
+look like a valid measurement and keep the signal fresh. Refused, the core's own staleness
+handling takes over.
+**Rejected.** Clamping to 0, which hides the fault behind a plausible value.
+
+## 2026-11-11: The pump's flags accept exactly 0 and 1
+
+**Decision.** `ctl_pump_valve` and `ctl_pump_defrost` refuse any value but 0.0 and 1.0, and keep
+the flag as it was. `ctl_pump_init` sets `heat_w` to 0.0 beside `has_heat = false`.
+**Reason.** HeishaMon publishes both states as 0 or 1; another value is no known state, and
+guessing could unmask the heat of a hot-water run. A defined `heat_w` keeps the state comparable
+as a whole.
+**Rejected.** Treating any non-zero value as set, which would read a corrupt payload as a state.
