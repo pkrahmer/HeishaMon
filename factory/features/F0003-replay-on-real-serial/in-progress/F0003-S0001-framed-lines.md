@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-11T21:38:37.026433Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-11T21:38:37.020595Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-11T21:38:37.026433Z'
+  stage: doing
+---
+
 # A checksum on every line, a restart after a broken one, a board reset and 230,400 baud
 
 ## Description
@@ -101,3 +128,6 @@ d=$(mktemp -d); trap 'rm -rf "$d"' EXIT; gcc -std=c99 -ffp-contract=off -IHeisha
 Expect: three lines: `ready` with its frame, `ok *04`, and `error` with its frame
 
 ## Journal
+
+1. 2026-11-11 human: created.
+2. factory: started doing as heishamon.
