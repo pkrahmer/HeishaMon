@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 12
 comments_read: [6808817515]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-11T22:42:41.910915Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -64,6 +68,11 @@ journal:
   at: '2026-11-11T22:42:36.660955Z'
   stage: doing
   run: 3dc72501037440239380e26355076ee0
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-11T22:42:41.910915Z'
+  stage: review
 ---
 
 # The payload parser and the plausibility bounds
@@ -264,3 +273,4 @@ Expect: `2`
     Nothing is open.
 
     `check`: check: green
+11. factory: started review as heishamon.
