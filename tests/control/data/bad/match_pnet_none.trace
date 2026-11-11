@@ -1,0 +1,11 @@
+heatnrgx-golden 1
+# Decisions without a balance, before the inputs and at a NaN or infinite instant, record none.
+scenario match_pnet_none
+begin
+evaluate 0.0 | demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=0.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+observe 10.0 T_INDOOR 21.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+observe 10.0 T_OUTDOOR 5.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+observe 10.0 P_PRODUCED 0.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+evaluate nan | demand=NO_DEMAND reason=INVALID_TIME phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=10.0 clamped=0 pnet=none unhealthy=- substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+evaluate inf | demand=NO_DEMAND reason=INVALID_TIME phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=10.0 clamped=0 pnet=none unhealthy=- substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+end 6

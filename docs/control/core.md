@@ -276,3 +276,55 @@ A host makes the calls on one monotonic clock, from one thread:
 
 A reading stamped far ahead of the others moves `t_last` to it and ages every other signal at
 once; the host bounds timestamps as well as values.
+
+## How the core is proven
+
+A golden trace is the exact stream of calls the Python reference's simulator made into the Python
+core, with the core's state written down after each call. The C core passes a trace when, started
+cold and fed the same calls in the same order, it reproduces every recorded value;
+`golden-traces.md` is the format and how the traces were made.
+
+The runner is `tests/control/test_traces.c`, over the reader and replayer in
+`tests/control/trace.c`. For each call line it calls `ctl_observe`, `ctl_advance`,
+`ctl_set_allowed` or `ctl_evaluate`, then compares every recorded value: after the first three
+the energy, the integrated and skipped seconds and the clamp flag of the state; after an evaluate
+every field the trace records of the decision, from the demand to the five ledger terms. Numbers
+are compared as doubles and exactly, with no tolerance: equal by `==` (so `-0.0` equals `0.0`)
+or both NaN. A trace that does not follow the format is refused at the line of the first fault.
+
+| Trace | Calls | What it is there for |
+|---|---:|---|
+| `barbarastr_march` | 129,493 | the house model under measured weather, 10–14 March 2023 (120 h), indoor thermometer silent for 60 min from 101.9 h: real PV, a real building, HOLD during a heating pulse |
+| `cold_snap_undersized` | 12,952 | library scenario, 12 h: a cold snap on an undersized heat pump |
+| `dhw_interruptions` | 14,033 | library scenario, 13 h: DHW diversion |
+| `edge_cases` | 3,236 | scripted, what the simulator never produces: NaN and infinite values and instants, a clock going backwards, a duplicate instant, a stale duplicate reading, a reading older than the integration reference, a gap over `max_step_s`, mask changes that re-clamp E; the one trace that reaches every demand, reason and phase and both values of the clamp flag |
+| `flaky_transport` | 7,403 | library scenario, 12 h: transport jitter, loss and out-of-order delivery |
+| `indoor_sensor_outage` | 9,657 | library scenario, 9 h: a sensor outage |
+| `masked_cooling` | 25,913 | library scenario, 24 h: a mask |
+| `model_mismatch` | 12,952 | library scenario `model_mismatch_0.6`, 12 h: a house that differs from the model |
+| `shoulder_season` | 25,912 | library scenario, 24 h: synthetic shoulder-season weather |
+| `steady_winter` | 12,952 | library scenario, 12 h: synthetic steady winter weather |
+| `summer_day` | 25,912 | library scenario, 24 h: a synthetic summer day |
+| `underreported_solar` | 25,912 | library scenario `underreported_solar_0.15`, 24 h: solar reported at 15 % of true |
+| `winter_day` | 25,912 | library scenario, 24 h: a synthetic winter day |
+
+The library scenarios are, in the words of `golden-traces.md` section 2, there for the control law
+under synthetic weather, transport jitter, loss, out-of-order delivery, DHW diversion, a sensor
+outage and a mask; each keeps its own seed and is cut to 9–24 h.
+
+`make test` unpacks the traces into a temporary folder, names it in `CTL_TRACES` and runs the
+runner with the other test programs. When every trace passes, the runner prints
+
+```
+traces: 13 files, 332239 calls, 0 mismatches
+```
+
+the number of traces replayed, the call lines they held and the values that differed. It then
+replays the small faulty traces under `tests/control/data/bad/`, which prove that the runner finds
+what it should; the lines they print are expected. A value that differs prints one line with the
+trace, the line number, the key, the expected and the actual value; each trace stops after ten.
+The first such line is the one to read: later ones are mostly its consequences.
+
+When a trace differs, the core is wrong: fix the core, never the trace, and add no tolerance.
+When the Python core changes on purpose, the traces are exported again in the Python project and
+replaced here as a whole, in the same change as the C core's port of that change.
