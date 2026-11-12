@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T05:43:09.207820Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-12T05:43:03.890249Z'
   stage: review
   run: 5e0fd0dcba49496caf27d686f4ab9e58
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:43:09.207820Z'
+  stage: doing
 ---
 
 # The settings
@@ -218,3 +227,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    5. `docs/control/firmware.md`, the paragraph "A refused change keeps the old value": it says "A rule the core, the rooms or the router check is checked only there". That is false: the setter's `number_in_rule` in `ctl_settings.c` also checks the room weight (`CTL_BOUND_WEIGHT`) and `room_timeout_s > 0`, which `ctl_rooms_config_valid` checks too. The comment on `number_in_rule`, "so that each rule lives in one place", makes the same false claim. Fix: reword both to say the setter checks each row's own rule, as the story's table gives it (weight, timeout, `trim_limit_k` > 0, the ranges, topics), and leaves the remaining rules to the core, the rooms and the router.
 
    Not raised: the setter's ~1.9 KB stack copy, which the story's copy-then-validate rule requires and which the builder flagged for the glue story. The const cast in `write_value`, which has a comment on it.
+6. factory: started doing as heishamon.
