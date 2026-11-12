@@ -353,15 +353,16 @@ settings name MQTT topics for them instead, as another HeishaMon publishes them 
 | `defrost_topic` | the defrost flag | `jeisha/main/Defrosting_State` |
 
 The glue subscribes to every one that is set and hands its messages to the loop as that input,
-through the same adapters as a decoded frame's values (`ctl_dispatch_topic`). A topic equal to a
-room's topic is the room's; one equal to `pv_topic` is PV.
+through `ctl_loop_input`, as it does a room's or PV's message; `ctl_dispatch_topic` only picks the
+input by the topic. A topic equal to a room's topic is the room's; one equal to `pv_topic` is PV;
+one that two of the four share goes to the first of outdoor, heat, valve and defrost.
 
 **While any of the four is set, the frames hand nothing.** `ctl_settings_pump_from_mqtt` is then
 true, and `ctl_firmware_frame` hands no value to the loop, so that a board never mixes the values
 of two pumps; a value whose topic is left empty then never arrives, and the core treats it as
-missing. The glue logs where the pump's values come from at setup and on each change:
-`control: the pump values come from MQTT, the frames hand none` or `control: the pump values come
-from this board's frames`. A board on a pump leaves the four empty and behaves as before.
+missing. The glue logs where the pump's values come from at setup and whenever that source
+changes: `control: the pump values come from MQTT, the frames hand none` or `control: the pump
+values come from this board's frames`. A board on a pump leaves the four empty and behaves as before.
 
 To run the firmware on a spare board beside a production HeishaMon, whose base is `jeisha` here:
 

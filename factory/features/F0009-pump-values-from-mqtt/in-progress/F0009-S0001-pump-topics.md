@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 23
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T08:17:12.084296Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-12T08:17:12.084296Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T08:24:25.249531Z'
+  stage: doing
+  run: b6a46e8286054586a772612bba849141
 ---
 
 # The pump values from MQTT
@@ -156,3 +158,27 @@ Expect: `2`
    - The `.topic`/`_topic` rule in `moves_topics`.
    - The decisions entry, and the Description against the build.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed findings 1, 2, 4 and 5 from the review. Finding 3 is still open for the human.
+
+   1. `tests/control/test_dispatch.c` `test_pump_topics`: each row can now set one more setting by name and topic (`shared_name`/`shared_topic`). This replaces the room-only column. New rows:
+      - `pv_topic` equal to `outdoor_topic` gives `CTL_INPUT_PV`.
+      - `outdoor_topic` equal to the heat topic gives OUTDOOR.
+      - `heat_topic` equal to the valve topic gives HEAT.
+      - `valve_topic` equal to the defrost topic gives VALVE.
+      Together these fix the whole order PV, outdoor, heat, valve, defrost. The earlier row with `room.1.topic` equal to `outdoor_topic` (gives room 1) is unchanged.
+   2. `tests/control/test_settings.c` `test_pump_from_mqtt`: added a check that it is still false when `pv_topic` and a room topic are set and the four are empty.
+   4. `docs/control/firmware.md`, *Shadowing another HeishaMon*:
+      - It now says the value reaches the loop through `ctl_loop_input`, and that `ctl_dispatch_topic` only picks the input from the topic.
+      - It says what happens when two of the four share a topic.
+      - It says the source is logged at setup and whenever it changes.
+   5. `HeishaMon/src/control/glue/ctl_settings.h`: rewrapped the comment on `ctl_settings_defaults` to fit within 100 characters.
+
+   Open: finding 3, for the human. Three glue rules in `ctl_firmware.cpp` are covered only by the compile (criterion 5): frames hand nothing while `ctl_settings_pump_from_mqtt` is true, the pump topics are subscribed, and the source is logged. I added no pure helper for them, because the story names no such criterion and that would go beyond its scope. My choice: accept compile-only coverage for this story. If the human wants it, a later criterion could cover a pure helper that lists the input topics to subscribe.
+
+   Checks:
+   - `make check`: green (lint, test, device, firmware; `check: green`).
+   - Smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` gave `2`, as expected.
+
+   Noticed but not touched: upstream's rules harness still prints compiler warnings during `make test`.
+
+   `check`: check: green

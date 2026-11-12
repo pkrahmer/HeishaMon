@@ -266,6 +266,10 @@ static void test_pump_from_mqtt(void)
     size_t i;
     fresh_defaults(&settings);
     CHECK_TRUE(!ctl_settings_pump_from_mqtt(&settings));
+    check_set(__FILE__, __LINE__, &settings, "pv_topic", "jeisha/main/Outside_Temp");
+    check_set(__FILE__, __LINE__, &settings, "rooms", "1");
+    check_set(__FILE__, __LINE__, &settings, "room.0.topic", "jeisha/main/Outside_Temp");
+    CHECK_TRUE(!ctl_settings_pump_from_mqtt(&settings));
     for (i = 0; i < sizeof names / sizeof names[0]; i++) {
         fresh_defaults(&settings);
         check_set(__FILE__, __LINE__, &settings, names[i], "jeisha/main/Outside_Temp");
