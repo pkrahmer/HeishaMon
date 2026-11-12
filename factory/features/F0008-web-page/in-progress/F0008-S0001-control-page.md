@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 2
+round: 3
 attempts: 0
 crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T07:46:32.805123Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -78,6 +74,12 @@ journal:
   kind: started
   at: '2026-11-12T07:46:32.805123Z'
   stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T07:47:57.159344Z'
+  stage: review
+  run: 7df0759986974f9c8995065b162b6b4d
 ---
 
 # The control page
@@ -272,3 +274,28 @@ Expect: `2`
 
     `check`: check: green
 12. factory: started review as heishamon.
+13. reviewer: Findings:
+
+    1. `docs/control/firmware.md:281` (the *Saving* paragraph of *The control page*): this round's edit left a 144-column line ("setting, or holds a zero byte, is refused whole and never cut. When any value changed, the glue writes `/control.json` as above, and applies the"). The paragraph around it is wrapped at 100 columns. This is the same broken wrapping that finding 2 of the last review named in other files. The same check finds two new lines in `HeishaMon/src/control/glue/ctl_web.cpp` over 100 columns: line 179 (108, the `<h1>` of `PAGE_TOP`) and line 288 (101, the `ctl_telemetry_entry` call in `telemetry_row`). The builder noticed both and left them. Fix: rewrap that paragraph to 100 columns, and break both code lines.
+    2. Story gap, for the human. This repeats finding 5 of the first review and finding 3 of the second. Both times the builder left it open, so it has never reached the human as a question. No acceptance criterion and no host test covers any rule of `ctl_web` (`HeishaMon/src/control/glue/ctl_web.cpp`), and these rules are untested:
+       - every other URI passes on untouched;
+       - settings apply in `ctl_settings_name_at` order, with `rooms` first;
+       - the accepted and refused report, including `SAVE_EMPTY`;
+       - the save buffer is freed at write step 0;
+       - value pieces are joined, and refused whole when too long.
+
+       All of this is Arduino C++ that only `make firmware` compiles. The leak in round 1 and the fragment corruption in round 2 both got through for this reason. Fix: the builder ends the next run with `question`, so the human can choose:
+       - (a) add a criterion that moves the collect, join, order and report logic into a pure `.c` module under `glue/`, with a host test (my choice);
+       - (b) accept the gap and say so in the Description.
+
+    Checked without findings:
+    - Round-2 fix for long values: I read upstream's `webserver_parse_post` (`HeishaMon/src/common/webserver.cpp`). A long value arrives as a run of args steps under the same name. That happens both in the branch that keeps a `%xx` together (`pos1+2 >= WEBSERVER_BUFFER_SIZE`) and in the full-buffer branch that moves only the name back. `keep_argument` joins consecutive same-name steps, so those pieces are joined. A piece is decoded before it is handed over, so `append_value` gets decoded bytes. A joined value that reaches `CTL_SETTINGS_VALUE_MAX`, or holds a zero byte, is marked as not fitting and stays refused. A dropped name resets `last`.
+    - Round-2 fix for wrapping: the comment on `ctl_firmware_change_end` in `ctl_firmware.h` and the new entry in `docs/control/decisions.md` are now within 100 columns.
+    - Criteria 1 and 2: `tests/control/test_html.c` covers the escapes, plain text, both sides of the exact-size boundary, the entity that would fit only in part, and the exact row and input forms with name and value escaped.
+    - Criterion 4: among upstream's files, only `HeishaMon.ino` (+2, both ending in `// control loop hook`) and `htmlcode.h` (+1, after `/rules`) changed, with nothing removed.
+    - Saving: MQTT still saves on every OK (`every_ok` true), and the page saves only on a change. The report lists every OK. `CTL_SETTINGS_NAMES_MAX` is a single constant, checked at build time.
+    - Subscribing from a page save while MQTT is disconnected is harmless: PubSubClient refuses, and `ctl_firmware_subscribe` subscribes again on reconnect.
+    - Page chunking: the loop is bounded, and a partial item is never sent (length is counted only for whole items). `menuJS` and `webFooter` are sent once.
+    - Embedded safety: every `strcpy` source is length-checked against `CTL_SETTINGS_NAME_MAX`. The malloc'd save buffer is the one allocation the Interface allows.
+
+    Earlier tests: none changed. `git diff --name-status develop...HEAD -- tests` shows only `A tests/control/test_html.c`.
