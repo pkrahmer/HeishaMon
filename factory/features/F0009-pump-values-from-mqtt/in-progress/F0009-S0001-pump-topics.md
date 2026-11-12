@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 23
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T08:16:06.743355Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T08:16:06.743355Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T08:17:05.938591Z'
+  stage: review
+  run: 18bc86d353874978a0ba8c4129f52e6f
 ---
 
 # The pump values from MQTT
@@ -119,3 +121,28 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Review, round 0. I read the diff against develop, plus `ctl_firmware.cpp` around `subscribe_inputs`, `ctl_firmware_change_end`, `ctl_firmware_frame` and `ctl_firmware_mqtt`, and `ctl_web.cpp`'s call to `ctl_firmware_change_begin`. The factory's `make check` after the builder was green, as the journal says.
+
+   Findings:
+   1. `tests/control/test_dispatch.c` `test_pump_topics`: the Interface fixes the order rooms, then PV, then outdoor, heat, valve and defrost. Only rooms-before-outdoor is tested. No row shows that PV comes before a pump topic, or that the four keep their order among themselves, so a table in another order would still pass. Fix: add a row where `pv_topic` equals `outdoor_topic` (expects `CTL_INPUT_PV`) and a row where two of the four share a topic, for example valve and defrost (expects `CTL_INPUT_VALVE`).
+   2. `tests/control/test_settings.c` `test_pump_from_mqtt`: the failing side is tested only at the defaults. An implementation that also counted `pv_topic` (or a room topic) would pass. Fix: add a check that `pv_topic` set with the four empty gives false.
+   3. Gap in the story, for the human (`ctl_firmware.cpp:293`, `:300`, `:497`): three glue rules have no criterion beyond criterion 5 (it compiles). They are: frames hand nothing while `ctl_settings_pump_from_mqtt` is true, the pump topics are subscribed, and the source is logged. Fix: the human either accepts compile-only coverage for these `.cpp` lines, or adds a criterion over a pure helper, for example one that lists the input topics to subscribe.
+   4. `docs/control/firmware.md`, section *Shadowing another HeishaMon*, has two claims that do not match the code:
+      - "through the same adapters as a decoded frame's values (`ctl_dispatch_topic`)": `ctl_dispatch_topic` only matches the topic. The value reaches the loop through `ctl_loop_input` (`ctl_firmware.cpp:530`).
+      - "logs … at setup and on each change": `log_pump_source` logs only when the source differs from the one logged last.
+      Fix: name `ctl_loop_input` there, and say the source is logged at setup and whenever it changes.
+   5. `HeishaMon/src/control/glue/ctl_settings.h`, the comment on `ctl_settings_defaults`: the edited line is 113 characters, while the file wraps at 100. Fix: rewrap the comment.
+
+   Earlier tests:
+   - `tests/control/test_settings.c` (M): the story names it with the owner's leave. Only rows that state the count or the order changed:
+     - `test_defaults`: count 20, plus the four name rows after `pv_topic`.
+     - `test_name_list`: count 24 and indices 23 and 24.
+     - `test_rooms`: count 22.
+     The rest of the changes only add tests.
+   - `tests/control/test_dispatch.c` (M): the story names it. The change only adds `test_pump_topics` and its call; every earlier test is as it was.
+
+   Checked and found fine:
+   - Architecture: no file outside the fork's three folders changed, and the `.c` files stay pure.
+   - Embedded safety: the loops are bounded by fixed tables, the four topic buffers are fixed size, and nothing allocates.
+   - The `.topic`/`_topic` rule in `moves_topics`.
+   - The decisions entry, and the Description against the build.
