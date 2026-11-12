@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 25
 comments_read: [6839264563]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T23:45:03.021476Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -75,6 +79,11 @@ journal:
   at: '2026-11-12T23:44:57.015518Z'
   stage: review
   run: a0254920b3d24fbcac00723fe10adcb0
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:45:03.021476Z'
+  stage: doing
 ---
 
 # The frames from a log topic
@@ -281,3 +290,4 @@ Expect: `2`
     - tests/control/test_settings.c: the name-count and index rows changed under the story's leave. The defaults row and test_frame_log_topic are additions.
     - tests/control/test_dispatch.c: adds test_frame_log_topic only. Earlier tests are unchanged.
     - tests/control/test_telemetry.c: the count rows (23, refused index 23, 11+3*rooms), the two inputs-table rows and the two fixture counters all changed under the leave of entry 10. Nothing else in the file changed.
+13. factory: started doing as heishamon.
