@@ -13,7 +13,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { CTL_TOPIC_NONE, CTL_TOPIC_INPUT, CTL_TOPIC_SETTING } ctl_topic_kind;
+typedef enum {
+    CTL_TOPIC_NONE,
+    CTL_TOPIC_INPUT,
+    CTL_TOPIC_SETTING,
+    CTL_TOPIC_FRAME_LOG /* a line of another HeishaMon's log */
+} ctl_topic_kind;
 
 typedef struct {
     ctl_topic_kind kind;
@@ -26,7 +31,8 @@ typedef struct {
  * room below room_count, the first such room when several are equal; else INPUT with CTL_INPUT_PV,
  * CTL_INPUT_OUTDOOR, CTL_INPUT_HEAT, CTL_INPUT_VALVE or CTL_INPUT_DEFROST for a topic equal to a
  * non-empty pv_topic, outdoor_topic, heat_topic, valve_topic or defrost_topic, the first in that
- * order when several are equal; SETTING with the name for <base>/control/set/<name>,
+ * order when several are equal; else FRAME_LOG for a topic equal to a non-empty frame_log_topic;
+ * SETTING with the name for <base>/control/set/<name>,
  * when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
  * for a NULL argument; an empty topic setting matches nothing, since an empty topic is NONE.

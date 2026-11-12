@@ -17,6 +17,7 @@
 
 #define INPUTS_FIXED 9
 #define ENTRIES_PER_ROOM 3
+#define FRAME_COUNTERS 2
 #define STATUS_COUNT 10
 #define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
@@ -128,13 +129,28 @@ static void put_room_input(ctl_text *subtopic, ctl_text *value,
     }
 }
 
+static void put_frame_counter(ctl_text *subtopic, ctl_text *value,
+                              const ctl_telemetry_source *source, size_t index)
+{
+    if (index == 0) {
+        ctl_text_put(subtopic, "inputs/frames_decoded");
+        put_count(value, source->frames_decoded);
+    } else {
+        ctl_text_put(subtopic, "inputs/frames_dropped");
+        put_count(value, source->frames_dropped);
+    }
+}
+
 static void put_input_entry(ctl_text *subtopic, ctl_text *value,
                             const ctl_telemetry_source *source, size_t index)
 {
+    const size_t room_entries = ENTRIES_PER_ROOM * room_count(source->rooms_config);
     if (index < INPUTS_FIXED) {
         put_fixed_input(subtopic, value, source->record, index);
-    } else {
+    } else if (index < INPUTS_FIXED + room_entries) {
         put_room_input(subtopic, value, source, index - INPUTS_FIXED);
+    } else {
+        put_frame_counter(subtopic, value, source, index - INPUTS_FIXED - room_entries);
     }
 }
 
@@ -233,7 +249,8 @@ size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group)
 {
     switch (group) {
     case CTL_GROUP_INPUTS:
-        return INPUTS_FIXED + ENTRIES_PER_ROOM * room_count(source->rooms_config);
+        return INPUTS_FIXED + ENTRIES_PER_ROOM * room_count(source->rooms_config) +
+               FRAME_COUNTERS;
     case CTL_GROUP_STATUS:
         return STATUS_COUNT;
     case CTL_GROUP_OUTPUTS:

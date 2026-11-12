@@ -36,6 +36,7 @@ typedef enum {
     SETTING_HEAT_TOPIC,
     SETTING_VALVE_TOPIC,
     SETTING_DEFROST_TOPIC,
+    SETTING_FRAME_LOG_TOPIC,
     SETTING_DESIRED_INDOOR,
     SETTING_TRANSMISSION,
     SETTING_ADJUSTMENT,
@@ -65,6 +66,7 @@ static const fixed_name FIXED_NAMES[] = {
     {"heat_topic", SETTING_HEAT_TOPIC},
     {"valve_topic", SETTING_VALVE_TOPIC},
     {"defrost_topic", SETTING_DEFROST_TOPIC},
+    {"frame_log_topic", SETTING_FRAME_LOG_TOPIC},
     {"desired_indoor_c", SETTING_DESIRED_INDOOR},
     {"transmission_w_per_k", SETTING_TRANSMISSION},
     {"adjustment_w_per_k", SETTING_ADJUSTMENT},
@@ -340,6 +342,8 @@ static char *topic_field(ctl_settings *settings, setting_key key)
         return settings->valve_topic;
     case SETTING_DEFROST_TOPIC:
         return settings->defrost_topic;
+    case SETTING_FRAME_LOG_TOPIC:
+        return settings->frame_log_topic;
     default:
         return NULL;
     }
@@ -502,6 +506,7 @@ void ctl_settings_defaults(ctl_settings *settings)
     settings->heat_topic[0] = '\0';
     settings->valve_topic[0] = '\0';
     settings->defrost_topic[0] = '\0';
+    settings->frame_log_topic[0] = '\0';
     settings->desired_indoor_c = core.desired_indoor_c;
     settings->transmission_w_per_k = core.transmission_w_per_k;
     settings->adjustment_w_per_k = core.adjustment_w_per_k;

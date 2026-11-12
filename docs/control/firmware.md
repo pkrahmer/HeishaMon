@@ -31,6 +31,7 @@ below, with the rooms' names after `rooms`.
 | `heat_topic` | text | empty | the produced heat from MQTT; see *Shadowing another HeishaMon* |
 | `valve_topic` | text | empty | the three-way valve from MQTT; see *Shadowing another HeishaMon* |
 | `defrost_topic` | text | empty | the defrost flag from MQTT; see *Shadowing another HeishaMon* |
+| `frame_log_topic` | text | empty | another HeishaMon's log topic; see *Frames from another HeishaMon's log* |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
 | `adjustment_w_per_k` | number | the core's default | as the core validates it |
@@ -95,7 +96,7 @@ whether commands are enabled. A subtopic, with its terminating zero, fits
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
 does not have is written `-`. A flag is `1` or `0`.
 
-**Inputs**, 9 entries and 3 for each configured room:
+**Inputs**, 9 entries, 3 for each configured room and the 2 frame counters:
 
 | Subtopic | Value |
 |---|---|
@@ -111,6 +112,8 @@ does not have is written `-`. A flag is `1` or `0`.
 | `inputs/room/<i>/value_c` | for each configured room `i`: its last value, 2 decimals, or `-` |
 | `inputs/room/<i>/fresh` | `1` when the room is fresh at the record's instant, else `0` |
 | `inputs/room/<i>/weight` | its weight, 1 decimal |
+| `inputs/frames_decoded` | the main data frames from `frame_log_topic` decoded since the start |
+| `inputs/frames_dropped` | the frames from `frame_log_topic` dropped since the start |
 
 The five input values are `-` when the decision has no inputs: the core resolved nothing then.
 
@@ -253,8 +256,8 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
-allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic` or a pump topic
-unsubscribes the old input topics and subscribes the new ones.
+allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic`, a pump topic or
+`frame_log_topic` unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
 `<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
@@ -391,3 +394,46 @@ To run the firmware on a spare board beside a production HeishaMon, whose base i
    `pv_topic` if there is PV, as on a first start (*First start on a board*).
 6. Watch `control/inputs/` until every room and the pump's values arrive, and then compare the
    spare board's `control/status/` and `control/outputs/` with what the production board does.
+
+## Frames from another HeishaMon's log
+
+The four pump topics give the loop four values; a board that decodes the pump's frames itself
+publishes all of them under its own `main/`. With `frame_log_topic` set, a board without a pump
+rebuilds those frames from another HeishaMon's log and decodes them as if it were wired to the
+pump.
+
+**What the production board must have on.** In its HeishaMon settings: hex dumps (*Debug hexdump*,
+or its switch in the console) and log to MQTT (*Debug log to MQTT*). Its log then reaches
+`<its base>/log`, one message per line, and every frame it receives appears as a
+`Received <n> bytes data` line, the frame's `data:` lines of up to 32 hex bytes and a checksum line.
+Set `frame_log_topic` on the spare board to that topic, such as `jeisha/log`.
+
+**The four pump topics must be empty.** While any of them is set, `ctl_firmware_frame` hands
+nothing to the loop (*Shadowing another HeishaMon*), so the frames from the log would be
+published but never reach the loop. Use one source of the pump's values or the other.
+
+**What the spare board does.** It subscribes to `frame_log_topic` and feeds each message, in the
+order it arrives, to the pure parser `ctl_framelog_line`
+(`HeishaMon/src/control/glue/ctl_framelog.c`). The parser reads the text after the first `): `,
+starts a frame at `Received <n> bytes data`, appends the bytes of each `data:` line and gives the
+frame when the announced count is reached and the sum of its bytes is 0 modulo 256, as upstream's
+own receive check. The board's own frames, logged after a `sent bytes:` line, end a frame in
+progress and are never taken. A main data frame, 203 bytes with `0x71` first and `0x10` in byte 3
+(`ctl_framelog_is_main_data`), goes to upstream's `decode_heatpump_data` with the spare board's own
+globals, so the spare board publishes every decoded value under its own `<base>/main/`, as a board
+on the pump does, and then to `ctl_firmware_frame`, so its loop takes the outdoor temperature, the
+produced heat, the valve and the defrost flag from it.
+
+**The counters.** `control/inputs/frames_decoded` counts the main data frames handed to the
+decoder; `control/inputs/frames_dropped` counts the frames cut short (a missing line, a new
+`Received` line or a `sent bytes:` line before the end, more bytes than announced, a malformed
+byte), the ones whose checksum fails, and the ones received whole that are no main data frame,
+such as an optional PCB answer or the extra data block. Both count from the start and go out with
+the rest of the telemetry. A dropped count that grows as fast as the decoded one means the log
+loses lines: the broker drops messages, or the production board logs too much between them.
+
+**The risk on the production side.** HeishaMon drops its MQTT connection when a log publish
+fails, and with hex dumps on it publishes about ten log messages for every frame. A slow broker or
+a weak WiFi link on the production board can then make it reconnect often, which also delays its
+own values and commands. Turn hex dumps and log to MQTT off again on the production board when
+the spare board no longer needs them.

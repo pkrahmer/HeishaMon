@@ -7,6 +7,7 @@
 
 #include "../../../commands.h"
 #include "../../../decode.h"
+#include "../../../webfunctions.h"
 
 extern "C" {
 #include "../core/ctl_controller.h"
@@ -14,6 +15,7 @@ extern "C" {
 #include "../loop/ctl_loop.h"
 #include "../route/ctl_router.h"
 #include "ctl_dispatch.h"
+#include "ctl_framelog.h"
 #include "ctl_gate.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
@@ -43,10 +45,18 @@ static const size_t TOPIC_SIZE = 192;
 static const size_t VALUE_SIZE = 128;
 static const size_t LOG_SIZE = 160;
 
+// HeishaMon's own globals: a frame from another board's log is decoded exactly as a frame of this
+// board's pump, into the same values and under the same base.
+extern char actData[];
+extern PubSubClient mqtt_client;
+extern settingsStruct heishamonSettings;
+extern void log_message(char *string);
+
 static bool started;
 static bool (*send_command_function)(byte *, int);
 static void (*log_function)(char *);
-static PubSubClient *mqtt_client;
+// Named apart from upstream's global mqtt_client, which the frame log's decoding takes.
+static PubSubClient *control_client;
 static const char *topic_base;
 
 static ctl_settings settings;
@@ -64,6 +74,11 @@ static bool pump_from_mqtt;
 static bool decided;
 static double decision_s;
 static ctl_gate decision_gate;
+
+// The frames rebuilt from another HeishaMon's log, and what became of them.
+static ctl_framelog frame_log;
+static uint32_t frames_decoded;
+static uint32_t frames_dropped;
 
 static char log_line[LOG_SIZE];
 static char topic_text[TOPIC_SIZE];
@@ -210,7 +225,7 @@ static void publish(const char *subtopic, const char *value, bool retained)
     if (length < 0 || (size_t)length >= sizeof topic_text) {
         return;
     }
-    mqtt_client->publish(topic_text, value, retained);
+    control_client->publish(topic_text, value, retained);
 }
 
 static void publish_setting_at(size_t index)
@@ -264,9 +279,9 @@ static void publish_telemetry()
 static void subscribe_one(const char *topic, bool subscribe)
 {
     if (subscribe) {
-        mqtt_client->subscribe(topic);
+        control_client->subscribe(topic);
     } else {
-        mqtt_client->unsubscribe(topic);
+        control_client->unsubscribe(topic);
     }
 }
 
@@ -277,8 +292,9 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
-    const char *const named[] = {settings.pv_topic, settings.outdoor_topic, settings.heat_topic,
-                                 settings.valve_topic, settings.defrost_topic};
+    const char *const named[] = {settings.pv_topic,      settings.outdoor_topic,
+                                 settings.heat_topic,    settings.valve_topic,
+                                 settings.defrost_topic, settings.frame_log_topic};
     for (const char *topic : named) {
         if (topic[0] != '\0') {
             subscribe_one(topic, subscribe);
@@ -324,7 +340,7 @@ void ctl_firmware_change_begin(bool topics, bool every_ok)
     change_any = false;
     change_every_ok = every_ok;
     // Unsubscribing needs the old topics, which the change is about to replace.
-    change_topics = topics && mqtt_client != NULL;
+    change_topics = topics && control_client != NULL;
     if (change_topics) {
         subscribe_inputs(false);
     }
@@ -357,6 +373,8 @@ void ctl_firmware_change_end()
     }
     if (change_topics) {
         subscribe_inputs(true);
+        // A frame half read from the old log topic must not be finished from the new one.
+        ctl_framelog_init(&frame_log);
     }
     log_pump_source();
 }
@@ -378,6 +396,28 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
     }
     ctl_firmware_change_end();
     publish_setting(name);
+}
+
+// --- Frames from another HeishaMon's log ------------------------------------------------------
+
+// Every frame the log shows whole but that is no main data frame (an optional PCB answer, the
+// extra data block) counts as dropped too: it is read and then thrown away.
+static void handle_frame_log(const byte *payload, unsigned int length)
+{
+    ctl_framelog_result result = ctl_framelog_line(&frame_log, (const char *)payload, length);
+    if (result == CTL_FRAMELOG_NOTHING) {
+        return;
+    }
+    if (result == CTL_FRAMELOG_DROPPED
+        || !ctl_framelog_is_main_data(frame_log.frame, frame_log.length)) {
+        frames_dropped++;
+        return;
+    }
+    frames_decoded++;
+    char *data = (char *)frame_log.frame;
+    decode_heatpump_data(data, actData, mqtt_client, log_message,
+                         heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+    ctl_firmware_frame(data);
 }
 
 // --- Commands ------------------------------------------------------------------------------
@@ -429,6 +469,7 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     send_command_function = send_command;
     log_function = log_message;
     ctl_clock_init(&board_clock);
+    ctl_framelog_init(&frame_log);
     load_settings();
     ctl_settings_to_loop(&settings, &config);
     ctl_loop_init(&loop_state, &config, now_s());
@@ -441,7 +482,7 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     if (!started) {
         return;
     }
-    mqtt_client = &mqtt;
+    control_client = &mqtt;
     topic_base = base;
     ctl_gate current = ctl_gate_state(settings.enabled, listen_only, optional_pcb);
     watch_gate(current);
@@ -492,7 +533,7 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base)
     if (!started) {
         return;
     }
-    mqtt_client = &mqtt;
+    control_client = &mqtt;
     topic_base = base;
     subscribe_inputs(true);
     int length = snprintf(topic_text, sizeof topic_text, "%s/control/set/+", base);
@@ -504,7 +545,7 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base)
 
 bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
 {
-    if (!started || mqtt_client == NULL || topic_base == NULL) {
+    if (!started || control_client == NULL || topic_base == NULL) {
         return false;
     }
     ctl_topic target = ctl_dispatch_topic(&settings, topic_base, topic);
@@ -515,6 +556,9 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
         return true;
     case CTL_TOPIC_SETTING:
         handle_setting(target.name, payload, length);
+        return true;
+    case CTL_TOPIC_FRAME_LOG:
+        handle_frame_log(payload, length);
         return true;
     case CTL_TOPIC_NONE:
         break;
@@ -538,12 +582,14 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source)
     source->uptime_s = decision_s;
     source->enabled = decision_gate == CTL_GATE_OPEN;
     source->gate = decision_gate;
+    source->frames_decoded = frames_decoded;
+    source->frames_dropped = frames_dropped;
     return true;
 }
 
 void ctl_firmware_publish_settings()
 {
-    if (started && mqtt_client != NULL && topic_base != NULL && mqtt_client->connected()) {
+    if (started && control_client != NULL && topic_base != NULL && control_client->connected()) {
         publish_settings();
     }
 }
