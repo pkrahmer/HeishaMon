@@ -12,7 +12,7 @@ You build the whole story alone: its tests, its code and its documents, inside t
 
 - Meet every acceptance criterion and cover it with tests. Write the tests first, see them fail, then write the code.
 - Implement where the `## Interface` puts it; the rules of `CLAUDE.md` are binding, and `make check` enforces the ones it can.
-- You write only the fork's own folders: `HeishaMon/src/control/`, `tests/control/` and `docs/control/`; and in `HeishaMon/HeishaMon.ino` exactly the hook lines your story names, nothing else there. A story that seems to need a change to any other file ends with `question`.
+- You write only the fork's own folders: `HeishaMon/src/control/`, `tests/control/` and `docs/control/`; and in `HeishaMon/HeishaMon.ino` and `HeishaMon/htmlcode.h` exactly the hook lines your story names, nothing else there. A story that seems to need a change to any other file ends with `question`.
 - Update the documents the story's docs criterion names, and nothing it does not name.
 - Small functions, explicit names, no clever one-liners. Comments say why, never what, and they are timeless: no work item ids, no criterion numbers, no stage names.
 - Where the story leaves something open, decide yourself and record the decision in `docs/control/decisions.md`; ask only what you cannot decide without the human.

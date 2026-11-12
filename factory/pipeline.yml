@@ -12,7 +12,7 @@ project_commands:
 # Both agents are the project's own (factory/agents/). The builder writes only the fork's own
 # folders; a change to a file of upstream is the human's, named in the feature.
 roles:
-  builder: {write_paths: ["HeishaMon/src/control/*", "tests/control/*", "docs/control/*", "HeishaMon/HeishaMon.ino"]}
+  builder: {write_paths: ["HeishaMon/src/control/*", "tests/control/*", "docs/control/*", "HeishaMon/HeishaMon.ino", "HeishaMon/htmlcode.h"]}
   reviewer: {write_paths: ["{work_item}"]}
 stages:
   doing: {role: builder, next: [review], checks: [check], context: [facts-files]}
