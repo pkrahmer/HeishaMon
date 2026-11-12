@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T07:11:04.237422Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-12T07:11:04.230020Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:11:04.237422Z'
+  stage: doing
+---
+
 # The control page
 
 ## Description
@@ -75,3 +102,6 @@ make firmware | grep -c -E '^(esp8266|esp32):'
 Expect: `2`
 
 ## Journal
+
+1. 2026-11-12 human: created.
+2. factory: started doing as heishamon.
