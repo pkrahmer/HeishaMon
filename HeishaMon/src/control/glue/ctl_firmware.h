@@ -35,15 +35,16 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
  * to the loop at the board's clock. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_frame(char *data);
 
-/* Subscribes to the configured room, PV, pump and frame log topics and to <base>/control/set/+, then publishes
- * every setting retained under <base>/control/config/. Keeps the client and the base for the
- * messages that follow. Does nothing before ctl_firmware_setup. */
+/* Subscribes to the configured room, PV, pump and frame log topics and to <base>/control/set/+,
+ * then publishes every setting retained under <base>/control/config/. Keeps the client and the
+ * base for the messages that follow. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base);
 
 /* Returns true when the topic is a room, the PV, a pump value, the frame log or a setting of the
  * loop and the message was handled here; a main data frame completed by a frame log line is
- * decoded by upstream's decoder, published under this board's base and handed to the loop; false, touching nothing, for every other topic, which upstream then handles as
- * before, and for every topic before ctl_firmware_setup and ctl_firmware_subscribe. */
+ * decoded by upstream's decoder, published under this board's base and handed to the loop.
+ * Returns false, touching nothing, for every other topic, which upstream then handles as before,
+ * and for every topic before ctl_firmware_setup and ctl_firmware_subscribe. */
 bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length);
 
 /* Returns the settings in use, or NULL before ctl_firmware_setup. */

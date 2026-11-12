@@ -58,8 +58,8 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, no PV, no pump topics, no frame log topic, and the core's and the
- * router's defaults. The result is valid. Refuses nothing. */
+ * topic and weight 1), a room timeout of 1800 s, no PV, no pump topics, no frame log topic, and
+ * the core's and the router's defaults. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
 
 /* Parses value for the setting called name and applies it when the whole set stays valid.

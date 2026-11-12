@@ -213,6 +213,14 @@ static void missing_space(sequence *log)
     add(log, "data: 71 11 01 5000 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2D ");
 }
 
+static void received_one(sequence *log)
+{
+    add(log, "Received 1 bytes data");
+    add(log, "data: 00 ");
+    add(log, "Received 1 bytes data");
+    add(log, "sent bytes: 20 including checksum value: 164 ");
+}
+
 static void received_zero(sequence *log)
 {
     add(log, "Received 0 bytes data");
@@ -285,6 +293,7 @@ static void test_refusals(void)
         {"a sent frame named before its mark", named_sent_frame, "NDN"},
         {"a malformed byte", malformed_byte, "NDN"},
         {"a byte without its space", missing_space, "ND"},
+        {"Received 1", received_one, "NFND"},
         {"Received 0", received_zero, "NN"},
         {"Received 300", received_too_many, "NN"},
         {"Received 300 while collecting", received_too_many_while_collecting, "NDN"},
@@ -323,11 +332,43 @@ static void test_checksum(void)
     CHECK_TRUE(ctl_framelog_checksum_ok(MAIN_FRAME, MAIN_LENGTH));
 }
 
+/* ---- The main data frame ------------------------------------------------------------------ */
+
+static void test_main_data(void)
+{
+    static const struct {
+        const char *name;
+        size_t length;
+        size_t changed_index;
+        uint8_t changed_value;
+        bool expected;
+    } rows[] = {
+        {"the sample's main frame", MAIN_LENGTH, 0, 0x71, true},
+        {"one byte short", MAIN_LENGTH - 1, 0, 0x71, false},
+        {"another header", MAIN_LENGTH, 0, 0xF1, false},
+        {"another type", MAIN_LENGTH, 3, 0x21, false},
+    };
+    size_t i;
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+        uint8_t frame[MAIN_LENGTH];
+        int failures_before = check_failures();
+        memcpy(frame, MAIN_FRAME, sizeof frame);
+        frame[rows[i].changed_index] = rows[i].changed_value;
+        CHECK_TRUE(ctl_framelog_is_main_data(frame, rows[i].length) == rows[i].expected);
+        if (check_failures() != failures_before) {
+            printf("%s:%d: the row above is \"%s\"\n", __FILE__, __LINE__, rows[i].name);
+        }
+    }
+    CHECK_TRUE(!ctl_framelog_is_main_data(ANSWER, ANSWER_LENGTH));
+    CHECK_TRUE(!ctl_framelog_is_main_data(NULL, MAIN_LENGTH));
+}
+
 int main(void)
 {
     test_sample();
     test_length_bounds_the_line();
     test_refusals();
     test_checksum();
+    test_main_data();
     return check_result();
 }

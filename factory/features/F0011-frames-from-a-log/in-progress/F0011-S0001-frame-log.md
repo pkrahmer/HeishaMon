@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T23:32:50.202907Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-12T23:32:50.202907Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T23:41:14.237220Z'
+  stage: doing
+  run: 84f90f56c2554a95852b7d220f5d2450
 ---
 
 # The frames from a log topic
@@ -172,3 +174,17 @@ Expect: `2`
    - tests/control/test_settings.c: name-count rows 20→21, 24→25, 22→23 and index 23→24/24→25 changed under the story's leave ("test_settings.c … by the owner's leave"); the defaults table row and test_frame_log_topic are additions.
    - tests/control/test_telemetry.c: the count rows (21→23, refused index 23, 11+3*rooms) changed under the story's leave. The two inputs-table rows and the fixture counters are part of that leave, because CHECK_GROUP compares the inputs table one row per counted entry, so the table states the count. Finding 3 asks for the Description to say so.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's four findings and nothing else.
+
+   1. Lower bound of `Received <n>`: tests/control/test_framelog.c test_refusals has a new row, "Received 1" (received_one). `Received 1 bytes data` followed by `data: 00 ` gives F, and `Received 1 bytes data` followed by a `sent bytes:` line gives D. The row expects `NFND`.
+   2. The main-data-frame rule had no test on its failing side. I moved it out of ctl_firmware.cpp into the pure function `ctl_framelog_is_main_data(const uint8_t *frame, size_t length)` in HeishaMon/src/control/glue/ctl_framelog.h/.c. It uses a new macro, `CTL_FRAMELOG_MAIN_LENGTH 203`, and checks header 0x71 and type 0x10 in byte 3. handle_frame_log in ctl_firmware.cpp now calls it, and the cpp's static is_main_data_frame and MAIN_FRAME_* constants are gone. The new table test test_main_data covers the sample frame (true), one byte short, another header and another type (all false). It also checks that the 20-byte answer and NULL are false. I wrote it first and it failed to compile (implicit declaration) before the function existed. The counting in the .cpp is still covered only by make firmware. The rule's step from the .cpp to pure code is recorded in docs/control/decisions.md under 'Frames from another HeishaMon's log' (rejected: leaving the rule untested in the .cpp). docs/control/firmware.md names the function where it describes the main data frame. I did not add an acceptance criterion: the Interface now states the function and the tests cover it. The human may still want a numbered criterion for it.
+   3. Description: in the Interface I rewrote the file list. It now names framelog_sample.txt, ctl_telemetry.h/.c, ctl_firmware.h and test_telemetry.c. I added `CTL_FRAMELOG_MAIN_LENGTH` and `ctl_framelog_is_main_data` to the header sketch, with a bullet on what the function does. The 'A complete frame' bullet now refers to the function. The test_telemetry.c sentence now names all three changes: the count rows, the two counter rows in the inputs table, and the counters in the fixture.
+   4. Re-wrapped at 100 columns: the comments in ctl_firmware.h (subscribe and mqtt), ctl_settings.h (defaults) and ctl_telemetry.h (count), plus the new condition line in ctl_firmware.cpp. No added line in a header or a .c/.cpp file now runs past 100 columns. Some added Markdown lines in firmware.md and the sample's data lines do.
+
+   Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` gives 2. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty. make check: green.
+
+   Noticed, not touched: the same as in the earlier entry. A spare board that has its frame_log_topic set to its own log topic would feed itself, and nothing guards against it. With PCB emulation on at the production board, frames_dropped grows steadily.
+
+   The factory left out changes outside the write paths: factory/features/F0011-frames-from-a-log/in-progress/F0011-S0001-frame-log.md.
+
+   `check`: check: green

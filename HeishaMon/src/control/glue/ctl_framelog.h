@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #define CTL_FRAMELOG_MAX 256 /* the longest frame, in bytes */
+#define CTL_FRAMELOG_MAIN_LENGTH 203 /* a main data frame, as upstream's decoder reads it */
 
 typedef struct {
     bool collecting;
@@ -38,5 +39,10 @@ ctl_framelog_result ctl_framelog_line(ctl_framelog *log, const char *line, size_
 /* Returns true when the sum of all length bytes, the checksum included, is 0 modulo 256; false
  * for a NULL frame. */
 bool ctl_framelog_checksum_ok(const uint8_t *frame, size_t length);
+
+/* Returns true when the frame is a main data frame that upstream's decoder may read:
+ * CTL_FRAMELOG_MAIN_LENGTH bytes, header 0x71 and type 0x10 in byte 3. False for every other
+ * frame (an optional PCB answer, the extra data block) and for a NULL frame. */
+bool ctl_framelog_is_main_data(const uint8_t *frame, size_t length);
 
 #endif

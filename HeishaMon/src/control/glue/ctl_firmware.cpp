@@ -36,11 +36,6 @@ static const unsigned int TOPIC_HEAT_POWER_PRODUCTION = 15;
 static const unsigned int TOPIC_THREEWAY_VALVE_STATE = 20;
 static const unsigned int TOPIC_DEFROSTING_STATE = 26;
 
-// A main data frame starts with this byte and has this type in byte 3, as upstream checks.
-static const uint8_t MAIN_FRAME_HEADER = 0x71;
-static const size_t MAIN_FRAME_TYPE_BYTE = 3;
-static const uint8_t MAIN_FRAME_TYPE = 0x10;
-
 // Byte 6 of the emulated optional PCB frame holds the thermostat states.
 static const size_t PCB_THERMOSTAT_BYTE = 6;
 
@@ -405,12 +400,6 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
 
 // --- Frames from another HeishaMon's log ------------------------------------------------------
 
-static bool is_main_data_frame(const ctl_framelog &log)
-{
-    return log.length == DATASIZE && log.frame[0] == MAIN_FRAME_HEADER
-           && log.frame[MAIN_FRAME_TYPE_BYTE] == MAIN_FRAME_TYPE;
-}
-
 // Every frame the log shows whole but that is no main data frame (an optional PCB answer, the
 // extra data block) counts as dropped too: it is read and then thrown away.
 static void handle_frame_log(const byte *payload, unsigned int length)
@@ -419,7 +408,8 @@ static void handle_frame_log(const byte *payload, unsigned int length)
     if (result == CTL_FRAMELOG_NOTHING) {
         return;
     }
-    if (result == CTL_FRAMELOG_DROPPED || !is_main_data_frame(frame_log)) {
+    if (result == CTL_FRAMELOG_DROPPED
+        || !ctl_framelog_is_main_data(frame_log.frame, frame_log.length)) {
         frames_dropped++;
         return;
     }

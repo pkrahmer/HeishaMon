@@ -10,6 +10,10 @@
 #define RECEIVED_SUFFIX " bytes data"
 #define DATA_PREFIX "data: "
 #define SENT_MARK "sent bytes: "
+/* A main data frame starts with this byte and has this type in byte 3, as upstream checks. */
+#define MAIN_HEADER 0x71u
+#define MAIN_TYPE_BYTE 3u
+#define MAIN_TYPE 0x10u
 /* More digits than this cannot be a count up to CTL_FRAMELOG_MAX, and keep the sum from
  * overflowing. */
 #define COUNT_DIGITS_MAX 4
@@ -180,4 +184,10 @@ bool ctl_framelog_checksum_ok(const uint8_t *frame, size_t length)
         sum = (uint8_t)(sum + frame[i]);
     }
     return sum == 0u;
+}
+
+bool ctl_framelog_is_main_data(const uint8_t *frame, size_t length)
+{
+    return frame != NULL && length == CTL_FRAMELOG_MAIN_LENGTH && frame[0] == MAIN_HEADER
+           && frame[MAIN_TYPE_BYTE] == MAIN_TYPE;
 }

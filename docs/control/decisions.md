@@ -802,7 +802,8 @@ ESP32 code logs `heatpump request query sent bytes: <n>`. A `Received <n> bytes 
 a count of 0 or above `CTL_FRAMELOG_MAX` starts nothing but still ends a frame in progress as
 dropped, because the board did receive a new frame. A `data:` line with no bytes adds nothing.
 The glue counts as dropped every frame the parser drops and every whole frame that is no main
-data frame. It resets the parser whenever the topics move. `frame_log_topic` does not count as a
+data frame; whether a frame is one is the pure `ctl_framelog_is_main_data`, so that a host test
+holds the rule that keeps any other frame from upstream's decoder. It resets the parser whenever the topics move. `frame_log_topic` does not count as a
 pump topic in `ctl_settings_pump_from_mqtt`, so the decoded frames reach the loop.
 **Reason.** The parser must not take a frame of the board's own, and the board names the frame
 before the mark on one of its two builds. A new `Received` line means the old frame's remaining
@@ -812,5 +813,6 @@ read and thrown away is dropped from the loop's view.
 query lines; a third counter for whole frames of another kind, which the story does not name;
 leaving a frame in progress alive across an out-of-range `Received` line; reading the
 `Checksum and header received ok!` line as the end of the frame, which the board logs only after
-its own checksum check and which the parser's own check makes redundant.
+its own checksum check and which the parser's own check makes redundant. Keeping the main data frame test in the `.cpp`, where only `make firmware` compiles it and no
+test reaches it.
 

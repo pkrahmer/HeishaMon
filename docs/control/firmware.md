@@ -418,7 +418,7 @@ The parser reads the text after the first `): `, starts a frame at `Received <n>
 appends the bytes of each `data:` line and gives the frame when the announced count is reached and
 the sum of its bytes is 0 modulo 256, as upstream's own receive check. The board's own frames,
 logged after a `sent bytes:` line, end a frame in progress and are never taken. A main data frame,
-203 bytes with `0x71` first and `0x10` in byte 3, goes to upstream's `decode_heatpump_data` with
+203 bytes with `0x71` first and `0x10` in byte 3 (`ctl_framelog_is_main_data`), goes to upstream's `decode_heatpump_data` with
 the spare board's own globals, so the spare board publishes every decoded value under its own
 `<base>/main/`, as a board on the pump does, and then to `ctl_firmware_frame`, so its loop takes
 the outdoor temperature, the produced heat, the valve and the defrost flag from it.
