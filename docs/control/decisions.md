@@ -554,3 +554,53 @@ zero. A test builds that record and checks the constant equals its length plus o
 100 bytes more than 256.
 **Rejected.** Keeping 256 and documenting the ranges it holds (instant below 1e8 s, energy and
 powers below 1e7), which made "enough for every record" true only under conditions.
+
+## 2026-11-12: The shadow's bridge forwards retained messages
+
+**Decision.** `shadow.py` forwards a retained message like any other and marks it `yes` in the
+`retained` column of `inputs.csv`.
+**Reason.** The thermostats and HeishaMon publish their values retained, and several report only
+on a change: the retained value is the current one, often the only one for many minutes. Dropping
+it would keep the shadow in `WAITING_FOR_INPUTS` long after the start, which the firmware glue
+will not see, because it subscribes the same way. A retained room value carries its own `ts`, so
+the rooms still refuse an old one delivered twice.
+**Rejected.** Dropping retained messages, which delays the start by up to a report interval of the
+slowest source; and forwarding them with a flag the loop does not have.
+
+## 2026-11-12: The bridge takes its link from `replay.py`
+
+**Decision.** `shadow.py` imports `replay` and uses its `ProcessLink`, `SerialLink`, `wait_ready`
+and frame helpers; nothing moved to a shared `link.py`. Its serial link is a subclass of the
+replay's that keeps a line the timeout cuts until the line's end arrives: the bridge reads with a
+0.1 s timeout, pyserial drops the partial line when it runs out, and a record line takes about
+11 ms at 230,400 baud, so about one record in ten would be cut. The replay waits seconds for each
+reply and keeps its own reader.
+**Reason.** `test_replay.py` replaces `replay.time`, `replay.READY_TIMEOUT_S` and
+`replay.REPLY_TIMEOUT_S` to test the reset and the wait for `ready`; moved to another module, those
+names would no longer reach the code, and the replay's tests would change.
+**Rejected.** A shared `link.py` that `replay.py` imports, which the story allowed but which
+would have meant changing `test_replay.py`.
+
+## 2026-11-12: A shadow `K` line checks its form, the start checks the values
+
+**Decision.** A `K` line answers `error` only for its form and the ranges the protocol names: a
+room count of 1 to 16, a room index below the count, cooling 0 or 1. A weight, a room timeout or a
+gain outside its range is taken, and `G` answers `bad` through `ctl_loop_config_valid`. `K rooms`
+resets every weight but keeps the room timeout. A second `G` gives `error`.
+**Reason.** One rule for the values, in one place: the loop's own check. The protocol asks for
+`G` after `K room_timeout_s 0` to answer `bad`, so the timeout's range cannot be the line's.
+Restarting the loop on a second `G` would silently drop every input it holds.
+**Rejected.** Checking each value on its own line as well, which would copy the configuration's
+rules into the protocol.
+
+## 2026-11-12: The bridge writes a row for every message on a configured topic
+
+**Decision.** `inputs.csv` gets a row for every message on a configured topic, also when it was not
+sent: such a row has the reply `skipped`, and an input whose reply never came gets `-`. A message
+on a topic no input uses is dropped without a row. A payload counts as ASCII when, with every
+carriage return and line feed removed, it holds only printable ASCII; a tab or another control
+byte would end or break the line on the board. The CSV files get a header row when they are new.
+**Reason.** A night's cadence of a source is read from `inputs.csv`; a skipped message is still a
+report of that source.
+**Rejected.** Leaving skipped messages out of the file, which would hide a source that sends what
+the board cannot take.
