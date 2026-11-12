@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 25
-comments_read: []
+comments_read: [6839264563]
 handed_over: null
 claim: null
 journal:
@@ -59,6 +59,11 @@ journal:
   stage: review
   run: 1414d235b7764e4face0732fff41a3d9
   blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-12T23:44:16.450990Z'
+  stage: review
 ---
 
 # The frames from a log topic
@@ -232,3 +237,7 @@ Expect: `2`
    - tests/control/test_settings.c: the name-count/index rows changed under the story's leave; test_frame_log_topic and the defaults row are additions.
    - tests/control/test_dispatch.c: adds test_frame_log_topic only, and the earlier tests are unchanged.
    - tests/control/test_telemetry.c: the count rows changed under the story's leave. The two inputs-table rows and the fixture counters are the subject of question (c).
+10. 2026-11-12 human: 2. Reviewer, rewrite the Description exactly for (a) and (b). For (c), the leave widens: in `tests/control/test_telemetry.c` the inputs table may gain the two counter rows and the fixture may set the two counters, and nothing else in that file changes. Builder: the two wrapping findings.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
