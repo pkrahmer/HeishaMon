@@ -1,0 +1,17 @@
+{
+  "broker": {"host": "broker.example", "port": 1883},
+  "rooms": [
+    {"topic": "home/rooms/living/temperature", "weight": 1.0},
+    {"topic": "home/rooms/kitchen/temperature", "weight": 1.0},
+    {"topic": "home/rooms/bedroom/temperature", "weight": 1.0},
+    {"topic": "home/rooms/bath/temperature", "weight": 1.0}
+  ],
+  "outdoor": "panasonic_heat_pump/main/Outside_Temp",
+  "heat": "panasonic_heat_pump/main/Heat_Power_Production",
+  "valve": "panasonic_heat_pump/main/ThreeWay_Valve_State",
+  "defrost": "panasonic_heat_pump/main/Defrosting_State",
+  "pv": null,
+  "room_timeout_s": 10800,
+  "solar_gain_factor": 0.02,
+  "cooling": false
+}
