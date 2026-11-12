@@ -425,6 +425,25 @@ static void test_router(void)
     }
 }
 
+/* A router whose configuration it refuses never sends, so its record keeps the state of no send. */
+static void test_record_sent_state(void)
+{
+    ctl_loop_config config;
+    ctl_loop loop;
+    ctl_loop_record record;
+
+    ctl_loop_config_defaults(&config, ROOMS);
+    config.router.max_retries = 11;
+    ctl_loop_init(&loop, &config, 0.0);
+    CHECK_TRUE(ctl_loop_tick(&loop, &config, 60.0, &record));
+    CHECK_UINT((uint32_t)record.commands.count, 0u);
+    CHECK_TRUE(record.sent_state == -1);
+
+    start(&loop, &config);
+    CHECK_TRUE(ctl_loop_tick(&loop, &config, 60.0, &record));
+    CHECK_TRUE(record.sent_state == 0);
+}
+
 /* ---- The record's text ---- */
 
 static void two_commands(ctl_commands *commands)
@@ -598,6 +617,7 @@ int main(void)
     test_one_room_is_no_average();
     test_cooling_is_masked();
     test_router();
+    test_record_sent_state();
     test_record_text();
     test_record_with_unwritable_number();
     test_text_max_is_the_longest_record();

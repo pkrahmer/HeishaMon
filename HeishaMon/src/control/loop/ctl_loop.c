@@ -172,6 +172,7 @@ static void decide(ctl_loop *loop, const ctl_loop_config *config, double now,
     record->rooms = average;
     record->commands = commands;
     record->router_status = loop->router.status;
+    record->sent_state = loop->router.sent_state;
 }
 
 bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,

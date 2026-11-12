@@ -55,8 +55,9 @@ main loop, with the current instant. An instant that is not finite changes nothi
    3. `ctl_evaluate` at the instant;
    4. `ctl_router_step` with the decision's demand and the pump's state (see *The defaults*);
    5. the next decision tick `tick_interval_s` (60 s) later;
-   6. the record: the instant, the decision, the room average, the commands to send and the
-      router's status after the step. Only this tick returns true.
+   6. the record: the instant, the decision, the room average, the commands to send, the
+      router's status after the step and `sent_state`, the thermostat state the router last sent
+      (-1 while it has sent none). Only this tick returns true.
 
 Both ticks are scheduled from the instant they ran, not from the one they were due, so a caller
 that is late shifts the ticks rather than catching up with a burst.

@@ -638,3 +638,15 @@ own ranges. `trim_limit_k` 0 or below is `BAD_VALUE`, its own rule beside `none`
 silently at the next boot. Every value the core takes has at most three meaningful decimals.
 **Rejected.** Rounding on set, which would apply a value the owner did not send; and more
 decimals in the getter, which would make `0.02` read `0.020000`.
+
+## 2026-11-12: A telemetry entry with a number the fixed format refuses is refused whole
+
+**Decision.** `ctl_telemetry_entry` returns false, writing nothing, when a value holds a number of
+magnitude 10¹² or more, as for a buffer too small. NaN and the infinities are written as the fixed
+format writes them (`nan`, `inf`). A room without a value writes `-` for `value_c`, and a sent
+state below 0 writes `-`. The entries are composed in buffers of the module's own and copied out
+only when both fit.
+**Reason.** The record's text (`ctl_loop_format_record`) treats such a number the same way; a cut
+or empty value would read as a measurement. Such a number never comes from a running board.
+**Rejected.** Writing `-` for it, which would hide a broken value as a missing one; and writing
+straight into the caller's buffers, which would leave half a text behind on a refusal.

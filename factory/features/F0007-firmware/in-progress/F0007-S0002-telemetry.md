@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T06:03:37.602865Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-12T06:03:37.602865Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T06:15:06.299782Z'
+  stage: doing
+  run: dbb1b6ee67cf4ed88ead722414c53370
 ---
 
 # The telemetry
@@ -126,3 +128,44 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
 1. 2026-11-12 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the pure telemetry list and the record's new `sent_state` field.
+
+   What I built:
+   - `HeishaMon/src/control/glue/ctl_telemetry.h` and `ctl_telemetry.c`. They follow the story's interface: `ctl_telemetry_count`, `ctl_telemetry_entry` and `ctl_telemetry_setting`. Each entry's subtopic and value are first written into the module's own buffers (the subtopic buffer is CTL_TELEMETRY_SUBTOPIC_MAX, the value buffer an internal VALUE_MAX of 128). They are copied out only when both fit, so a refusal writes nothing.
+   - `HeishaMon/src/control/loop/ctl_loop.h` and `ctl_loop.c`: `ctl_loop_record` gains `int sent_state`. `decide()` sets it from `loop->router.sent_state` after the router's step, which the owner allowed.
+   - `tests/control/test_telemetry.c` covers:
+     - the counts (21/10/3 with 4 rooms);
+     - one table test per group over a full record: substituted is P_SOLAR,P_INTERNAL, unhealthy is empty, two rooms are fresh, one is stale and one never had a value;
+     - the unhealthy names and the flags at 0/FAULT;
+     - a record without inputs: `-` for the five inputs and for p_net_w;
+     - thermostat_state `-` and then `2`, and the two commands;
+     - settings: index 0 is config/enabled 0, the last index is config/max_retries 3, the next index is false; also config/room.0.topic;
+     - refusals: a subtopic or value buffer one byte short, an index past the end in each group, a group that is no member, a setting buffer one byte short, and a number of 1e12 or more;
+     - the longest subtopic (`inputs/room/15/value_c`) fits.
+   - `tests/control/test_loop.c` gains one test, `test_record_sent_state`, under the owner's leave; no other test changed. A router configuration the router refuses (max_retries 11) never sends, so the record has -1. The default configuration has 0 after its first tick.
+   - Docs:
+     - `docs/control/firmware.md` has a new section *The telemetry*: the three tables, the `config/` subtopics, the prefix `<mqtt_topic_base>/control/` and the refusal rule.
+     - `docs/control/loop.md` names `sent_state` in the decision tick's record step.
+     - `docs/control/decisions.md` has one new entry.
+
+   Decisions where the story was open (recorded in decisions.md):
+   - A value holding a number that `ctl_format_fixed` refuses (magnitude 1e12 or more) makes the whole entry false and writes nothing. This matches `ctl_loop_format_record`. I rejected writing `-`, because that would make a broken value look like a missing one.
+   - NaN and infinity are written as the fixed format writes them.
+   - A sent_state below 0 is written `-`.
+   - An enum value that is no member is written `INVALID`, as the name functions already do.
+   - No NULL checks, following the existing decision "No function checks for a null pointer".
+   - The configured room count is capped at CTL_ROOMS_MAX when counting entries.
+
+   Tests first: I wrote the test file and the code in the same pass, so I did not watch the tests fail before the code existed. Instead I checked by mutation that they catch faults:
+   - dropping the `sent_state` fill fails two checks in test_loop;
+   - an off-by-one buffer check fails the refusal checks;
+   - a renamed subtopic fails the table test.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 20 test programs passed`. It was 19 on the committed state (checked with `git stash -u`). `make check` is green: lint, test, device, firmware, `check: green`.
+
+   Noticed but not touched:
+   - `router_status_name` is now a static copy in both `ctl_loop.c` and `ctl_telemetry.c`. A shared `ctl_router_status_name` in `route/` would remove the copy, but that is beyond this story.
+   - The interface has no public maximum for value texts. The longest entry value fits 128 bytes, and settings values fit CTL_SETTINGS_VALUE_MAX (100). The publishing glue of the next story will need to pick a buffer size, and a `CTL_TELEMETRY_VALUE_MAX` might be worth adding then.
+   - Upstream's Rules harness prints compiler warnings during `make test`. They were already there and are upstream's.
+
+   `check`: check: green
