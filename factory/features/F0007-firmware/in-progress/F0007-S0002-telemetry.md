@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T06:24:47.215985Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,12 @@ journal:
   kind: started
   at: '2026-11-12T06:24:47.215985Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-12T06:29:57.653956Z'
+  stage: doing
+  run: 19523489ce7e45599262dd20fca2876f
 ---
 
 # The telemetry
@@ -272,3 +274,12 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    Earlier tests:
    - `tests/control/test_loop.c` (M): changed under the story's leave ("Its test in `tests/control/test_loop.c` gains one row by the same leave"). It only adds `test_record_sent_state` and its call in `main`. Every earlier test is unchanged.
 10. factory: started doing as heishamon.
+11. builder: Round 2: I fixed the reviewer's one finding and changed nothing else.
+
+    1. `HeishaMon/src/control/route/ctl_router.c`: `ctl_router_status_name` now comes before the comment about the name literal, the one-digit value and the bounded array. That comment sits directly above `add_command` again, which is the function it describes. No code changed, only the order.
+
+    Smoke test: `make test | grep '^control:'` gives `control: 20 test programs passed`. That is one more than the 19 before this story. `make check`: lint, test, device and firmware are green, ending in `check: green`.
+
+    Noticed, not touched: as noted in round 1, the interface still has no public maximum for value texts (`CTL_TELEMETRY_VALUE_MAX`). The publishing glue of the next story will need one.
+
+    `check`: check: green

@@ -62,8 +62,6 @@ int ctl_router_state_for(ctl_demand demand)
     }
 }
 
-/* The name is a literal of this file, shorter than the field; the value is one digit. A full
- * list takes nothing more, so that the array is bounded by its own size and not by the callers. */
 const char *ctl_router_status_name(ctl_router_status status)
 {
     switch (status) {
@@ -78,6 +76,8 @@ const char *ctl_router_status_name(ctl_router_status status)
     }
 }
 
+/* The name is a literal of this file, shorter than the field; the value is one digit. A full
+ * list takes nothing more, so that the array is bounded by its own size and not by the callers. */
 static void add_command(ctl_commands *commands, const char *name, int digit)
 {
     ctl_command *command;
