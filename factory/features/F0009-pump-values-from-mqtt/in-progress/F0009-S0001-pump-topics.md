@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 23
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T08:17:12.084296Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-12T08:17:05.938591Z'
   stage: review
   run: 18bc86d353874978a0ba8c4129f52e6f
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:17:12.084296Z'
+  stage: doing
 ---
 
 # The pump values from MQTT
@@ -146,3 +155,4 @@ Expect: `2`
    - Embedded safety: the loops are bounded by fixed tables, the four topic buffers are fixed size, and nothing allocates.
    - The `.topic`/`_topic` rule in `moves_topics`.
    - The decisions entry, and the Description against the build.
+6. factory: started doing as heishamon.
