@@ -39,6 +39,7 @@ static const char TOO_LONG[] = "too long to show here";
 typedef struct {
     char name[CTL_SETTINGS_NAME_MAX];
     char value[CTL_SETTINGS_VALUE_MAX];
+    size_t length;
     bool fits; // false: the value was longer than any setting takes, or held a zero byte
 } save_argument;
 
@@ -46,6 +47,7 @@ typedef struct {
 // list decides and not the order the browser sends.
 typedef struct {
     size_t count;
+    size_t last; // the argument the previous step kept, or SETTINGS_MAX
     save_argument argument[SETTINGS_MAX];
 } save_arguments;
 
@@ -65,30 +67,55 @@ static size_t argument_index(const save_arguments *arguments, const char *name)
     return SETTINGS_MAX;
 }
 
-// A name too long for any setting cannot be one; when the buffer is full, the rest is dropped.
+static void start_value(save_argument *argument)
+{
+    argument->value[0] = '\0';
+    argument->length = 0;
+    argument->fits = true;
+}
+
+// A value that does not fit is refused whole, never cut, so a later piece cannot revive it.
+static void append_value(save_argument *argument, const arguments_t *args)
+{
+    size_t length = args->value == NULL ? 0 : args->len;
+    if (!argument->fits || length == 0) {
+        return;
+    }
+    if (length >= sizeof argument->value - argument->length
+        || memchr(args->value, '\0', length) != NULL) {
+        argument->fits = false;
+        return;
+    }
+    memcpy(&argument->value[argument->length], args->value, length);
+    argument->length += length;
+    argument->value[argument->length] = '\0';
+}
+
+// Upstream hands a value longer than its buffer over in pieces, one step each under the same
+// name, so a step that repeats the previous step's name continues that value. A name too long
+// for any setting cannot be one; when the buffer is full, the rest is dropped.
 static void keep_argument(save_arguments *arguments, const arguments_t *args)
 {
     const char *name = (const char *)args->name;
     if (name == NULL || strlen(name) >= CTL_SETTINGS_NAME_MAX) {
+        arguments->last = SETTINGS_MAX;
         return;
     }
     size_t index = argument_index(arguments, name);
     if (index == SETTINGS_MAX) {
         if (arguments->count >= SETTINGS_MAX) {
+            arguments->last = SETTINGS_MAX;
             return;
         }
         index = arguments->count++;
         strcpy(arguments->argument[index].name, name);
     }
     save_argument *argument = &arguments->argument[index];
-    size_t length = args->value == NULL ? 0 : args->len;
-    argument->fits = length < sizeof argument->value
-                     && (length == 0 || memchr(args->value, '\0', length) == NULL);
-    argument->value[0] = '\0';
-    if (argument->fits && length > 0) {
-        memcpy(argument->value, args->value, length);
-        argument->value[length] = '\0';
+    if (index != arguments->last) {
+        start_value(argument);
     }
+    append_value(argument, args);
+    arguments->last = index;
 }
 
 static void report(const char *name, bool accepted)
@@ -400,6 +427,7 @@ static int8_t claim_route(struct webserver_t *client, const char *uri, bool *cla
             return -1;
         }
         arguments->count = 0;
+        arguments->last = SETTINGS_MAX;
         client->route = ROUTE_SAVE;
         client->userdata = arguments;
         return 0;

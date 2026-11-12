@@ -65,8 +65,9 @@ void ctl_firmware_change_begin(bool topics, bool every_ok);
  * keeps the old value. Sets *changed when the setting's value text differs after an OK. */
 ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool *changed);
 
-/* When a change since begin altered a value, or with every_ok accepted one: saves /control.json and applies the settings from
- * the next tick, setting the allowed demands at once when cooling changed. */
+/* When a change since begin altered a value, or with every_ok accepted one: saves
+ * /control.json and applies the settings from the next tick, setting the allowed demands at
+ * once when cooling changed. */
 void ctl_firmware_change_end();
 
 /* Publishes every listed setting retained under <base>/control/config/, as at a connect. Does

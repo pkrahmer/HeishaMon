@@ -274,8 +274,11 @@ shows its name and no field, so that a save leaves it as it is; it can still be 
 arrived, then walks the names of `ctl_settings_name_at` in their order, reading the count of
 names again after each one, and applies the field of each name it finds with `ctl_settings_set`.
 So `rooms` applies before the rooms' fields whatever order the browser sends, and a field the
-list does not hold (a room at or above the count) is ignored. A field too long for any setting is
-refused. When any value changed, the glue writes `/control.json` as above, and applies the
+list does not hold (a room at or above the count) is ignored. Upstream's web server reads the
+body through a small buffer (128 bytes on the ESP8266) and hands a longer field over in pieces,
+one step each under the same name; the page joins the pieces again, so a long topic, whose every
+`/` the browser sends as `%2F`, arrives whole. A field whose joined value is too long for any
+setting, or holds a zero byte, is refused whole and never cut. When any value changed, the glue writes `/control.json` as above, and applies the
 settings as a setting topic does: from the next tick, without restarting the loop; a change of
 `cooling` sets the allowed demands at once with `ctl_set_allowed`. Since the form holds every
 topic, a save unsubscribes the input topics before it applies and subscribes the current ones

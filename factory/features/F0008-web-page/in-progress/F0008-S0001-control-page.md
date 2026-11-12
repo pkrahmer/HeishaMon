@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T07:40:32.559585Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -67,6 +63,12 @@ journal:
   kind: started
   at: '2026-11-12T07:40:32.559585Z'
   stage: doing
+- number: 11
+  speaker: builder
+  kind: result
+  at: '2026-11-12T07:46:26.787710Z'
+  stage: doing
+  run: 2fe35622b3494e37a82daa14b5068127
 ---
 
 # The control page
@@ -237,3 +239,26 @@ Expect: `2`
 
    Earlier tests: none changed. `tests/control/test_html.c` is the only test file in the diff, and it is new (status `A`).
 10. factory: started doing as heishamon.
+11. builder: Round 2: I fixed findings 1 and 2. Finding 3 is still open for the human. `make check` is green (`check: green`). Smoke test: `grep -c "control loop hook" HeishaMon/HeishaMon.ino` gives `8`, and `make firmware` prints both an `esp8266:` and an `esp32:` block. Among upstream's files, the diff stat still shows only `HeishaMon.ino` +2 and `htmlcode.h` +1. No board was run, so the joining of value pieces has only been compiled.
+
+    Changed:
+    1. **A long value arriving in pieces** (`HeishaMon/src/control/glue/ctl_web.cpp`):
+       - `save_arguments` now remembers `last`, the argument the previous args step kept. `save_argument` now keeps its `length`.
+       - `keep_argument` treats a step that repeats the previous step's name as the next piece of that value. A new name, or a name seen earlier but not just before, starts the value again.
+       - The new helpers `start_value` and `append_value` do the work. When the joined value would reach `CTL_SETTINGS_VALUE_MAX` or holds a zero byte, the argument is marked as not fitting. It is then refused whole, and no later piece can make it fit again.
+       - A dropped name (too long, or the buffer is full) resets `last`, so a later piece cannot attach to the wrong argument.
+       - `docs/control/firmware.md` (*Saving*) now says how a long field is handled: upstream's 128-byte buffer on the ESP8266, pieces under one name, joined again, and refused whole if too long. The decision entry in `docs/control/decisions.md` records this. It also records the rejected alternative: cutting a joined value that is too long.
+    2. **Wrapping:** I rewrapped the comment on `ctl_firmware_change_end` in `HeishaMon/src/control/glue/ctl_firmware.h` and the new entry in `docs/control/decisions.md` to the files' width of 100 columns.
+
+    Decision: the join only applies to consecutive steps with the same name. The form never posts a name twice, so a name that comes back later starts its value again rather than adding to it. That is the same overwrite as before, and it cannot glue together two unrelated fields.
+
+    Open for the human (finding 3, repeated from the earlier review): no acceptance criterion and no host test covers any rule of `ctl_web`. Those rules are: other URIs pass through, settings apply in `ctl_settings_name_at` order, the accepted and refused report, the buffer is freed, and value pieces are joined. All of this is Arduino C++ that only `make firmware` compiles. One option is a criterion that moves the collect, join, order and report logic into a pure `.c` module under `glue/` with a host test. That needs new files the Interface does not list, so I did not do it.
+
+    Noticed, not touched:
+    - `docs/control/firmware.md` has table rows longer than 100 columns from an earlier story.
+    - Two lines in `ctl_web.cpp` run a few columns past 100. One is the HTML heading text and one is the `ctl_telemetry_entry` call.
+    - My earlier remarks still hold: upstream's own routes have the same gap when a connection drops, and the other upstream pages keep menus without the Control link.
+
+    `check`: check: green
+
+    `check`: check: green

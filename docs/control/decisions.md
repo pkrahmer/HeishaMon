@@ -718,22 +718,26 @@ unchanged value included, and as *refused* those it refused; a save that held no
 A save from the page writes the settings file only when a value text changed; a setting topic
 over MQTT still writes it on every `OK`. Both share one way to change settings in the glue
 (`ctl_firmware_change_begin`, `ctl_firmware_change`, `ctl_firmware_change_end`), the caller
-choosing whether every `OK` counts as a change. A save from the
-page unsubscribes and resubscribes every input topic, and publishes every setting under
-`config/` when anything changed. The page shows each telemetry entry by its MQTT subtopic. A
-value too long to show escaped in one chunk shows its name without a field. The page keeps
-upstream's look by including `htmlcode.h` for its header, CSS, body start, menu script and
-footer, and fills the side menu with links of its own, as every upstream page does.
+choosing whether every `OK` counts as a change. A save from the page unsubscribes and
+resubscribes every input topic, and publishes every setting under `config/` when anything
+changed. A value upstream hands over in pieces is joined again, and refused whole when the
+joined value is too long for any setting. The page shows each telemetry entry by its MQTT
+subtopic. A value too long to show escaped in one chunk shows its name without a field. The page
+keeps upstream's look by including `htmlcode.h` for its header, CSS, body start, menu script
+and footer, and fills the side menu with links of its own, as every upstream page does.
 **Reason.** The page shows what the last save accepted and refused, and an unchanged value is
 accepted. The form posts every setting on every save, so writing the file only on a change spares
 the flash a write per identical save; a setting topic carries one value the owner chose to send,
-and its behaviour stays as it was. The form holds every topic, and the old topics must be unsubscribed before they
-are replaced, so the save cannot wait to know which moved. The subtopics are the names the owner
-already knows from MQTT, and they keep status and outputs apart in one table. A field missing
-from the form is a field the save does not touch, which is safer than a cut value.
+and its behaviour stays as it was. The form holds every topic, and the old topics must be
+unsubscribed before they are replaced, so the save cannot wait to know which moved. The form
+posts every topic on every save, so keeping only the last piece of a long value would replace a
+topic with its tail on any save. The subtopics are the names the owner already knows from MQTT,
+and they keep status and outputs apart in one table. A field missing from the form is a field
+the save does not touch, which is safer than a cut value.
 **Rejected.** Listing only the settings whose value changed, which is not what the page promises;
-saving over MQTT only on a change, which changes a behaviour no one asked to change; comparing the old and new topics to subscribe only
-what moved, which needs a copy of the settings on the stack; writing a value in pieces so that
-any length fits; and a page of its own CSS, which would look unlike HeishaMon. `htmlcode.h`'s
-texts are `static`, so the few the page uses exist twice in flash; reaching upstream's copies
-would need a change to upstream's files.
+saving over MQTT only on a change, which changes a behaviour no one asked to change; comparing
+the old and new topics to subscribe only what moved, which needs a copy of the settings on the
+stack; cutting a joined value that is too long, which would save a topic no one wrote; showing a
+value across chunks so that any length fits; and a page of its own CSS, which would look unlike
+HeishaMon. `htmlcode.h`'s texts are `static`, so the few the page uses exist twice in flash;
+reaching upstream's copies would need a change to upstream's files.
