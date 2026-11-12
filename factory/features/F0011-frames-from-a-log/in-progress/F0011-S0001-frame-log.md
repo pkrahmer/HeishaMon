@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 25
 comments_read: [6839264563]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T23:51:51.806370Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -95,6 +91,12 @@ journal:
   kind: started
   at: '2026-11-12T23:51:51.806370Z'
   stage: review
+- number: 16
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T23:52:21.805056Z'
+  stage: review
+  run: 0b0b86ab177643a28841286b261f160c
 ---
 
 # The frames from a log topic
@@ -313,3 +315,40 @@ Expect: `2`
 
     `check`: check: green
 15. factory: started review as heishamon.
+16. reviewer: no findings
+
+    Round 2 review. I re-read the whole diff (`git diff develop...HEAD -- . ':!factory'`), including the part of test_telemetry.c that the context block had cut.
+
+    The two wrapping findings from entries 9 and 12 are closed:
+    - docs/control/decisions.md: no added line runs past 100 columns. The entry 'Frames from another HeishaMon's log' has the same blank-line spacing as the entries before it.
+    - docs/control/firmware.md: the only added line past 100 columns is the `frame_log_topic` row of the settings table (111 chars). It matches the other long table rows, which entry 12 already accepted. No code span is split across lines.
+    - No added line under HeishaMon/ runs past 100 columns.
+
+    Checked with no finding:
+    - Acceptance criteria 1–4: each has a test that bites.
+      - test_sample plays NNNNNNNFNNNNFN and compares both frames byte for byte.
+      - The refusal table covers the changed byte, the missing data line, sent frames (plain and named), 7G, a missing space, Received 0/1/256/257/300, a line without `): `, more bytes than announced, lower case, and other lines in between.
+      - test_checksum covers the true and the false case.
+      - test_main_data covers true, and false for one byte short, another header, another type, the 20-byte answer and NULL.
+      - Settings: accepted, refused, and the name count of 21. Dispatch: set, empty, and room, PV and defrost winning.
+      - The counting in ctl_firmware.cpp is reached only by `make firmware`, as the journal says.
+    - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+    - Criterion 6: the journal says `make check` was green after the builder (entry 14).
+    - Architecture:
+      - ctl_framelog.c is pure C99, includes only standard headers, and its helpers are static.
+      - Upstream headers and globals (actData, mqtt_client, heishamonSettings, log_message) are used only from the .cpp, through `extern`.
+      - Renaming the static pointer to control_client avoids a clash with upstream's global.
+    - Embedded safety:
+      - No allocation and no recursion. Every loop is bounded by a span length or by `expected`.
+      - A write to `frame` is bounded by `expected` <= CTL_FRAMELOG_MAX, and the count parse is capped at 4 digits.
+      - An unterminated payload is read only up to the length it is given.
+    - Quality: names are clear, there is no dead code, and the comments say why.
+    - Work item hygiene:
+      - The Description, as rewritten in entry 12, matches what was built.
+      - The decisions.md entry records the decision and what was rejected.
+      - Every claim in the new firmware.md section matches the code: the counters, the sent mark anywhere in the line, the parser reset when topics move, pump topics blocking ctl_firmware_frame, and the 203/0x71/0x10 rule.
+
+    Earlier tests (status M):
+    - tests/control/test_settings.c: the name-count and index rows changed under the story's leave. The defaults row and test_frame_log_topic are additions.
+    - tests/control/test_dispatch.c: only adds test_frame_log_topic, and the earlier tests are unchanged.
+    - tests/control/test_telemetry.c: changed under the leave of entry 10, now stated in the *Counters* bullet. The changes are the inputs-count rows (23, refused index 23, 11 + 3*rooms), the two counter rows in the inputs table and the two counters in set_fixture. Nothing else in the file changed.
