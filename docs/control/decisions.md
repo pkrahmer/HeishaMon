@@ -650,3 +650,16 @@ only when both fit.
 or empty value would read as a measurement. Such a number never comes from a running board.
 **Rejected.** Writing `-` for it, which would hide a broken value as a missing one; and writing
 straight into the caller's buffers, which would leave half a text behind on a refusal.
+
+## 2026-11-12: One text writer for the record line and the telemetry
+
+**Decision.** The writer that builds texts piece by piece lives in `loop/ctl_text.h` (`ctl_text`,
+`ctl_text_put`, `ctl_text_put_bounded`, `ctl_text_put_number`, `ctl_text_put_input`,
+`ctl_text_put_commands`), and the router's status names are public as `ctl_router_status_name`.
+Both `ctl_loop_format_record` and the telemetry use them. The writer keeps its text terminated
+after every piece.
+**Reason.** The record line and the telemetry must write the same numbers, the same `-` for a
+missing input and the same command list; two copies would drift apart.
+**Rejected.** A static copy in each module; and a test program of its own for the writer, since
+the record's and the telemetry's table tests already cover every piece through the public
+functions.

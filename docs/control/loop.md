@@ -84,6 +84,10 @@ An example, a decision that turns the heating on with the heat/cool polarity set
 t=600.0 demand=HEATING reason=NORMAL phase=RUNNING E=-1523.4 pnet=-2735 indoor=22.46 outdoor=5.00 produced=3200 solar=20 rooms=3:3.0/4.0 router=WAITING cmd=SetExternalThermostat1State:2,SetHeatCoolMode:0
 ```
 
+The line is built by the text writer of `ctl_text.h`, which the telemetry shares, so that both
+write the same numbers, the same `-` and the same command list, and the router's status by
+`ctl_router_status_name`.
+
 Numbers are written by `ctl_format_fixed` (`ctl_format.h`) with integer arithmetic, never by
 `printf` of a float: fixed decimals, rounded half away from zero, no sign before a result that
 rounds to zero, `nan`, `inf` and `-inf` for the values that are no number, and a refusal for a

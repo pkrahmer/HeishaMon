@@ -402,6 +402,23 @@ static void test_longest_subtopic_fits(void)
     CHECK_TEXT(subtopic, "inputs/room/15/value_c");
 }
 
+/* A configured count above the maximum is capped, so that no room past the arrays is listed. */
+static void test_room_count_is_capped(void)
+{
+    fixture f;
+    set_fixture(&f);
+    f.rooms_config.count = CTL_ROOMS_MAX + 1;
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
+               (uint32_t)(9 + 3 * CTL_ROOMS_MAX));
+}
+
+static void test_no_group_has_no_entries(void)
+{
+    fixture f;
+    set_fixture(&f);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, (ctl_group)3), 0u);
+}
+
 int main(void)
 {
     test_counts();
@@ -414,5 +431,7 @@ int main(void)
     test_refusals();
     test_unwritable_number();
     test_longest_subtopic_fits();
+    test_room_count_is_capped();
+    test_no_group_has_no_entries();
     return check_result();
 }

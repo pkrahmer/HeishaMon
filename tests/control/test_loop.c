@@ -441,6 +441,9 @@ static void test_record_sent_state(void)
 
     start(&loop, &config);
     CHECK_TRUE(ctl_loop_tick(&loop, &config, 60.0, &record));
+    CHECK_UINT((uint32_t)record.commands.count, 1u);
+    CHECK_TEXT(record.commands.command[0].name, "SetExternalThermostat1State");
+    CHECK_TEXT(record.commands.command[0].value, "0");
     CHECK_TRUE(record.sent_state == 0);
 }
 

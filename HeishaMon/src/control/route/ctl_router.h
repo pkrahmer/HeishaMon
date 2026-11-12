@@ -64,6 +64,10 @@ void ctl_router_init(ctl_router *router);
  * for any value outside the enum, so that an unknown demand never heats or cools. */
 int ctl_router_state_for(ctl_demand demand);
 
+/* Returns the name of status: "IDLE", "WAITING" or "FAULT", and "INVALID" for any value outside
+ * the enum, so that a broken status still reads as one. */
+const char *ctl_router_status_name(ctl_router_status status);
+
 /* Advances the router to now and writes into *commands the commands to send, none, one or two.
  * reported_state is the thermostat state the pump shows and is read only when state_known is
  * true. Refuses, sending nothing and leaving the router as it was, a now that is not finite and

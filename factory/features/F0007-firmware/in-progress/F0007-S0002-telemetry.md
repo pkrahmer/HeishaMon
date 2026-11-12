@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T06:16:37.135682Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-12T06:16:37.135682Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T06:23:42.556961Z'
+  stage: doing
+  run: 124fd9a8eb754b2493caa945c5045a37
 ---
 
 # The telemetry
@@ -201,3 +203,31 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    Earlier tests:
    - `tests/control/test_loop.c` (M): changed by the story's own leave, which says the owner allows one added row. It adds one test, `test_record_sent_state`, and its call in `main`; every earlier test is unchanged.
 6. factory: started doing as heishamon.
+7. builder: Round 1: I fixed the reviewer's three findings and nothing else.
+
+   1. Duplicated helpers:
+      - New shared module `HeishaMon/src/control/loop/ctl_text.h` / `ctl_text.c`. It has the type `ctl_text` and the functions `ctl_text_start`, `ctl_text_put`, `ctl_text_put_bounded`, `ctl_text_put_number`, `ctl_text_put_input` and `ctl_text_put_commands`. The commands function writes the list or `-`; the record line adds its own `cmd=` key before it.
+      - New public `ctl_router_status_name` in `HeishaMon/src/control/route/ctl_router.h` / `.c`.
+      - `HeishaMon/src/control/loop/ctl_loop.c` and `HeishaMon/src/control/glue/ctl_telemetry.c` now use both. Their static copies are gone, and so are their direct includes of `ctl_format.h`.
+      - The shared writer keeps its text terminated after every piece. `ctl_text_start` marks a size of 0 as not fitting and never writes to it.
+      - `ctl_loop_format_record` behaves as before. It still empties the text when it refuses. The record-text table tests in `test_loop.c` pass unchanged.
+   2. `tests/control/test_loop.c`, `test_record_sent_state`: the "after the first send" half now also checks that the record holds exactly one command, `SetExternalThermostat1State` with value `0`. So the check shows that a send happened. This is still within the one test the owner allowed; no other test changed.
+   3. `tests/control/test_telemetry.c` gains two tests:
+      - `test_room_count_is_capped`: a room count of CTL_ROOMS_MAX + 1 gives 9 + 3 × CTL_ROOMS_MAX inputs.
+      - `test_no_group_has_no_entries`: `ctl_telemetry_count` for `(ctl_group)3` is 0.
+      Both checks held against the committed code. They pin down rules that were already implemented; they do not show a bug.
+
+   Docs:
+   - `docs/control/decisions.md` has a new entry, "One text writer for the record line and the telemetry".
+   - `docs/control/loop.md` gains one sentence in *The record's text*: the line is built by the shared writer of `ctl_text.h`, and the router status is written by `ctl_router_status_name`.
+
+   Decisions:
+   - The writer lives in `loop/`, beside `ctl_format`, because the loop already owned it and `glue/` already includes `loop/` headers.
+   - I rejected a separate test program for `ctl_text`. The record and telemetry table tests already cover every function of it through the public API, and a new program would also change the smoke test's count.
+   - I added no test for `ctl_router_status_name` in `test_router.c`, because that test belongs to another story. The names IDLE, WAITING and FAULT are still checked through the loop's and the telemetry's tests.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 20 test programs passed`, one more than the 19 before this story. `make check`: lint, test, device and firmware are all green, ending in `check: green`.
+
+   Noticed, not touched: the earlier note still stands that the interface has no public maximum for value texts (`CTL_TELEMETRY_VALUE_MAX`); the publishing glue will need one.
+
+   `check`: check: green
