@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 23
-comments_read: []
+comments_read: [6818639434]
 handed_over: null
 claim: null
 journal:
@@ -59,6 +59,11 @@ journal:
   stage: review
   run: e32e3ad798a245e59576ab6ee37c1971
   blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-12T08:27:26.683102Z'
+  stage: review
 ---
 
 # The pump values from MQTT
@@ -228,3 +233,7 @@ Expect: `2`
    Notes:
    - `tests/control/test_dispatch.c` `test_pump_topics`: `check_row` gets the `__LINE__` of the loop, so a failure does not say which row failed. Passing the row index, or a line field per row, would help.
    - `docs/control/firmware.md:365` is 101 characters, one over the width of the rest of the prose.
+10. 2026-11-12 human: (a). Each of those glue lines calls a tested pure function; the board run after this story is their test.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
