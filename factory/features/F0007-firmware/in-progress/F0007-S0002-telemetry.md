@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T06:30:03.964315Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -69,6 +73,11 @@ journal:
   at: '2026-11-12T06:29:57.653956Z'
   stage: doing
   run: 19523489ce7e45599262dd20fca2876f
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:30:03.964315Z'
+  stage: review
 ---
 
 # The telemetry
@@ -283,3 +292,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Noticed, not touched: as noted in round 1, the interface still has no public maximum for value texts (`CTL_TELEMETRY_VALUE_MAX`). The publishing glue of the next story will need one.
 
     `check`: check: green
+12. factory: started review as heishamon.
