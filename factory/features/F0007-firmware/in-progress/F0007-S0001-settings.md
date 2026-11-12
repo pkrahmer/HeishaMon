@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 18
-comments_read: []
+comments_read: [6815816296]
 handed_over: null
 claim: null
 journal:
@@ -59,6 +59,11 @@ journal:
   stage: review
   run: 4b341ecd31a943a6a7613b6b408e0201
   blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-12T05:55:25.254825Z'
+  stage: review
 ---
 
 # The settings
@@ -284,3 +289,7 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - (c) You edit the Description yourself, and the work item goes back to review.
 
    I would choose (a). The rule keeps the settings file honest across a reboot, and the builder has already recorded it in decisions.md with the rejected alternative.
+10. 2026-11-12 human: (a). The rule stands: a number must have a magnitude below 10^12 and at most 3 decimals, or it gives `BAD_VALUE`, so the getter writes back exactly the value that was set. The weight default in the table is `1`. This answer is part of the Description; reviewer, make the two edits in the work item as you offer. Builder: change the same cell in `docs/control/firmware.md`.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
