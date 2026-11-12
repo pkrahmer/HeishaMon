@@ -1,3 +1,104 @@
+---
+stage: approval
+blocked: null
+round: 2
+attempts: 0
+crashes: 0
+pull_request: 18
+comments_read: [6815816296]
+handed_over: approval
+claim: null
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-12T05:32:49.009931Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:32:49.016173Z'
+  stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T05:40:35.177733Z'
+  stage: doing
+  run: 0763807b24eb407c87248602f8a31091
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:40:41.904990Z'
+  stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T05:43:03.890249Z'
+  stage: review
+  run: 5e0fd0dcba49496caf27d686f4ab9e58
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:43:09.207820Z'
+  stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T05:46:02.870766Z'
+  stage: doing
+  run: 8b80b0491b0d4a2e8b88bfb4f78ffd0e
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:46:08.404126Z'
+  stage: review
+- number: 9
+  speaker: reviewer
+  kind: question
+  at: '2026-11-12T05:46:56.167659Z'
+  stage: review
+  run: 4b341ecd31a943a6a7613b6b408e0201
+  blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-12T05:55:25.254825Z'
+  stage: review
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:55:27.608045Z'
+  stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T05:55:55.245302Z'
+  stage: review
+  run: 8a35f05f3e3b41ff9abb9c3239ff9842
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:56:00.134320Z'
+  stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-12T06:01:40.178741Z'
+  stage: doing
+  run: d8386c11a922448796205189666d8450
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:01:45.904949Z'
+  stage: review
+- number: 16
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T06:02:09.747064Z'
+  stage: review
+  run: efefd5da61d14a188087c19c3fa9660d
+---
+
 # The settings
 
 ## Description
@@ -62,7 +163,7 @@ The names, in the order `ctl_settings_name_at` lists them:
 | `cooling` | `0` or `1` | `0` | |
 | `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
-| `room.<i>.weight` | number | `1.0` | one per room `i` below `rooms`; 0 to 1000 |
+| `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
@@ -80,6 +181,7 @@ The names, in the order `ctl_settings_name_at` lists them:
 The values:
 
 - A number is parsed by `ctl_payload_parse` as a bare number, and a decimal must be a whole number in its range.
+- A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set.
 - A topic is empty, or 1 to `CTL_SETTINGS_TOPIC_MAX` printable ASCII characters (0x21 to 0x7e) without `+` and `#`. An empty room topic means a room that never receives a value; an empty `pv_topic` means no PV.
 - `ctl_settings_get` writes numbers through `ctl_format_fixed`: 0 decimals for whole numbers, otherwise 3 decimals, with trailing zeros after the point removed, and the point too when nothing follows it. It writes `none` for a disabled trim limit, and the flags and decimals as above. It returns false for an unknown name or a too-small buffer.
 
@@ -129,3 +231,158 @@ make test | grep '^control:'
 Expect: a line `control: N test programs passed`, where N is one more than before this story
 
 ## Journal
+
+1. 2026-11-12 human: created.
+2. factory: started doing as heishamon.
+3. builder: Built the settings as pure C99 in the new folder `HeishaMon/src/control/glue/`.
+
+   **What I built**
+   - `HeishaMon/src/control/glue/ctl_settings.h` and `ctl_settings.c` provide the interface the story names.
+     - Names are found in a fixed table of 16. The `room.<i>.topic` and `room.<i>.weight` names are parsed separately and listed after `rooms`.
+     - The setter applies the value to a copy, runs `ctl_settings_valid` on it, and replaces the settings only on OK.
+     - Defaults come from `ctl_config_defaults`, `ctl_rooms_config_defaults` and `ctl_router_config_defaults`, so no number is written twice.
+     - `ctl_settings_to_loop` starts from `ctl_loop_config_defaults` with one room when `rooms` is 0.
+   - `tests/control/test_settings.c` covers every criterion with table tests. It also covers:
+     - texts that do not parse: a JSON object, `1e12`, `0.0004`, `2.5` for a decimal, NULL;
+     - bad room names: a leading zero, a missing index, a wrong suffix, an index of 16 or more;
+     - topics with a tab and with 0x7f;
+     - a lower `rooms` count keeping what lies above it, which comes back when the count rises again;
+     - a buffer one byte too small for both names and values;
+     - every setting reaching its field in the loop's configuration.
+   - I checked that the tests catch faults by breaking the code on purpose: dropping the whole-set check, the round-trip check, the JSON refusal and the cooling bit each makes the test fail.
+   - Docs:
+     - `docs/control/firmware.md` is new, with the section *The settings*: the table, the value rules, the rule that a refused change keeps the old value, and why `rooms` 0 is valid.
+     - `docs/control/decisions.md` has three new entries: the flat name set, commands disabled by default, and the getter-exact numbers below.
+
+   **Decisions where the story was open** (recorded in decisions.md)
+   - **Where a rule is checked:** a rule that belongs to the row itself gives BAD_VALUE (flags, `rooms` 0–16, room weight via `CTL_BOUND_WEIGHT`, `room_timeout_s` > 0, `trim_limit_k` > 0, `heat_cool_heat_value` −1..1, topics). Rules the core, rooms or router check give INVALID_SET, so each rule lives in one place. So `max_retries 11` and `desired_indoor_c 30.001` give INVALID_SET.
+   - **Numbers the getter can write back exactly:** a number must be below 1e12 in magnitude (the limit of `ctl_format_fixed`) and have at most 3 decimals, or it is BAD_VALUE. Otherwise a value saved through the getter would read back changed at the next boot. Rejected: rounding on set.
+   - **Bare numbers only:** a JSON object is refused, even though `ctl_payload_parse` accepts one.
+   - **Decimals:** the flags and `heat_cool_heat_value` go through the same parse as other decimals, so `1.0` is accepted. `max_retries` accepts any whole number that fits an `int`, and the router decides its range.
+   - **Room names:** the index is written without leading zeros (`room.00.topic` is UNKNOWN). A NULL name is UNKNOWN; a NULL value is BAD_VALUE.
+
+   **Smoke test:** `make test | grep '^control:'` gives `control: 19 test programs passed`; there were 18 before. `make check` is green.
+
+   **Noticed, not touched**
+   - `ctl_settings_set` keeps a full copy of the settings on the stack (about 1.9 KB, mostly the 16 room topics), as the story's copy-then-validate rule asks. That is a lot for the ESP8266's 4 KB stack. The glue story should call it from a shallow stack, or we decide to shorten the topics.
+   - `write_value` casts away `const` to reuse `number_field`; there is a comment on it. A separate const accessor would duplicate the switch.
+   - No sketch includes `glue/` yet, so `make device` compiles the new folder as a library but builds none of its code for the board.
+
+   `check`: check: green
+4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (glue/ctl_settings.h/.c, test_settings.c, firmware.md, decisions.md) against the story, and checked it against ctl_config.c, ctl_rooms.c, ctl_router.c, ctl_payload.h and ctl_format.h. The code matches the Interface. Bounds, buffer sizes and the copy-then-validate setter hold. The diff touches nothing outside the fork's folders. The factory's `make check` after the builder was green. Earlier tests: none, because the diff only adds `tests/control/test_settings.c`.
+
+   Findings:
+   1. `tests/control/test_settings.c` test_rooms, `CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", NULL, 0))`: the getter returns false for a NULL buffer whatever the name. So the Interface rule "a lower count keeps the topics and weights above it unlisted" has no real test for its unlisted side. Fix: pass a real buffer, and also check that `ctl_settings_name_count` is 18 and that `room.1.topic` gives UNKNOWN from the setter after `rooms 1`.
+   2. `tests/control/test_settings.c` test_numbers: only the upper limit of `rooms` (0 to 16) is tested, with 16 and 17. Setting 0 from a non-zero count is never tested as accepted, and `-1` is never tested as BAD_VALUE. Fix: add the row `{"rooms", "0", "-1", CTL_SETTING_BAD_VALUE}`.
+   3. Work item `## Description`, *The values*: the builder added a rule that a number must have a magnitude below 1e12 and at most 3 decimals, or it is BAD_VALUE (`parse_number` in `ctl_settings.c`; recorded in decisions.md and firmware.md). The Description does not state it, so it no longer says what the setter accepts. Fix: add the rule to the Description's list of values.
+   4. `tests/control/test_settings.c` test_unparsed_numbers: the 1e12 limit is tested only on its refused side (`1e12`). Fix: add an accepted row just below the limit, e.g. `hysteresis_wh 999999999999`, and check that the getter writes it back unchanged.
+   5. `docs/control/firmware.md`, the paragraph "A refused change keeps the old value": it says "A rule the core, the rooms or the router check is checked only there". That is false: the setter's `number_in_rule` in `ctl_settings.c` also checks the room weight (`CTL_BOUND_WEIGHT`) and `room_timeout_s > 0`, which `ctl_rooms_config_valid` checks too. The comment on `number_in_rule`, "so that each rule lives in one place", makes the same false claim. Fix: reword both to say the setter checks each row's own rule, as the story's table gives it (weight, timeout, `trim_limit_k` > 0, the ranges, topics), and leaves the remaining rules to the core, the rooms and the router.
+
+   Not raised: the setter's ~1.9 KB stack copy, which the story's copy-then-validate rule requires and which the builder flagged for the glue story. The const cast in `write_value`, which has a comment on it.
+6. factory: started doing as heishamon.
+7. builder: Round 1: fixed all five of the reviewer's findings and nothing else.
+
+   1. `tests/control/test_settings.c` test_rooms: the lower-count check now passes a real buffer (`CTL_SETTINGS_VALUE_MAX`) to `ctl_settings_get("room.1.topic")` and expects false. After `rooms 1` it also checks that `ctl_settings_name_count` is 18 and that setting `room.1.topic` gives `UNKNOWN`.
+   2. test_numbers: added the row `{"rooms", "0", "-1", BAD_VALUE}`. The loop sets `rooms 1` before each row, so this row also shows that 0 is accepted from a non-zero count.
+   3. The work item's Description, *The values*: added the rule that a number must have a magnitude below 1e12 and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set.
+   4. New `test_largest_number`: `hysteresis_wh 999999999999` is accepted, and the getter writes it back unchanged. This is the accepted side of the `1e12` limit.
+   5. Reworded the claim that each rule lives in one place:
+      - In `docs/control/firmware.md` (the paragraph "A refused change keeps the old value"), it now says the setter checks each row's own rule as the table gives it: the flags, the ranges of `rooms` and `heat_cool_heat_value`, the room weight, `room_timeout_s` > 0, `trim_limit_k` > 0 and the topics. Some of these the rooms check again. Every rule the table leaves to the core, the rooms or the router is checked only there.
+      - The comment on `number_in_rule` in `HeishaMon/src/control/glue/ctl_settings.c` now says the same.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 19 test programs passed` (18 before this story). `make check` is green.
+
+   Still open from round 0, not touched: the setter's stack copy of about 1.9 KB, which the glue story should call from a shallow stack.
+
+   The factory left out changes outside the write paths: factory/features/F0007-firmware/in-progress/F0007-S0001-settings.md.
+
+   `check`: check: green
+8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD` (glue/ctl_settings.h/.c, tests/control/test_settings.c, docs/control/firmware.md, docs/control/decisions.md), checked against ctl_loop.h, ctl_rooms.h/.c, ctl_router.h, ctl_format.h and ctl_payload.h.
+
+   Round 0 findings 1, 2, 4 and 5 are fixed in the code, tests and docs:
+   - test_rooms now passes a real buffer, checks a name count of 18 and checks UNKNOWN for `room.1.topic` after `rooms 1`.
+   - test_numbers has the row `rooms 0 / -1`.
+   - test_largest_number covers the accepted side of the 1e12 limit.
+   - firmware.md and the comment on `number_in_rule` no longer say that each rule lives in one place.
+
+   I found nothing new in the code under acceptance criteria, architecture, embedded safety or quality:
+   - Every criterion has a test, and every stated limit is tested on both sides.
+   - No dynamic memory is used, every loop is bounded and every buffer is written with its size.
+   - The factory's `make check` after the builder was green.
+   - Earlier tests: none. Every file the diff touches is new (status A).
+
+   Round 0 finding 3 is still open, and the builder cannot fix it. The builder wrote the number rule into the Description. The factory dropped that edit because the work item is outside the builder's write paths (journal entry 7). The Description's *The values* list still lacks the setter's rule: a number must have a magnitude below 1e12 and at most 3 decimals, or it is `BAD_VALUE`. That rule is in `parse_number` in `HeishaMon/src/control/glue/ctl_settings.c`, in decisions.md and in firmware.md. Under R13 it also goes beyond what the story asked for, so it needs your word.
+
+   A smaller mismatch from the story's own table: the row `room.<i>.weight` gives the default text as `1.0`. The getter writes `1`, as criterion 5's test expects. firmware.md copies the table, so it shows `1.0` too.
+
+   Question: how should the Description and the code agree?
+   - (a) Accept the rule. The reviewer adds one line to *The values* in the Description: "A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set." The reviewer also changes the weight default in the Description's table to `1`. The builder then changes the same cell in `docs/control/firmware.md`. If no other code changes are needed, the reviewer approves.
+   - (b) Reject the rule. The builder removes the decimals and round-trip check from `parse_number` and drops the matching test rows (`0.0004`, `1e12`, `999999999999`) and decision entries. The getter's 3-decimal formatting would then silently round some saved values at the next boot.
+   - (c) You edit the Description yourself, and the work item goes back to review.
+
+   I would choose (a). The rule keeps the settings file honest across a reboot, and the builder has already recorded it in decisions.md with the rejected alternative.
+10. 2026-11-12 human: (a). The rule stands: a number must have a magnitude below 10^12 and at most 3 decimals, or it gives `BAD_VALUE`, so the getter writes back exactly the value that was set. The weight default in the table is `1`. This answer is part of the Description; reviewer, make the two edits in the work item as you offer. Builder: change the same cell in `docs/control/firmware.md`.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
+11. factory: started review as heishamon.
+12. reviewer: Round 1 review, after the human's answer (a) in entry 10. I reviewed `git diff develop...HEAD -- . ':!factory'` (glue/ctl_settings.h/.c, tests/control/test_settings.c, docs/control/firmware.md, docs/control/decisions.md) against the Description as it now stands.
+
+    **What I changed in the work item (the human asked for both in entry 10):**
+    - `## Description`, the table: the default of `room.<i>.weight` is now `1` (it was `1.0`).
+    - `## Description`, *The values*: added the line "A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set." The Description now matches `parse_number` in `HeishaMon/src/control/glue/ctl_settings.c`, and round 0 finding 3 is closed.
+
+    **Checklist:**
+    1. Acceptance criteria: every criterion has a test. Each stated limit is tested on both sides:
+       - the 10¹² limit: `999999999999` is accepted and `1e12` is refused;
+       - the 3-decimal limit: `0.001` is accepted and `0.0004` is refused;
+       - `rooms`: 0, 16, 17 and -1;
+       - the topic length: 96 is accepted and 97 is refused;
+       - the weight: 0 to 1000.
+       The factory's `make check` after the builder was green (entry 7).
+    2. Architecture: only the fork's folders are touched. The new code is pure C99, with `ctl_` names and status returns.
+    3. Embedded safety: no dynamic memory and no recursion. Loops are bounded, and every buffer is written with its size. Number values go through the payload parser and the range checks.
+    4. Quality: nothing new since round 1.
+    5. Work item hygiene: one finding, below.
+    6. Earlier tests: none. The only test file in the diff is `tests/control/test_settings.c`, which is new (status A). `docs/control/decisions.md` (M) is not a test.
+
+    **Findings:**
+    1. `docs/control/firmware.md`, the settings table, row `room.<i>.weight`: the Default column still says `1.0`. The human's answer (entry 10) makes it `1`, which is what the getter writes and what `test_rooms` expects. Fix: change that cell to `1`, as entry 10 tells the builder. No other change is needed. Once it is made, I would approve.
+13. factory: started doing as heishamon.
+14. builder: Round 2: fixed the reviewer's one finding (entry 12), as the human asked in entry 10, and changed nothing else.
+
+    - `docs/control/firmware.md`, settings table, row `room.<i>.weight`: the Default column is now `1`. It was `1.0`. This matches the Description, what the getter writes, and what `test_rooms` expects.
+
+    No code or test changed in this round.
+
+    Smoke test: `make test | grep '^control:'` gives `control: 19 test programs passed`. There were 18 before this story, so N is one more, as expected. `make check` is green.
+
+    Still open from earlier rounds, not touched: the setter keeps a copy of the settings on the stack, about 1.9 KB. The glue story should call it from a shallow stack.
+
+    `check`: check: green
+15. factory: started review as heishamon.
+16. reviewer: Round 2 review of `git diff develop...HEAD -- . ':!factory'`. The diff covers `glue/ctl_settings.h` and `ctl_settings.c`, `tests/control/test_settings.c`, `docs/control/firmware.md` and `docs/control/decisions.md`. I checked it against the Description as it now stands, after the human's answer in entry 10.
+
+    The round 1 finding is fixed. In `docs/control/firmware.md:27`, the row `room.<i>.weight` now gives the default as `1`. The Description's table, the getter and `test_rooms` all agree with it.
+
+    Checklist:
+    1. **Acceptance criteria.** Criteria 1 to 9 each have a table or sequence test that checks what the criterion names. Every limit is tested on both sides:
+       - `rooms`: 0, 16, 17 and -1
+       - room weight: 0 to 1000
+       - topic length: 96 and 97
+       - magnitude: `999999999999` and `1e12`
+       - decimals: `0.001` and `0.0004`
+       - the core's and the router's ranges, as `INVALID_SET`
+       - `trim_limit_k` > 0
+       - the getter's buffer size
+
+       The factory's `make check` after the builder was green (entry 14).
+    2. **Architecture.** Only the fork's folders are touched. The `.c` file is pure C99 and includes only control headers and the standard C library. Public names are `ctl_`/`CTL_`, helpers are `static`, and errors come back as status values.
+    3. **Embedded safety.** No dynamic memory, no recursion and no variable-length array. Every loop has a bound. Array indexes are bounded by `CTL_ROOMS_MAX`, and every buffer is written with its size. NaN and infinity are refused through the magnitude check and the format round trip. The ~1.9 KB stack copy is required by the story and was flagged by the builder for the glue story.
+    4. **Quality.** Nothing new.
+    5. **Work item hygiene.** The Description now has the number rule and the weight default of `1`, and both match the code. firmware.md and decisions.md describe what the code does. The journal records the main decisions and the alternatives rejected.
+    6. **Earlier tests.** None. The only test file in the diff, `tests/control/test_settings.c`, is new (status A).
+
+    no findings
