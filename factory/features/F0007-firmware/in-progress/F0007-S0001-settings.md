@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T06:01:45.904949Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -86,6 +90,11 @@ journal:
   at: '2026-11-12T06:01:40.178741Z'
   stage: doing
   run: d8386c11a922448796205189666d8450
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:01:45.904949Z'
+  stage: review
 ---
 
 # The settings
@@ -351,3 +360,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     Still open from earlier rounds, not touched: the setter keeps a copy of the settings on the stack, about 1.9 KB. The glue story should call it from a shallow stack.
 
     `check`: check: green
+15. factory: started review as heishamon.
