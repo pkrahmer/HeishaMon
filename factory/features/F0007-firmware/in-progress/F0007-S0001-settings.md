@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T05:56:00.134320Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -75,6 +79,11 @@ journal:
   at: '2026-11-12T05:55:55.245302Z'
   stage: review
   run: 8a35f05f3e3b41ff9abb9c3239ff9842
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:56:00.134320Z'
+  stage: doing
 ---
 
 # The settings
@@ -328,3 +337,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     **Findings:**
     1. `docs/control/firmware.md`, the settings table, row `room.<i>.weight`: the Default column still says `1.0`. The human's answer (entry 10) makes it `1`, which is what the getter writes and what `test_rooms` expects. Fix: change that cell to `1`, as entry 10 tells the builder. No other change is needed. Once it is made, I would approve.
+13. factory: started doing as heishamon.
