@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T06:01:45.904949Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -95,6 +91,12 @@ journal:
   kind: started
   at: '2026-11-12T06:01:45.904949Z'
   stage: review
+- number: 16
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T06:02:09.747064Z'
+  stage: review
+  run: efefd5da61d14a188087c19c3fa9660d
 ---
 
 # The settings
@@ -361,3 +363,26 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     `check`: check: green
 15. factory: started review as heishamon.
+16. reviewer: Round 2 review of `git diff develop...HEAD -- . ':!factory'`. The diff covers `glue/ctl_settings.h` and `ctl_settings.c`, `tests/control/test_settings.c`, `docs/control/firmware.md` and `docs/control/decisions.md`. I checked it against the Description as it now stands, after the human's answer in entry 10.
+
+    The round 1 finding is fixed. In `docs/control/firmware.md:27`, the row `room.<i>.weight` now gives the default as `1`. The Description's table, the getter and `test_rooms` all agree with it.
+
+    Checklist:
+    1. **Acceptance criteria.** Criteria 1 to 9 each have a table or sequence test that checks what the criterion names. Every limit is tested on both sides:
+       - `rooms`: 0, 16, 17 and -1
+       - room weight: 0 to 1000
+       - topic length: 96 and 97
+       - magnitude: `999999999999` and `1e12`
+       - decimals: `0.001` and `0.0004`
+       - the core's and the router's ranges, as `INVALID_SET`
+       - `trim_limit_k` > 0
+       - the getter's buffer size
+
+       The factory's `make check` after the builder was green (entry 14).
+    2. **Architecture.** Only the fork's folders are touched. The `.c` file is pure C99 and includes only control headers and the standard C library. Public names are `ctl_`/`CTL_`, helpers are `static`, and errors come back as status values.
+    3. **Embedded safety.** No dynamic memory, no recursion and no variable-length array. Every loop has a bound. Array indexes are bounded by `CTL_ROOMS_MAX`, and every buffer is written with its size. NaN and infinity are refused through the magnitude check and the format round trip. The ~1.9 KB stack copy is required by the story and was flagged by the builder for the glue story.
+    4. **Quality.** Nothing new.
+    5. **Work item hygiene.** The Description now has the number rule and the weight default of `1`, and both match the code. firmware.md and decisions.md describe what the code does. The journal records the main decisions and the alternatives rejected.
+    6. **Earlier tests.** None. The only test file in the diff, `tests/control/test_settings.c`, is new (status A).
+
+    no findings
