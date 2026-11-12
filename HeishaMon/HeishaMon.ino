@@ -39,6 +39,7 @@
 #include "src/common/log.h"
 #include "src/common/progmem.h"
 #include "src/rules/rules.h"
+#include "src/control/glue/ctl_firmware.h" // control loop hook
 
 #include "webfunctions.h"
 #include "decode.h"
@@ -597,6 +598,7 @@ void mqtt_reconnect()
         if (heishamonSettings.use_1wire) resetlastalldatatime_dallas(); //resend all 1wire values to mqtt
         resetlastalldatatime(); //resend all heatpump values to mqtt
       }
+      ctl_firmware_subscribe(mqtt_client, heishamonSettings.mqtt_topic_base); // control loop hook
       //use this to receive valid heishamon raw data from other heishamon to debug this OT code
 //#define RAWDEBUG
 #ifdef RAWDEBUG
@@ -835,6 +837,7 @@ bool readSerial()
       if (data_length == DATASIZE)  {  //receive a full data block
         if  (data[3] == 0x10) { //decode the normal data block
           decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+          ctl_firmware_frame(data); // control loop hook
           if ( (!extraDataBlockAvailable) && ((actData[0] == 0x71) && (actData[0xc7] >= 3)) ) { //do we have valid header and byte 0xc7 is more or equal 3 then assume K&L and more series
             log_message(_F("Extra data available on this heatpump"));
             extraDataBlockAvailable = true; //request for extra data next run
@@ -1039,6 +1042,7 @@ bool send_command(byte* command, int length) {
 
 // Callback function that is called when a message has been pushed to one of your topics.
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
+  if (ctl_firmware_mqtt(topic, payload, length)) return; // control loop hook
   if (mqttcallbackinprogress) {
     log_message(_F("Already processing another mqtt callback. Ignoring this one"));
   }
@@ -2084,6 +2088,7 @@ void setup() {
 
   loggingSerial.println(F("Settings conditionals..."));
   setupConditionals(); //setup for routines based on settings
+  ctl_firmware_setup(send_command, log_message); // control loop hook
 
   loggingSerial.println(F("Settings DNS..."));
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
@@ -2210,6 +2215,7 @@ void loop() {
 #endif
 
   mqtt_client.loop();
+  ctl_firmware_loop(mqtt_client, heishamonSettings.mqtt_topic_base, heishamonSettings.optionalPCB, heishamonSettings.listenonly); // control loop hook
 
   if (heishamonSettings.opentherm) {
     HeishaOTLoop(actData, mqtt_client, heishamonSettings.mqtt_topic_base);

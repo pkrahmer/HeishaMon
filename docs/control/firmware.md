@@ -141,3 +141,126 @@ name.
 **A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
 for an index past the end, for a buffer too small for the subtopic or the value with its
 terminating zero, and for a number the fixed format refuses: a text is never cut.
+
+## The glue
+
+`glue/ctl_firmware.cpp` is the only code of the loop that knows HeishaMon. It is Arduino C++,
+compiled only by `make firmware`; everything it decides is in the pure modules beside it, which
+the host tests cover. `glue/ctl_dispatch.h` is its pure half: which input or setting a topic is,
+and the thermostat state of the emulated frame. The glue never waits and never retries a publish
+within one call, its state is static, and it allocates nothing of its own after setup. Upstream's
+decoder (`getDataValue`) returns an Arduino `String`; that allocation is upstream's.
+
+## The hooks
+
+Six lines in upstream's `HeishaMon/HeishaMon.ino` call the glue, each ending with the comment
+`// control loop hook`, so that `grep -c "control loop hook" HeishaMon/HeishaMon.ino` gives 6 and a
+rebase onto upstream has six lines to carry:
+
+1. `#include "src/control/glue/ctl_firmware.h"`, beside the other includes of `src/`.
+2. `ctl_firmware_setup(send_command, log_message);` in `setup()`, right after
+   `setupConditionals()`. By then the file system is mounted and upstream's settings are loaded,
+   and the HTTP server and the MQTT client that `log_message` writes to exist, so the glue's
+   start-up log lines reach every place upstream's do.
+3. `ctl_firmware_loop(...)` in `loop()`, right after `mqtt_client.loop();`. Every pass of
+   upstream's loop reaches it, connected to the broker or not, so the clock is widened often and
+   the loop ticks on time; it comes after the client's own pass, so that a decision publishes on a
+   connection the client has just served. It returns at once when no tick is due.
+4. `ctl_firmware_frame(data);` right after the `decode_heatpump_data(data, ...)` of a main data
+   block, in `readSerial()`, which `readHeatpump()` calls. That is the one place a decoded main
+   frame passes, and it is not behind a test of the broker's connection, so the pump's values
+   reach the loop while the broker is down (decision F-3).
+5. `ctl_firmware_subscribe(...)` in `mqtt_reconnect()`, after upstream's subscriptions of a
+   successful connect: every new connection subscribes again to the loop's topics and publishes
+   the settings again.
+6. `if (ctl_firmware_mqtt(topic, payload, length)) return;` at the very start of
+   `mqtt_callback()`, before upstream's own guard and copies: a message of the loop's is handled
+   and never reaches upstream's parsing; every other message goes on untouched.
+
+## What reaches the pump
+
+Commands go to the pump only when four things hold:
+
+- `enabled` is 1;
+- HeishaMon's optional PCB emulation is on, since the thermostat state is a field of the frame
+  it emulates;
+- HeishaMon is not in listen-only mode, in which it sends nothing to the pump;
+- the router has a command at this decision.
+
+Otherwise the loop still decides and publishes, and `status/enabled` is `0`: it is `1` only when
+the first three hold, so that it says whether a command would reach the pump. The glue writes one
+log line on each change of the first three, at the first pass and whenever one of them changes:
+`control: commands go to the pump`, or `control: no commands to the pump:` with the first of them
+that fails (`enabled is 0`, `the optional PCB emulation is off`, `HeishaMon is in listen-only
+mode`).
+
+A command goes through upstream's `send_heatpump_command`, the path of the `commands/` topics and
+the rules engine. `SetExternalThermostat1State` writes the state into byte 6 of the emulated frame,
+`optionalPCBQuery`, which HeishaMon sends to the pump every second.
+
+**The confirmation is the emulated frame itself.** On every pass the glue reads bits 2 and 3 of
+byte 6 of `optionalPCBQuery` (`ctl_dispatch_thermostat_state`) and hands them to the router with
+`ctl_loop_confirm`: a command has landed when the frame carries its state. The state counts as
+known only while the frame goes out, with the emulation on and outside listen-only mode;
+otherwise the router repeats and then faults, as for a dropped command.
+
+**Opening the gate reopens the router, paced.** While commands cannot go out, the router steps as
+if it sent them, and may give up on a state the pump never got. When the gate opens again after
+the first pass, the glue reopens the router (`ctl_router_reopen`): it forgets what it sent and that
+it gave up, but keeps the instant of its last send. The wanted state then goes to the pump once,
+and not sooner than `min_change_interval_s` after that last send, so reopening never sends more
+often than the router's pacing allows.
+
+## The settings file
+
+The settings live in `/control.json` on the board's file system: one JSON object of names to
+text values, the names and value texts of the settings' table above.
+
+    {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
+     "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
+
+At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
+the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
+the setter's answer and skipped; the rest of the file still applies. A missing file, one that
+cannot be opened or does not hold a JSON object, and a set that ends invalid give the defaults
+for every setting, and the reason is logged.
+
+The glue writes the file whenever a setting changes over MQTT, every setting in the order of
+`ctl_settings_name_at`. It writes `/control.json.new` first and renames it over `/control.json`,
+so that a reset while writing leaves the old file. A failed write is logged; the change then
+holds until the next start.
+
+## Changing a setting over MQTT
+
+A setting changes by a message to `<base>/control/set/<name>`, its payload the value text, such as
+`panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
+`ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
+without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
+allowed demands at once, and a change of `rooms`, a room's topic or `pv_topic` unsubscribes the
+old input topics and subscribes the new ones.
+
+In every case the glue answers with the setting's current value, retained, on
+`<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
+logged with the setter's answer. A name the settings do not list (a room at or above `rooms`
+included) has no value to answer with: it is logged, and nothing is published. A payload that
+does not fit a value text, or holds a zero byte, is refused like a bad value.
+
+Only `config/<name>` of the message's own name is answered. Every other setting is published at
+the next connect, when the glue publishes every listed setting retained. So after `rooms` is
+raised, the new rooms' `config/room.<i>.*` appear only at the next connect, and after it is
+lowered, the retained `config/room.<i>.*` of the dropped rooms stay on the broker until they are
+cleared by hand.
+
+## First start on a board
+
+A board fresh from the flash, or one whose `/control.json` was lost, starts with the defaults:
+commands disabled, no rooms, no PV. It runs the loop and publishes, but sends nothing.
+
+1. Set the rooms first: `control/set/rooms`, then each `control/set/room.<i>.topic` and, where it
+   is not 1, `control/set/room.<i>.weight`; `pv_topic` if there is PV. Check every answer under
+   `control/config/`.
+2. Make sure the optional PCB emulation is on and listen-only mode is off in HeishaMon's settings.
+3. Watch `control/inputs/` until every room and the pump's values arrive, and `control/status/`
+   until the phase runs and the demands it shows make sense for the house. The log says why no
+   command goes to the pump.
+4. Only then set `control/set/enabled` to `1`, and watch `control/outputs/` and the pump.

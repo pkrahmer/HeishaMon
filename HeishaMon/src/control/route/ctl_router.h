@@ -60,6 +60,12 @@ bool ctl_router_config_valid(const ctl_router_config *config);
  * status IDLE, so that the first step sends the no-demand state at once. */
 void ctl_router_init(ctl_router *router);
 
+/* Forgets what the router sent and whether it gave up, but keeps the instant of its last send as
+ * the start of the pacing interval: the next step sends the wanted state once, and not sooner than
+ * min_change_interval_s after the last send. A router that never sent stays so and sends at once.
+ * Refuses nothing. */
+void ctl_router_reopen(ctl_router *router);
+
 /* Returns the thermostat state for a demand: 2 for HEATING, 1 for COOLING, and 0 for NONE and
  * for any value outside the enum, so that an unknown demand never heats or cools. */
 int ctl_router_state_for(ctl_demand demand);

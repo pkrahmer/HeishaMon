@@ -663,3 +663,50 @@ missing input and the same command list; two copies would drift apart.
 **Rejected.** A static copy in each module; and a test program of its own for the writer, since
 the record's and the telemetry's table tests already cover every piece through the public
 functions.
+
+## 2026-11-12: The router's confirmation is the emulated frame
+
+**Decision.** The thermostat state that confirms a command is read from the frame HeishaMon
+emulates: bits 2 and 3 of byte 6 of `optionalPCBQuery`, where `set_external_thermostat_1_state`
+writes it and from where HeishaMon sends it to the pump every second. It counts as known only
+while the frame goes out (optional PCB emulation on, not listen-only).
+**Reason.** The thermostat input is a field of the frame the board itself sends. None of the
+values upstream decodes from the pump carries it back: not the main data frame's, and not the
+pump's answer to the emulated frame (the `OPT` topics: water pumps, mixing valves, alarm), so
+there is no report of the pump's own to read it from. What the
+board sends every second is what the pump is told; a command that never reached the frame
+(`send_heatpump_command` drops optional PCB commands while the emulation is off) does not confirm,
+and the router repeats and faults as it should.
+**Rejected.** A value of the pump's own decoded frame, which does not carry the external
+thermostat state; and assuming that every command landed, which would hide a dropped command.
+
+## 2026-11-12: Opening the command gate reopens the router, paced
+
+**Decision.** When commands may reach the pump again (`enabled` set to 1, the emulation switched
+on or listen-only switched off) after the first pass, the glue reopens the router with
+`ctl_router_reopen`: it forgets the state it sent, its repeats and its fault, but keeps the
+instant of its last send as the start of the pacing interval. The wanted state goes out once,
+and not sooner than `min_change_interval_s` after that send. While the gate is shut the router
+steps as if it sent, and the telemetry shows what it would send. The owner chose this.
+**Reason.** While the gate is shut nothing confirms, so the router repeats and faults; a faulted
+router sends nothing until the demand changes, which can take hours, and the pump would stay
+without the demand the owner just enabled. Keeping the pacing means that toggling the gate never
+writes the pump's EEPROM more often than the pacing allows. The last send the router knows may be
+one that never went out; pacing from it is never sooner than from the last real one.
+**Rejected.** Starting the router fresh with `ctl_router_init`, which sends at once and skips the
+pacing on every reopening; leaving the router as it is, with the gap above; and stepping the
+router only while the gate is open, which would hide in the telemetry what the loop would send.
+
+## 2026-11-12: The settings file holds text values and is replaced whole
+
+**Decision.** `/control.json` holds JSON strings only; a number or any other JSON value is a
+refused pair, logged and skipped. The glue writes the whole file to `/control.json.new` and
+renames it over the old one. An unknown setting name over MQTT is logged and answered with
+nothing, since there is no value to echo. `status/enabled` is 1 only when commands may reach the
+pump: `enabled` 1, the emulation on, not listen-only.
+**Reason.** The setter takes text, and the getter writes every value back as text, so a file the
+board writes always reads back the same; a reset while writing leaves the old file whole.
+`config/enabled` already shows the setting; the status says what happens to the commands.
+**Rejected.** Converting JSON numbers to text, which would read back a value the getter never
+wrote; writing in place; and echoing an empty value for an unknown name, which would create a
+retained topic for a setting that does not exist.
