@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 25
 comments_read: [6839264563]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T23:45:03.021476Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -84,6 +80,12 @@ journal:
   kind: started
   at: '2026-11-12T23:45:03.021476Z'
   stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-12T23:51:43.579113Z'
+  stage: doing
+  run: d12f8729bf8b4490a6edc6c37d3e9a32
 ---
 
 # The frames from a log topic
@@ -291,3 +293,13 @@ Expect: `2`
     - tests/control/test_dispatch.c: adds test_frame_log_topic only. Earlier tests are unchanged.
     - tests/control/test_telemetry.c: the count rows (23, refused index 23, 11+3*rooms), the two inputs-table rows and the two fixture counters all changed under the leave of entry 10. Nothing else in the file changed.
 13. factory: started doing as heishamon.
+14. builder: Round 2: I fixed the two wrapping findings that the human gave the builder in entry 10. Nothing else changed.
+
+    1. docs/control/decisions.md, entry 'Frames from another HeishaMon's log': I re-wrapped the two long lines at 100 columns, without changing the words. The round-1 sentence in the Rejected paragraph ("Keeping the main data frame test in the `.cpp` …") now follows the earlier list item after a semicolon, like the other rejected options, instead of a full stop. No line of decisions.md now runs past 100 columns.
+    2. docs/control/firmware.md, section 'Frames from another HeishaMon's log': I re-flowed the paragraphs 'What the production board must have on' and 'What the spare board does' at 100 columns, without changing the words. I placed the breaks so that no code span (`<its base>/log`, `Received <n> bytes data`) is split across lines. The long lines still in firmware.md are develop's own (:229, :378 and the table rows), plus the new settings table row, which the reviewer accepted because it matches the other table rows.
+
+    Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` gives 2. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty. make check: green.
+
+    Noticed but not touched (same as before): a spare board whose frame_log_topic is its own log topic would feed its own log back into itself, and nothing guards against that. With PCB emulation on at the production board, frames_dropped grows steadily.
+
+    `check`: check: green

@@ -402,26 +402,27 @@ publishes all of them under its own `main/`. With `frame_log_topic` set, a board
 rebuilds those frames from another HeishaMon's log and decodes them as if it were wired to the
 pump.
 
-**What the production board must have on.** In its HeishaMon settings: hex dumps (*Debug
-hexdump*, or its switch in the console) and log to MQTT (*Debug log to MQTT*). Its log then reaches `<its base>/log`, one message per line, and
-every frame it receives appears as a `Received <n> bytes data` line, the frame's `data:` lines of
-up to 32 hex bytes and a checksum line. Set `frame_log_topic` on the spare board to that topic,
-such as `jeisha/log`.
+**What the production board must have on.** In its HeishaMon settings: hex dumps (*Debug hexdump*,
+or its switch in the console) and log to MQTT (*Debug log to MQTT*). Its log then reaches
+`<its base>/log`, one message per line, and every frame it receives appears as a
+`Received <n> bytes data` line, the frame's `data:` lines of up to 32 hex bytes and a checksum line.
+Set `frame_log_topic` on the spare board to that topic, such as `jeisha/log`.
 
 **The four pump topics must be empty.** While any of them is set, `ctl_firmware_frame` hands
 nothing to the loop (*Shadowing another HeishaMon*), so the frames from the log would be
 published but never reach the loop. Use one source of the pump's values or the other.
 
 **What the spare board does.** It subscribes to `frame_log_topic` and feeds each message, in the
-order it arrives, to the pure parser `ctl_framelog_line` (`HeishaMon/src/control/glue/ctl_framelog.c`).
-The parser reads the text after the first `): `, starts a frame at `Received <n> bytes data`,
-appends the bytes of each `data:` line and gives the frame when the announced count is reached and
-the sum of its bytes is 0 modulo 256, as upstream's own receive check. The board's own frames,
-logged after a `sent bytes:` line, end a frame in progress and are never taken. A main data frame,
-203 bytes with `0x71` first and `0x10` in byte 3 (`ctl_framelog_is_main_data`), goes to upstream's `decode_heatpump_data` with
-the spare board's own globals, so the spare board publishes every decoded value under its own
-`<base>/main/`, as a board on the pump does, and then to `ctl_firmware_frame`, so its loop takes
-the outdoor temperature, the produced heat, the valve and the defrost flag from it.
+order it arrives, to the pure parser `ctl_framelog_line`
+(`HeishaMon/src/control/glue/ctl_framelog.c`). The parser reads the text after the first `): `,
+starts a frame at `Received <n> bytes data`, appends the bytes of each `data:` line and gives the
+frame when the announced count is reached and the sum of its bytes is 0 modulo 256, as upstream's
+own receive check. The board's own frames, logged after a `sent bytes:` line, end a frame in
+progress and are never taken. A main data frame, 203 bytes with `0x71` first and `0x10` in byte 3
+(`ctl_framelog_is_main_data`), goes to upstream's `decode_heatpump_data` with the spare board's own
+globals, so the spare board publishes every decoded value under its own `<base>/main/`, as a board
+on the pump does, and then to `ctl_firmware_frame`, so its loop takes the outdoor temperature, the
+produced heat, the valve and the defrost flag from it.
 
 **The counters.** `control/inputs/frames_decoded` counts the main data frames handed to the
 decoder; `control/inputs/frames_dropped` counts the frames cut short (a missing line, a new
