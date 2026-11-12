@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T23:41:20.524741Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-12T23:41:14.237220Z'
   stage: doing
   run: 84f90f56c2554a95852b7d220f5d2450
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:41:20.524741Z'
+  stage: review
 ---
 
 # The frames from a log topic
@@ -188,3 +197,4 @@ Expect: `2`
    The factory left out changes outside the write paths: factory/features/F0011-frames-from-a-log/in-progress/F0011-S0001-frame-log.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
