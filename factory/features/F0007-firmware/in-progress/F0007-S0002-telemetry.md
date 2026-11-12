@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T06:15:12.446286Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T06:15:12.446286Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T06:16:31.390554Z'
+  stage: review
+  run: 348c1bef3e00484594044243824bf447
 ---
 
 # The telemetry
@@ -179,3 +181,13 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` against the story. I read the code rather than relying on the journal's account. Criteria 1 to 7 have tests. The factory's `make check` after the builder was green. The refusal paths are bounded and copy out only when both texts fit, there is no dynamic memory, and every array index is capped by `room_count` ≤ CTL_ROOMS_MAX.
+
+   Findings:
+
+   1. `HeishaMon/src/control/glue/ctl_telemetry.c:28-141`: `text_writer`, `put_text`, `put_bounded`, `put_number`, `put_input`, `put_commands` and `router_status_name` are second copies of the static helpers in `HeishaMon/src/control/loop/ctl_loop.c:197-300`. The checklist does not allow a second copy of an existing helper, and the builder flagged only `router_status_name`. Fix: move the text writer (start, put text, bounded put, number) into one shared module, for example `loop/ctl_text.h/.c` with `ctl_`-prefixed names. Make the router's status name public in `route/` as `ctl_router_status_name`. Then use both from `ctl_loop.c` and `ctl_telemetry.c`.
+   2. `tests/control/test_loop.c:442-444`: the "after the first send" half of `test_record_sent_state` checks only `sent_state == 0`. It does not show that a send happened, and 0 is also what a zeroed field holds. Fix: also check that `record.commands` holds `SetExternalThermostat1State` with value `"0"`, so the check witnesses "the state after it". Alternatively, drive a send of a non-zero state.
+   3. `tests/control/test_telemetry.c` (`test_longest_subtopic_fits`, `test_refusals`): `ctl_telemetry.h:29` states two count rules that are each tested on only one side. The CTL_ROOMS_MAX cap is tested at a count of 16 but not above it. "0 for a group that is no member" is never checked through `ctl_telemetry_count`; only the entry's refusal for group 3 is tested. Fix: add a check that `rooms_config.count = CTL_ROOMS_MAX + 1` gives 9 + 3 × CTL_ROOMS_MAX inputs, and a check that `ctl_telemetry_count(&f.source, (ctl_group)3)` is 0.
+
+   Earlier tests:
+   - `tests/control/test_loop.c` (M): changed by the story's own leave, which says the owner allows one added row. It adds one test, `test_record_sent_state`, and its call in `main`; every earlier test is unchanged.
