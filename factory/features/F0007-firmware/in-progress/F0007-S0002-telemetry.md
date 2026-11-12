@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T06:30:03.964315Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -78,6 +74,12 @@ journal:
   kind: started
   at: '2026-11-12T06:30:03.964315Z'
   stage: review
+- number: 13
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T06:30:53.376482Z'
+  stage: review
+  run: d19ca0292533437e923bb345dde7dee8
 ---
 
 # The telemetry
@@ -293,3 +295,37 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     `check`: check: green
 12. factory: started review as heishamon.
+13. reviewer: Round 2 review. I read `git diff develop...HEAD` against the story and checked the round-1 fix in the code.
+
+    The round-1 finding is fixed. In `HeishaMon/src/control/route/ctl_router.c`, `ctl_router_status_name` now comes before the comment that belongs to `add_command`, so that comment is directly above `add_command` again.
+
+    I went through the whole checklist again:
+    - **Acceptance criteria:** criteria 1 to 7 each have a test that checks what the criterion says.
+      - Counts: 21/10/3 with 4 rooms.
+      - One table test per group: substituted is `P_SOLAR,P_INTERNAL`, unhealthy is `-`, two rooms are fresh, one is stale and one has no value.
+      - Without inputs: `-` for the five inputs and for `p_net_w`.
+      - `outputs/thermostat_state`: `-` before the first send, `2` after; the two commands are listed.
+      - Settings: index 0, the last index, and last+1 refused.
+      - `sent_state` in the loop's record: -1 with no send, 0 after a witnessed send.
+      - Interface rules tested on both sides:
+        - buffer sizes at exact fit and at one byte short, for entries and for settings;
+        - an index past the end in every group;
+        - the room-count cap at CTL_ROOMS_MAX and at CTL_ROOMS_MAX + 1;
+        - a group outside the enum, through both count and entry;
+        - a number the fixed format refuses.
+      - The journal records a green `make check`.
+    - **Architecture:** every change stays in `HeishaMon/src/control/`, `tests/control/` and `docs/control/`. Every new public name has the `ctl_`/`CTL_` prefix, and helpers are `static`. The new `.c` files are pure C99 and include only headers of the control code and the standard library. No core header gains an include.
+    - **Embedded safety:** there is no dynamic memory, no recursion and no variable-length array, and every loop is bounded.
+      - Room indexes are below `room_count()` ≤ CTL_ROOMS_MAX, which matches the size of `weight`, `has_value` and `value_c` in `ctl_rooms.h`.
+      - Commands are bounded by CTL_ROUTER_COMMANDS_MAX, and each field by its array size.
+      - Every buffer is written with its size, and a size of 0 is never written.
+      - A refusal writes nothing, because `deliver` copies only after both lengths are checked.
+    - **Quality:** the shared `ctl_text` writer and `ctl_router_status_name` replace the earlier copies. No dead code is left, and the comments say why.
+    - **Work item hygiene:** the journal and `docs/control/decisions.md` record the open choices and what was rejected. Those choices are the refusal of an unformattable number, `-` for a negative sent state, and the shared writer. I checked these doc claims against the code:
+      - in `docs/control/firmware.md`: the three tables, the `config/` order (as `ctl_settings_name_at` gives it), the enum names (`ctl_types.c`) and the prefix `<mqtt_topic_base>/control/`;
+      - in `docs/control/loop.md`: the `sent_state` field (-1 until the first send, as in `ctl_router.h:33`).
+
+    No findings.
+
+    Earlier tests:
+    - `tests/control/test_loop.c` (M): changed under the story's own leave ("Its test in `tests/control/test_loop.c` gains one row by the same leave"). The change only adds `test_record_sent_state` and its call in `main`; every earlier test is unchanged.
