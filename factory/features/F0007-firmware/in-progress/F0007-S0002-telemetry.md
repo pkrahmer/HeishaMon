@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T06:23:49.397820Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-12T06:23:49.397820Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T06:24:41.566692Z'
+  stage: review
+  run: 29fd212c296f4cecb6b1b84b86a944a9
 ---
 
 # The telemetry
@@ -241,3 +243,22 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review. I read `git diff develop...HEAD` against the story and checked the round-0 fixes in the code.
+
+   The three earlier findings are fixed:
+   - `ctl_text` and `ctl_router_status_name` are now shared by `ctl_loop.c` and `ctl_telemetry.c`, and the static copies are gone.
+   - `test_record_sent_state` now shows that a send happened.
+   - The room-count cap and the count for a group outside the enum are each tested on both sides.
+
+   The rest of the checklist:
+   - **Criteria:** criteria 1 to 7 each have a test that checks what the criterion says. The refusal sizes are tested at exact fit and at one byte short, for entries and for settings. The journal records a green `make check`.
+   - **Architecture:** every change stays inside the fork's folders, every new public name has the `ctl_` prefix, and the `.c` files are pure C99.
+   - **Embedded safety:** there is no dynamic memory or recursion. Every array index is bounded by `room_count` ≤ CTL_ROOMS_MAX or by CTL_ROUTER_COMMANDS_MAX. Every buffer is written with its size, and the writer never writes to a buffer of size 0.
+   - **Docs:** I checked the doc claims (enum names, the order of the settings table, `sent_state`, the prefix) against the code.
+
+   Findings:
+
+   1. `HeishaMon/src/control/route/ctl_router.c:65-66`: the new `ctl_router_status_name` was inserted below the comment that belongs to `add_command`. That comment is about the name being a literal shorter than the field, the value being one digit, and the array being bounded by its own size. It now sits above the status-name function, which it does not describe, and `add_command` has lost its comment. Fix: move `ctl_router_status_name` above that comment, or below `add_command`, so the comment sits directly above `add_command` again.
+
+   Earlier tests:
+   - `tests/control/test_loop.c` (M): changed under the story's leave ("Its test in `tests/control/test_loop.c` gains one row by the same leave"). It only adds `test_record_sent_state` and its call in `main`. Every earlier test is unchanged.
