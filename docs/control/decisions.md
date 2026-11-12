@@ -680,17 +680,22 @@ and the router repeats and faults as it should.
 **Rejected.** A value of the pump's own decoded frame, which does not carry the external
 thermostat state; and assuming that every command landed, which would hide a dropped command.
 
-## 2026-11-12: Opening the command gate starts the router fresh
+## 2026-11-12: Opening the command gate reopens the router, paced
 
 **Decision.** When commands may reach the pump again (`enabled` set to 1, the emulation switched
-on or listen-only switched off) after the first pass, the glue starts the router fresh, so that
-the next decision sends the wanted state once. While the gate is shut the router steps as if it
-sent, and the telemetry shows what it would send.
+on or listen-only switched off) after the first pass, the glue reopens the router with
+`ctl_router_reopen`: it forgets the state it sent, its repeats and its fault, but keeps the
+instant of its last send as the start of the pacing interval. The wanted state goes out once,
+and not sooner than `min_change_interval_s` after that send. While the gate is shut the router
+steps as if it sent, and the telemetry shows what it would send. The owner chose this.
 **Reason.** While the gate is shut nothing confirms, so the router repeats and faults; a faulted
 router sends nothing until the demand changes, which can take hours, and the pump would stay
-without the demand the owner just enabled. A fresh router sends at once, as at a boot.
-**Rejected.** Leaving the router as it is, with the gap above; and stepping the router only while
-the gate is open, which would hide in the telemetry what the loop would send.
+without the demand the owner just enabled. Keeping the pacing means that toggling the gate never
+writes the pump's EEPROM more often than the pacing allows. The last send the router knows may be
+one that never went out; pacing from it is never sooner than from the last real one.
+**Rejected.** Starting the router fresh with `ctl_router_init`, which sends at once and skips the
+pacing on every reopening; leaving the router as it is, with the gap above; and stepping the
+router only while the gate is open, which would hide in the telemetry what the loop would send.
 
 ## 2026-11-12: The settings file holds text values and is replaced whole
 

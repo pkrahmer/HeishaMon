@@ -50,6 +50,18 @@ void ctl_router_init(ctl_router *router)
     router->status = CTL_ROUTER_IDLE;
 }
 
+/* The last send may be one the router only believed it made; pacing from it is never sooner than
+ * from the last send that really went out, which came no later. */
+void ctl_router_reopen(ctl_router *router)
+{
+    const bool has_sent = router->has_sent;
+    const double last_send = router->sent_at;
+    ctl_router_init(router);
+    router->has_sent = has_sent;
+    router->sent_at = last_send;
+    router->changed_at = last_send;
+}
+
 int ctl_router_state_for(ctl_demand demand)
 {
     switch (demand) {

@@ -359,14 +359,14 @@ static const char *gate_text(gate reason)
 }
 
 // While the gate was shut the router went on as if it sent, and may have given up on a state
-// the pump never got; a fresh router sends the wanted state once at the next decision.
+// the pump never got; reopened, it sends the wanted state once, still paced from its last send.
 static void watch_gate(gate current)
 {
     if (current == last_gate) {
         return;
     }
     if (current == GATE_OPEN && last_gate != GATE_UNKNOWN) {
-        ctl_router_init(&loop_state.router);
+        ctl_router_reopen(&loop_state.router);
     }
     last_gate = current;
     log_text("control: %s", gate_text(current));

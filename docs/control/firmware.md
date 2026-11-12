@@ -204,10 +204,12 @@ byte 6 of `optionalPCBQuery` (`ctl_dispatch_thermostat_state`) and hands them to
 known only while the frame goes out, with the emulation on and outside listen-only mode;
 otherwise the router repeats and then faults, as for a dropped command.
 
-**Opening the gate starts the router fresh.** While commands cannot go out, the router steps as if
-it sent them, and may give up on a state the pump never got. When the gate opens again after the
-first pass, the glue starts the router fresh (`ctl_router_init`), so that the next decision sends
-the wanted state once.
+**Opening the gate reopens the router, paced.** While commands cannot go out, the router steps as
+if it sent them, and may give up on a state the pump never got. When the gate opens again after
+the first pass, the glue reopens the router (`ctl_router_reopen`): it forgets what it sent and that
+it gave up, but keeps the instant of its last send. The wanted state then goes to the pump once,
+and not sooner than `min_change_interval_s` after that last send, so reopening never sends more
+often than the router's pacing allows.
 
 ## The settings file
 
