@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 25
 comments_read: [6839264563]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T23:51:51.806370Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -86,6 +90,11 @@ journal:
   at: '2026-11-12T23:51:43.579113Z'
   stage: doing
   run: d12f8729bf8b4490a6edc6c37d3e9a32
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:51:51.806370Z'
+  stage: review
 ---
 
 # The frames from a log topic
@@ -303,3 +312,4 @@ Expect: `2`
     Noticed but not touched (same as before): a spare board whose frame_log_topic is its own log topic would feed its own log back into itself, and nothing guards against that. With PCB emulation on at the production board, frames_dropped grows steadily.
 
     `check`: check: green
+15. factory: started review as heishamon.
