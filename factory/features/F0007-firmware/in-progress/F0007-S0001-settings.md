@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T05:40:41.904990Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T05:40:41.904990Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T05:43:03.890249Z'
+  stage: review
+  run: 5e0fd0dcba49496caf27d686f4ab9e58
 ---
 
 # The settings
@@ -206,3 +208,13 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` (glue/ctl_settings.h/.c, test_settings.c, firmware.md, decisions.md) against the story, and checked it against ctl_config.c, ctl_rooms.c, ctl_router.c, ctl_payload.h and ctl_format.h. The code matches the Interface. Bounds, buffer sizes and the copy-then-validate setter hold. The diff touches nothing outside the fork's folders. The factory's `make check` after the builder was green. Earlier tests: none, because the diff only adds `tests/control/test_settings.c`.
+
+   Findings:
+   1. `tests/control/test_settings.c` test_rooms, `CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", NULL, 0))`: the getter returns false for a NULL buffer whatever the name. So the Interface rule "a lower count keeps the topics and weights above it unlisted" has no real test for its unlisted side. Fix: pass a real buffer, and also check that `ctl_settings_name_count` is 18 and that `room.1.topic` gives UNKNOWN from the setter after `rooms 1`.
+   2. `tests/control/test_settings.c` test_numbers: only the upper limit of `rooms` (0 to 16) is tested, with 16 and 17. Setting 0 from a non-zero count is never tested as accepted, and `-1` is never tested as BAD_VALUE. Fix: add the row `{"rooms", "0", "-1", CTL_SETTING_BAD_VALUE}`.
+   3. Work item `## Description`, *The values*: the builder added a rule that a number must have a magnitude below 1e12 and at most 3 decimals, or it is BAD_VALUE (`parse_number` in `ctl_settings.c`; recorded in decisions.md and firmware.md). The Description does not state it, so it no longer says what the setter accepts. Fix: add the rule to the Description's list of values.
+   4. `tests/control/test_settings.c` test_unparsed_numbers: the 1e12 limit is tested only on its refused side (`1e12`). Fix: add an accepted row just below the limit, e.g. `hysteresis_wh 999999999999`, and check that the getter writes it back unchanged.
+   5. `docs/control/firmware.md`, the paragraph "A refused change keeps the old value": it says "A rule the core, the rooms or the router check is checked only there". That is false: the setter's `number_in_rule` in `ctl_settings.c` also checks the room weight (`CTL_BOUND_WEIGHT`) and `room_timeout_s > 0`, which `ctl_rooms_config_valid` checks too. The comment on `number_in_rule`, "so that each rule lives in one place", makes the same false claim. Fix: reword both to say the setter checks each row's own rule, as the story's table gives it (weight, timeout, `trim_limit_k` > 0, the ranges, topics), and leaves the remaining rules to the core, the rooms and the router.
+
+   Not raised: the setter's ~1.9 KB stack copy, which the story's copy-then-validate rule requires and which the builder flagged for the glue story. The const cast in `write_value`, which has a comment on it.
