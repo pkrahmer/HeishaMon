@@ -1,17 +1,13 @@
 ---
 stage: review
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T05:46:08.404126Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,13 @@ journal:
   kind: started
   at: '2026-11-12T05:46:08.404126Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: question
+  at: '2026-11-12T05:46:56.167659Z'
+  stage: review
+  run: 4b341ecd31a943a6a7613b6b408e0201
+  blocked: question
 ---
 
 # The settings
@@ -257,3 +260,27 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD` (glue/ctl_settings.h/.c, tests/control/test_settings.c, docs/control/firmware.md, docs/control/decisions.md), checked against ctl_loop.h, ctl_rooms.h/.c, ctl_router.h, ctl_format.h and ctl_payload.h.
+
+   Round 0 findings 1, 2, 4 and 5 are fixed in the code, tests and docs:
+   - test_rooms now passes a real buffer, checks a name count of 18 and checks UNKNOWN for `room.1.topic` after `rooms 1`.
+   - test_numbers has the row `rooms 0 / -1`.
+   - test_largest_number covers the accepted side of the 1e12 limit.
+   - firmware.md and the comment on `number_in_rule` no longer say that each rule lives in one place.
+
+   I found nothing new in the code under acceptance criteria, architecture, embedded safety or quality:
+   - Every criterion has a test, and every stated limit is tested on both sides.
+   - No dynamic memory is used, every loop is bounded and every buffer is written with its size.
+   - The factory's `make check` after the builder was green.
+   - Earlier tests: none. Every file the diff touches is new (status A).
+
+   Round 0 finding 3 is still open, and the builder cannot fix it. The builder wrote the number rule into the Description. The factory dropped that edit because the work item is outside the builder's write paths (journal entry 7). The Description's *The values* list still lacks the setter's rule: a number must have a magnitude below 1e12 and at most 3 decimals, or it is `BAD_VALUE`. That rule is in `parse_number` in `HeishaMon/src/control/glue/ctl_settings.c`, in decisions.md and in firmware.md. Under R13 it also goes beyond what the story asked for, so it needs your word.
+
+   A smaller mismatch from the story's own table: the row `room.<i>.weight` gives the default text as `1.0`. The getter writes `1`, as criterion 5's test expects. firmware.md copies the table, so it shows `1.0` too.
+
+   Question: how should the Description and the code agree?
+   - (a) Accept the rule. The reviewer adds one line to *The values* in the Description: "A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set." The reviewer also changes the weight default in the Description's table to `1`. The builder then changes the same cell in `docs/control/firmware.md`. If no other code changes are needed, the reviewer approves.
+   - (b) Reject the rule. The builder removes the decimals and round-trip check from `parse_number` and drops the matching test rows (`0.0004`, `1e12`, `999999999999`) and decision entries. The getter's 3-decimal formatting would then silently round some saved values at the next boot.
+   - (c) You edit the Description yourself, and the work item goes back to review.
+
+   I would choose (a). The rule keeps the settings file honest across a reboot, and the builder has already recorded it in decisions.md with the rejected alternative.
