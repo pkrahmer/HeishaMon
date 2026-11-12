@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T05:55:27.608045Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -63,6 +67,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-12T05:55:25.254825Z'
+  stage: review
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:55:27.608045Z'
   stage: review
 ---
 
@@ -293,3 +302,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
+11. factory: started review as heishamon.
