@@ -1,17 +1,13 @@
 ---
 stage: review
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T23:41:20.524741Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,13 @@ journal:
   kind: started
   at: '2026-11-12T23:41:20.524741Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: question
+  at: '2026-11-12T23:42:29.700477Z'
+  stage: review
+  run: 1414d235b7764e4face0732fff41a3d9
+  blocked: question
 ---
 
 # The frames from a log topic
@@ -198,3 +201,34 @@ Expect: `2`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review. The code fixes for the four findings of entry 5 are in: received_one row "NFND", ctl_framelog_is_main_data with test_main_data, headers re-wrapped. But finding 3 of entry 5 cannot be closed by the builder, so I am asking instead of sending the item back.
+
+   Question: the `## Description` in the committed work item is still the original. The builder rewrote it, but the builder's write paths do not include the work item, so the factory dropped the change (entry 7, last line). Sending the item back to doing would only repeat that. Three points in the Description do not match what was built:
+   - (a) The Interface's file list leaves out ctl_telemetry.h/.c, ctl_firmware.h and tests/control/data/framelog_sample.txt.
+   - (b) The header sketch and the 'A complete frame' bullet do not name CTL_FRAMELOG_MAIN_LENGTH or ctl_framelog_is_main_data.
+   - (c) The leave for test_telemetry.c covers only "the rows that state the inputs count". The diff also adds the rows inputs/frames_decoded "42" and inputs/frames_dropped "3" to the inputs table in test_entries, and sets the two counters in set_fixture.
+
+   Options:
+   1. You rewrite the Description yourself, and give your word on the wider test_telemetry.c leave in (c).
+   2. You tell me to make exactly that rewrite in the work item (my write paths include it), with your leave for (c) stated.
+   3. You accept the Description as it is, knowingly.
+
+   I would choose 2. (c) extends a test leave, which only you can grant, so I have not edited the Description on my own.
+
+   Findings, for the builder's next round whatever the answer:
+   1. docs/control/decisions.md:806 (151 chars) and :816 (166 chars): text added in round 1 was appended without re-wrapping, and no line of decisions.md on develop runs past 100 columns. Fix: re-wrap the entry 'Frames from another HeishaMon's log' at 100 columns.
+   2. docs/control/firmware.md:406 (143), :416 (103), :421 (126): new prose lines in the section 'Frames from another HeishaMon's log' run past 100 columns. Develop's only long prose lines are :229 and :378. Fix: re-wrap the three lines at 100 columns.
+
+   Checked with no finding:
+   - Criteria 1–4 each have a test that bites. The limits are tested on both sides: Received 0/1 and 256/257/300; bytes beyond the count; a malformed byte and a missing space; a line without the stamp; checksum true and false; main-data true and the short, other-header, other-type and NULL cases.
+   - Dispatch order is tested against rooms, PV and defrost.
+   - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+   - make check was green after the builder (entry 7).
+   - Architecture: ctl_framelog.c is pure C99 and its helpers are static. Upstream headers and globals are used only from ctl_firmware.cpp, and their extern declarations match HeishaMon.ino and decode.h.
+   - Embedded safety: frame writes are bounded by expected <= CTL_FRAMELOG_MAX, and the count parse is capped at 4 digits. decode_heatpump_data copies DATASIZE (203) bytes from the 256-byte frame. The payload is fully consumed before any publish reuses the client's buffer.
+   - The firmware.md and decisions.md claims match the code: the counters, the reset on a topic move, the sent mark anywhere in the line, and pump_from_mqtt not counting frame_log_topic.
+
+   Earlier tests (status M):
+   - tests/control/test_settings.c: the name-count/index rows changed under the story's leave; test_frame_log_topic and the defaults row are additions.
+   - tests/control/test_dispatch.c: adds test_frame_log_topic only, and the earlier tests are unchanged.
+   - tests/control/test_telemetry.c: the count rows changed under the story's leave. The two inputs-table rows and the fixture counters are the subject of question (c).
