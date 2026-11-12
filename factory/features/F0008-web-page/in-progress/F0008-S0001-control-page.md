@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 3
 attempts: 0
 crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T07:48:02.654618Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -89,6 +85,13 @@ journal:
   kind: started
   at: '2026-11-12T07:48:02.654618Z'
   stage: doing
+- number: 15
+  speaker: builder
+  kind: question
+  at: '2026-11-12T07:52:36.581727Z'
+  stage: doing
+  run: 60a2dde39c634cf584c83d5ac4e1bdea
+  blocked: question
 ---
 
 # The control page
@@ -309,3 +312,23 @@ Expect: `2`
 
     Earlier tests: none changed. `git diff --name-status develop...HEAD -- tests` shows only `A tests/control/test_html.c`.
 14. factory: started doing as heishamon.
+15. builder: Round 3: I fixed finding 1. Finding 2 is a question for the human, as the reviewer asked, so I am stopping here and not handing forward.
+
+    Fixed (finding 1, wrapping):
+    - `docs/control/firmware.md`: I rewrapped the *Saving* paragraph of *The control page* to 100 columns. The 144-column line is gone. Lines 103, 133 and 134 of that file are still over 100, but they are table rows from an earlier story and are not in this story's diff, so I left them.
+    - `HeishaMon/src/control/glue/ctl_web.cpp`: I broke the `<h1>` of `PAGE_TOP` before "Control loop". This replaces a space with a newline inside HTML text, so the page renders the same. I also broke the `ctl_telemetry_entry` call in `telemetry_row`. No line in the story's code, tests or docs now runs past 100 columns.
+
+    Checks: `make check` is green (lint, test, device, firmware, `check: green`). Smoke test: `grep -c "control loop hook" HeishaMon/HeishaMon.ino` gives `8`, and `make firmware | grep -c -E '^(esp8266|esp32):'` gives `2`. Among upstream's files, the diff stat still shows only `HeishaMon.ino` +2 and `htmlcode.h` +1.
+
+    Question for the human (finding 2, raised in all three reviews): none of `ctl_web`'s rules has an acceptance criterion or a host test. Those rules are:
+    - every other URI passes through untouched;
+    - settings apply in `ctl_settings_name_at` order, `rooms` first;
+    - the page reports what was accepted and refused, including the empty-save line;
+    - the save buffer is freed at write step 0;
+    - a long value that arrives in pieces is joined, and refused whole if too long.
+
+    All of this lives in `HeishaMon/src/control/glue/ctl_web.cpp`, which only `make firmware` compiles. The leak in round 1 and the fragment corruption in round 2 both got through because nothing tests this code. Options:
+    - (a) Add a criterion: move the collect, join, order and report logic into a new pure C module, for example `HeishaMon/src/control/glue/ctl_form.h`/`ctl_form.c`, with a host test `tests/control/test_form.c`. `ctl_web.cpp` would keep only the upstream steps (routes, chunks, redirect) and call that module. The Interface would list the new files and functions. The firmware behaviour stays the same; only the place where the logic lives moves.
+    - (b) Accept the gap. The Description would say that `ctl_web`'s rules are checked only by compiling and by reading the code.
+
+    I would choose (a): it is the only way the next change to the save logic gets tested before it reaches a board. If you choose (a), please name the new files, or let me name them, and I will add them to the Interface and as a criterion before the two closing ones.

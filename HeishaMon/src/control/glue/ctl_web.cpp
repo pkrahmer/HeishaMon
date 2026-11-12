@@ -176,7 +176,8 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 <main class='main-content'>
-<h1 style='color:var(--accent);margin-bottom:16px'><span aria-hidden='true'>&#9832;</span> Control loop</h1>
+<h1 style='color:var(--accent);margin-bottom:16px'><span aria-hidden='true'>&#9832;</span>
+Control loop</h1>
 )====";
 
 typedef enum {
@@ -285,7 +286,8 @@ static bool telemetry_row(const ctl_telemetry_source *source, ctl_group group, s
     char subtopic[CTL_TELEMETRY_SUBTOPIC_MAX];
     char value[CTL_SETTINGS_VALUE_MAX];
     out[0] = '\0';
-    if (!ctl_telemetry_entry(source, group, index, subtopic, sizeof subtopic, value, sizeof value)) {
+    if (!ctl_telemetry_entry(source, group, index, subtopic, sizeof subtopic,
+                             value, sizeof value)) {
         return true;
     }
     return ctl_html_row(subtopic, value, out, size)

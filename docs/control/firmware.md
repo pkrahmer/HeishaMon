@@ -278,15 +278,15 @@ list does not hold (a room at or above the count) is ignored. Upstream's web ser
 body through a small buffer (128 bytes on the ESP8266) and hands a longer field over in pieces,
 one step each under the same name; the page joins the pieces again, so a long topic, whose every
 `/` the browser sends as `%2F`, arrives whole. A field whose joined value is too long for any
-setting, or holds a zero byte, is refused whole and never cut. When any value changed, the glue writes `/control.json` as above, and applies the
-settings as a setting topic does: from the next tick, without restarting the loop; a change of
-`cooling` sets the allowed demands at once with `ctl_set_allowed`. Since the form holds every
-topic, a save unsubscribes the input topics before it applies and subscribes the current ones
-after, and when anything changed it publishes every setting again under `control/config/`. The
-answer redirects to `/control`, which then lists every name the setter accepted as *accepted*,
-the value it already had included, and every name the setter refused as *refused*; a refusal is
-also logged with the setter's answer, and the refused setting keeps its old value. A save that
-only repeats the current values writes no file.
+setting, or holds a zero byte, is refused whole and never cut. When any value changed, the glue
+writes `/control.json` as above, and applies the settings as a setting topic does: from the next
+tick, without restarting the loop; a change of `cooling` sets the allowed demands at once with
+`ctl_set_allowed`. Since the form holds every topic, a save unsubscribes the input topics before
+it applies and subscribes the current ones after, and when anything changed it publishes every
+setting again under `control/config/`. The answer redirects to `/control`, which then lists every
+name the setter accepted as *accepted*, the value it already had included, and every name the
+setter refused as *refused*; a refusal is also logged with the setter's answer, and the refused
+setting keeps its old value. A save that only repeats the current values writes no file.
 
 **Adding rooms.** The form shows the fields of the rooms below the current count only. To add
 rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
