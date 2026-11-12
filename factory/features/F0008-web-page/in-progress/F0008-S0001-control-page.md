@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T07:46:32.805123Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -69,6 +73,11 @@ journal:
   at: '2026-11-12T07:46:26.787710Z'
   stage: doing
   run: 2fe35622b3494e37a82daa14b5068127
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:46:32.805123Z'
+  stage: review
 ---
 
 # The control page
@@ -262,3 +271,4 @@ Expect: `2`
     `check`: check: green
 
     `check`: check: green
+12. factory: started review as heishamon.
