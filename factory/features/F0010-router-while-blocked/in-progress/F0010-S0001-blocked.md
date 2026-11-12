@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T22:52:33.252992Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-12T22:52:33.246736Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-12T22:52:33.252992Z'
+  stage: doing
+---
+
 # Assumed landing and the reason while blocked
 
 ## Description
@@ -54,3 +81,6 @@ make firmware | grep -c -E '^(esp8266|esp32):'
 Expect: `2`
 
 ## Journal
+
+1. 2026-11-12 human: created.
+2. factory: started doing as heishamon.
