@@ -478,27 +478,45 @@ static ctl_loop_record record_without_inputs(void)
     return record;
 }
 
-/* The widest record the documented ranges allow: an instant below 1e8 s, the other powers and
- * the energy below 1e7 in magnitude, temperatures within the adapters' bounds, sixteen rooms of
- * the heaviest weight and the longest names of every enum. */
-static ctl_loop_record widest_record(void)
+/* The longest record the formatter writes: every number just below the fixed format's limit and
+ * rounding up to thirteen digits, negative where its type allows, the longest name of every enum
+ * and status, and both commands filling their fields without a terminator. */
+static ctl_loop_record longest_record(void)
 {
     ctl_loop_record record = record_with_inputs();
-    record.t = 99999999.9;
+    size_t i;
+    record.t = -999999999999.96;
     record.decision.demand = CTL_DEMAND_NONE;
     record.decision.reason = CTL_REASON_WAITING_FOR_INPUTS;
     record.decision.phase = CTL_PHASE_UNINITIALIZED;
-    record.decision.energy_wh = -9999999.9;
-    record.decision.balance.p_net_w = -9999999.0;
-    record.decision.inputs.t_indoor_c = -60.0;
-    record.decision.inputs.t_outdoor_c = -60.0;
-    record.decision.inputs.p_produced_w = 9999999.0;
-    record.decision.inputs.p_solar_w = 9999999.0;
-    record.rooms.fresh_count = 16;
-    record.rooms.fresh_weight = 16000.0;
-    record.rooms.total_weight = 16000.0;
+    record.decision.energy_wh = -999999999999.96;
+    record.decision.balance.p_net_w = -999999999999.6;
+    record.decision.inputs.t_indoor_c = -999999999999.996;
+    record.decision.inputs.t_outdoor_c = -999999999999.996;
+    record.decision.inputs.p_produced_w = -999999999999.6;
+    record.decision.inputs.p_solar_w = -999999999999.6;
+    record.rooms.fresh_count = 999999999999u;
+    record.rooms.fresh_weight = -999999999999.96;
+    record.rooms.total_weight = -999999999999.96;
+    record.router_status = CTL_ROUTER_WAITING;
+    record.commands.count = CTL_ROUTER_COMMANDS_MAX;
+    for (i = 0; i < CTL_ROUTER_COMMANDS_MAX; i++) {
+        memset(record.commands.command[i].name, 'N', CTL_ROUTER_NAME_MAX);
+        memset(record.commands.command[i].value, '9', CTL_ROUTER_VALUE_MAX);
+    }
     return record;
 }
+
+#define LONGEST_NUMBER_1 "-1000000000000.0"
+#define LONGEST_NUMBER_2 "-1000000000000.00"
+#define LONGEST_NUMBER_0 "-1000000000000"
+#define LONGEST_COMMAND "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN:9999"
+#define LONGEST_TEXT                                                                              \
+    "t=" LONGEST_NUMBER_1 " demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED"       \
+    " E=" LONGEST_NUMBER_1 " pnet=" LONGEST_NUMBER_0 " indoor=" LONGEST_NUMBER_2                  \
+    " outdoor=" LONGEST_NUMBER_2 " produced=" LONGEST_NUMBER_0 " solar=" LONGEST_NUMBER_0         \
+    " rooms=999999999999:" LONGEST_NUMBER_1 "/" LONGEST_NUMBER_1 " router=WAITING"                \
+    " cmd=" LONGEST_COMMAND "," LONGEST_COMMAND
 
 typedef struct {
     ctl_loop_record record;
@@ -519,7 +537,7 @@ static void check_text_row(const char *file, int line, const text_row *row)
 
 static void test_record_text(void)
 {
-    text_row rows[2];
+    text_row rows[3];
     size_t i;
     rows[0].record = record_with_inputs();
     rows[0].expected = "t=600.0 demand=HEATING reason=NORMAL phase=RUNNING E=-1523.4 pnet=-2735 "
@@ -529,6 +547,8 @@ static void test_record_text(void)
     rows[1].expected = "t=60.0 demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED "
                        "E=0.0 pnet=- indoor=- outdoor=- produced=- solar=- rooms=1:1.0/4.0 "
                        "router=IDLE cmd=-";
+    rows[2].record = longest_record();
+    rows[2].expected = LONGEST_TEXT;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_text_row(__FILE__, __LINE__, &rows[i]);
     }
@@ -546,11 +566,11 @@ static void test_record_with_unwritable_number(void)
     CHECK_TEXT(text, "");
 }
 
-static void test_widest_record_fits(void)
+/* The constant is exactly the longest record's text and its terminating zero, so it holds every
+ * record without wasting a byte. */
+static void test_text_max_is_the_longest_record(void)
 {
-    const ctl_loop_record record = widest_record();
-    char text[CTL_LOOP_TEXT_MAX];
-    CHECK_TRUE(ctl_loop_format_record(&record, text, sizeof text));
+    CHECK_UINT((uint32_t)CTL_LOOP_TEXT_MAX, (uint32_t)(sizeof LONGEST_TEXT));
 }
 
 static void test_record_of_a_tick_fits(void)
@@ -580,7 +600,7 @@ int main(void)
     test_router();
     test_record_text();
     test_record_with_unwritable_number();
-    test_widest_record_fits();
+    test_text_max_is_the_longest_record();
     test_record_of_a_tick_fits();
     return check_result();
 }

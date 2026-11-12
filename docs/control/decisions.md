@@ -541,9 +541,16 @@ answering `NO_READING` for both, which would hide a broken source.
 
 **Decision.** `ctl_loop_format_record` writes into the caller's buffer and returns false with an
 empty text when the line does not fit, or when a number is beyond what `ctl_format_fixed` writes.
-`CTL_LOOP_TEXT_MAX` (256) holds every record whose instant is below 1e8 s, whose energy and
-powers are below 1e7 in magnitude and whose temperatures lie within the adapters' bounds.
-**Reason.** The fields' widths are unbounded in principle (an instant, a configured hysteresis), so
-no fixed size holds every record anyone can build; a cut line would look whole in a log.
-**Rejected.** Cutting the line at the buffer's end; and a size for the worst case of every field,
-over 300 bytes, for values no board reaches.
+**Reason.** A cut line would look whole in a log.
+**Rejected.** Cutting the line at the buffer's end.
+
+## 2026-11-12: The record's buffer holds the longest record
+
+**Decision.** `CTL_LOOP_TEXT_MAX` is 365: the longest line `ctl_loop_format_record` can write
+(every number just below 1e12 and rounding up to thirteen digits with a sign, the longest enum
+names, both commands filling `CTL_ROUTER_NAME_MAX` and `CTL_ROUTER_VALUE_MAX`) and its terminating
+zero. A test builds that record and checks the constant equals its length plus one.
+**Reason.** The human chose a size that holds every record without conditions; the cost is about
+100 bytes more than 256.
+**Rejected.** Keeping 256 and documenting the ranges it holds (instant below 1e8 s, energy and
+powers below 1e7), which made "enough for every record" true only under conditions.

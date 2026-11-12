@@ -89,10 +89,11 @@ rounds to zero, `nan`, `inf` and `-inf` for the values that are no number, and a
 magnitude of 1e12 or more.
 
 A record that does not fit the buffer, or that holds a number the fixed format refuses, is
-refused whole, never cut: the function returns false and leaves an empty text. `CTL_LOOP_TEXT_MAX` (256 bytes) holds every record whose instant is
-below 1e8 s (more than three years of uptime), whose energy and powers are below 1e7 in
-magnitude, and whose temperatures lie within the adapters' bounds; with the defaults the energy
-stays within 3000 Wh and the powers within tens of kW, far inside that.
+refused whole, never cut: the function returns false and leaves an empty text.
+`CTL_LOOP_TEXT_MAX` (365 bytes) holds every record the function can write: the longest line has
+every number at the fixed format's widest (just below 1e12, rounded up to thirteen digits, with a
+sign), the longest name of every enum and both commands filling their name and value fields. A
+buffer of that size is therefore refused only for a number the fixed format refuses.
 
 ## The clock (`ctl_clock.h`)
 

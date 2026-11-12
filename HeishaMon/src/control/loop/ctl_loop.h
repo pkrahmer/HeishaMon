@@ -20,10 +20,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Holds the text of every record whose instant is below 1e8 s, whose energy and powers are below
- * 1e7 in magnitude and whose temperatures lie within the adapters' bounds; a wider record is
- * refused whole by ctl_loop_format_record, never cut. */
-#define CTL_LOOP_TEXT_MAX 256
+/* Holds the text of every record ctl_loop_format_record can write, with its terminating zero: the
+ * longest line has every number at the fixed format's widest, the longest name of every enum and
+ * both commands filling their fields. */
+#define CTL_LOOP_TEXT_MAX 365
 
 typedef enum {
     CTL_INPUT_ROOM,
