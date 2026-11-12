@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: [6818002485]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T08:02:25.866986Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -108,6 +112,11 @@ journal:
   at: '2026-11-12T08:02:17.558836Z'
   stage: doing
   run: 1422039c256a41a6a51df05f76107649
+- number: 19
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:02:25.866986Z'
+  stage: review
 ---
 
 # The control page
@@ -384,3 +393,4 @@ Expect: `2`
     The factory left out changes outside the write paths: factory/features/F0008-web-page/in-progress/F0008-S0001-control-page.md.
 
     `check`: check: green
+19. factory: started review as heishamon.
