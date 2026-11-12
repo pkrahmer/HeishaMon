@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 24
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T23:00:46.255339Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T23:00:39.313623Z'
   stage: doing
   run: 528e05ae11c84856aa6dcff3e0a8e06c
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:00:46.255339Z'
+  stage: review
 ---
 
 # Assumed landing and the reason while blocked
@@ -120,3 +129,4 @@ Expect: `2`
    Noticed, not touched: `ctl_loop_confirm` is still called with `known = optional_pcb && !listen_only`. While the gate is open this is always true, and while it is blocked `assume_landed` overrides it. So it is now redundant, but I left it as it was so the confirmation path stays as before. `ctl_settings_to_loop` resets `assume_landed` to false on every settings change; that is harmless, because the glue sets it again before each tick.
 
    `check`: check: green
+4. factory: started review as heishamon.
