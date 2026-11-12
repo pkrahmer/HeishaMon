@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 3
 attempts: 0
@@ -119,6 +119,11 @@ journal:
   at: '2026-11-12T08:04:01.637971Z'
   stage: review
   run: d31dae2f782549f7979a1c19657af28a
+- number: 21
+  speaker: factory
+  kind: done
+  at: '2026-11-12T08:05:53.302746Z'
+  stage: approval
 ---
 
 # The control page
@@ -425,3 +430,4 @@ Expect: `2`
     Open for the human (not a finding against the build):
     - **The Description is out of date.** The builder's edit to the Description was left out by the factory (entry 18: outside the write paths). So the `## Description` still does not list `ctl_form.h`, `ctl_form.c` or `test_form.c`, or the new criterion. Entry 16 says the human's answer is part of the Description, so the build matches it. Before the merge, the human may want to write the answer into the `## Description` itself.
     - **What stays untested:** the rules left in `ctl_web.cpp` (other URIs pass through, the route claim, chunking, freeing the buffer) are checked only by `make firmware` compiling them, as option (a) of the answer accepts.
+21. factory: done (pull request merged); cost: 9 runs, 40.2 min, 141 turns, 493158 tokens in (7091487 more from cache), 128812 out, $6.46
