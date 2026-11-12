@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T07:28:54.107106Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T07:28:47.389966Z'
   stage: doing
   run: ad10dec1a8f147e592b878fad1f401ab
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:28:54.107106Z'
+  stage: review
 ---
 
 # The control page
@@ -140,3 +149,4 @@ Expect: `2`
    - I could not compare memory against `develop`: building it in a temporary folder was denied. With the page, the ESP8266 uses 49268 of 80192 bytes of RAM and 754520 bytes of flash; the ESP32-S3 sketch uses 1702187 bytes (86%).
 
    `check`: check: green
+4. factory: started review as heishamon.
