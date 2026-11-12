@@ -5,10 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* A sign, 13 digits (a value just below the limit can round up to it), a point, 3 decimals and
- * the terminating zero, with room to spare. */
-#define SCRATCH_SIZE 24
-
 static const double POWERS_OF_TEN[CTL_FORMAT_DECIMALS_MAX + 1] = {1.0, 10.0, 100.0, 1000.0};
 
 static bool copy_text(const char *source, char *text, size_t size)
@@ -66,7 +62,7 @@ static const char *special_text(double value)
 
 bool ctl_format_fixed(double value, int decimals, char *text, size_t size)
 {
-    char scratch[SCRATCH_SIZE];
+    char scratch[CTL_FORMAT_TEXT_MAX];
     uint64_t units;
     size_t start;
 
@@ -80,8 +76,8 @@ bool ctl_format_fixed(double value, int decimals, char *text, size_t size)
         return false;
     }
     units = round_half_away(fabs(value) * POWERS_OF_TEN[decimals]);
-    scratch[SCRATCH_SIZE - 1] = '\0';
-    start = write_digits(units, decimals, scratch, SCRATCH_SIZE - 1);
+    scratch[CTL_FORMAT_TEXT_MAX - 1] = '\0';
+    start = write_digits(units, decimals, scratch, CTL_FORMAT_TEXT_MAX - 1);
     if (value < 0.0 && units > 0u) {
         scratch[--start] = '-';
     }

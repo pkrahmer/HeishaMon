@@ -226,7 +226,7 @@ static void put_bounded(text_writer *writer, const char *piece, size_t limit)
 
 static void put_number(text_writer *writer, double value, int decimals)
 {
-    char number[CTL_LOOP_TEXT_MAX];
+    char number[CTL_FORMAT_TEXT_MAX];
     if (!ctl_format_fixed(value, decimals, number, sizeof number)) {
         writer->fits = false;
         return;

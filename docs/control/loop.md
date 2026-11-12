@@ -88,8 +88,8 @@ Numbers are written by `ctl_format_fixed` (`ctl_format.h`) with integer arithmet
 rounds to zero, `nan`, `inf` and `-inf` for the values that are no number, and a refusal for a
 magnitude of 1e12 or more.
 
-A record that does not fit the buffer is refused whole, never cut: the function returns false
-and leaves an empty text. `CTL_LOOP_TEXT_MAX` (256 bytes) holds every record whose instant is
+A record that does not fit the buffer, or that holds a number the fixed format refuses, is
+refused whole, never cut: the function returns false and leaves an empty text. `CTL_LOOP_TEXT_MAX` (256 bytes) holds every record whose instant is
 below 1e8 s (more than three years of uptime), whose energy and powers are below 1e7 in
 magnitude, and whose temperatures lie within the adapters' bounds; with the defaults the energy
 stays within 3000 Wh and the powers within tens of kW, far inside that.

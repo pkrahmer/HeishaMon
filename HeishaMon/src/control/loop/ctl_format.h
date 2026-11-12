@@ -11,6 +11,9 @@
 
 #define CTL_FORMAT_DECIMALS_MAX 3
 #define CTL_FORMAT_MAGNITUDE_LIMIT 1e12 /* the first magnitude refused */
+/* Holds every text ctl_format_fixed accepts with its terminating zero: a sign, 13 digits (a value
+ * just below the limit can round up to it), a point and 3 decimals, with room to spare. */
+#define CTL_FORMAT_TEXT_MAX 24
 
 /* Writes value with exactly decimals digits after the point (no point for 0), rounded half away
  * from zero after scaling by 10^decimals, with a '-' only before a result that is not zero, and

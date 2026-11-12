@@ -67,7 +67,7 @@ static void report_house(ctl_loop *loop, const ctl_loop_config *config, const ho
 
 /* ---- The configuration ---- */
 
-typedef enum { KEEP, ZERO_HYSTERESIS, NO_ROOMS, ELEVEN_RETRIES, FOURTH_BIT } config_change;
+typedef enum { KEEP, ZERO_HYSTERESIS, NO_ROOMS, ELEVEN_RETRIES, ALL_THREE_BITS, FOURTH_BIT } config_change;
 
 typedef struct {
     config_change change;
@@ -86,6 +86,9 @@ static void apply_change(ctl_loop_config *config, config_change change)
     case ELEVEN_RETRIES:
         config->router.max_retries = 11;
         break;
+    case ALL_THREE_BITS:
+        config->allowed = 0x07u;
+        break;
     case FOURTH_BIT:
         config->allowed = 0x08u;
         break;
@@ -101,6 +104,7 @@ static void test_configuration(void)
         {ZERO_HYSTERESIS, false},
         {NO_ROOMS, false},
         {ELEVEN_RETRIES, false},
+        {ALL_THREE_BITS, true},
         {FOURTH_BIT, false},
     };
     size_t i;
@@ -155,6 +159,8 @@ static void test_inputs(void)
         {CTL_INPUT_PV, NO_ROOM, "-1", 9.0, CTL_INPUT_REFUSED, CTL_SIGNAL_P_SOLAR, 1000.0 * 0.02},
         {(ctl_input)9, NO_ROOM, "1", 9.0, CTL_INPUT_BAD, CTL_SIGNAL_COUNT, 0.0},
         {CTL_INPUT_OUTDOOR, NO_ROOM, "6", NAN, CTL_INPUT_BAD, CTL_SIGNAL_T_OUTDOOR, 5.0},
+        {CTL_INPUT_OUTDOOR, NO_ROOM, "6", INFINITY, CTL_INPUT_BAD, CTL_SIGNAL_T_OUTDOOR, 5.0},
+        {CTL_INPUT_OUTDOOR, NO_ROOM, "6", -INFINITY, CTL_INPUT_BAD, CTL_SIGNAL_T_OUTDOOR, 5.0},
     };
     ctl_loop_config config;
     ctl_loop loop;
@@ -203,17 +209,21 @@ static void test_ticks(void)
     }
 }
 
-static void test_tick_refuses_nan(void)
+static void test_tick_refuses_not_finite(void)
 {
-    ctl_loop_config config;
-    ctl_loop loop;
-    ctl_loop before;
-    ctl_loop_record record;
-    start(&loop, &config);
-    CHECK_TRUE(ctl_loop_tick(&loop, &config, 60.0, &record));
-    memcpy(&before, &loop, sizeof loop);
-    CHECK_TRUE(!ctl_loop_tick(&loop, &config, NAN, &record));
-    CHECK_TRUE(memcmp(&before, &loop, sizeof loop) == 0);
+    const double instants[] = {NAN, INFINITY, -INFINITY};
+    size_t i;
+    for (i = 0; i < sizeof instants / sizeof instants[0]; i++) {
+        ctl_loop_config config;
+        ctl_loop loop;
+        ctl_loop before;
+        ctl_loop_record record;
+        start(&loop, &config);
+        CHECK_TRUE(ctl_loop_tick(&loop, &config, 60.0, &record));
+        memcpy(&before, &loop, sizeof loop);
+        CHECK_TRUE(!ctl_loop_tick(&loop, &config, instants[i], &record));
+        CHECK_TRUE(memcmp(&before, &loop, sizeof loop) == 0);
+    }
 }
 
 /* ---- The decisions ---- */
@@ -504,6 +514,7 @@ static void check_text_row(const char *file, int line, const text_row *row)
     check_true(file, line, ctl_loop_format_record(&row->record, text, length + 1), "exact");
     check_text(file, line, text, row->expected);
     check_true(file, line, !ctl_loop_format_record(&row->record, text, length), "one short");
+    check_text(file, line, text, "");
 }
 
 static void test_record_text(void)
@@ -521,6 +532,18 @@ static void test_record_text(void)
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_text_row(__FILE__, __LINE__, &rows[i]);
     }
+}
+
+/* A number the fixed format refuses cannot be written, whatever the room; the text is then
+ * empty rather than cut. */
+static void test_record_with_unwritable_number(void)
+{
+    ctl_loop_record record = record_with_inputs();
+    char text[CTL_LOOP_TEXT_MAX];
+    record.t = 1e12;
+    strcpy(text, "stale");
+    CHECK_TRUE(!ctl_loop_format_record(&record, text, sizeof text));
+    CHECK_TEXT(text, "");
 }
 
 static void test_widest_record_fits(void)
@@ -550,12 +573,13 @@ int main(void)
     test_configuration_defaults();
     test_inputs();
     test_ticks();
-    test_tick_refuses_nan();
+    test_tick_refuses_not_finite();
     test_decisions_equal_the_core();
     test_one_room_is_no_average();
     test_cooling_is_masked();
     test_router();
     test_record_text();
+    test_record_with_unwritable_number();
     test_widest_record_fits();
     test_record_of_a_tick_fits();
     return check_result();

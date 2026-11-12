@@ -20,7 +20,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define CTL_LOOP_TEXT_MAX 256 /* enough for the text of every record and its terminating zero */
+/* Holds the text of every record whose instant is below 1e8 s, whose energy and powers are below
+ * 1e7 in magnitude and whose temperatures lie within the adapters' bounds; a wider record is
+ * refused whole by ctl_loop_format_record, never cut. */
+#define CTL_LOOP_TEXT_MAX 256
 
 typedef enum {
     CTL_INPUT_ROOM,
@@ -101,8 +104,10 @@ bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,
                    ctl_loop_record *record);
 
 /* Writes the record as one line of text, its fields separated by single spaces, and returns
- * true. Refuses, returning false, a size that cannot hold the text and its terminating zero;
- * the text then means nothing. */
+ * true. Refuses, returning false and leaving an empty text when size is not 0, a size that
+ * cannot hold the text and its terminating zero, and a record holding a number that
+ * ctl_format_fixed refuses (a magnitude of CTL_FORMAT_MAGNITUDE_LIMIT or more): a line is never
+ * cut. */
 bool ctl_loop_format_record(const ctl_loop_record *record, char *text, size_t size);
 
 #endif
