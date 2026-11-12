@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T07:31:43.858425Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-12T07:31:38.766103Z'
   stage: review
   run: 2ae0d64f566b4a1cbd7cdf3735b1b6c5
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:31:43.858425Z'
+  stage: doing
 ---
 
 # The control page
@@ -166,3 +175,4 @@ Expect: `2`
    - The web server runs synchronously (`webserver_start(..., 0)`), so the MQTT and LittleFS calls in the save do not run in the system context.
 
    Earlier tests: none changed. The only test file in the diff, `tests/control/test_html.c`, is new.
+6. factory: started doing as heishamon.
