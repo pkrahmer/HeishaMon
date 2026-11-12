@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T06:24:47.215985Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -58,6 +62,11 @@ journal:
   at: '2026-11-12T06:24:41.566692Z'
   stage: review
   run: 29fd212c296f4cecb6b1b84b86a944a9
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:24:47.215985Z'
+  stage: doing
 ---
 
 # The telemetry
@@ -262,3 +271,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    Earlier tests:
    - `tests/control/test_loop.c` (M): changed under the story's leave ("Its test in `tests/control/test_loop.c` gains one row by the same leave"). It only adds `test_record_sent_state` and its call in `main`. Every earlier test is unchanged.
+10. factory: started doing as heishamon.
