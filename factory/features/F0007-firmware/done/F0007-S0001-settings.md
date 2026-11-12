@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -97,6 +97,11 @@ journal:
   at: '2026-11-12T06:02:09.747064Z'
   stage: review
   run: efefd5da61d14a188087c19c3fa9660d
+- number: 17
+  speaker: factory
+  kind: done
+  at: '2026-11-12T06:03:00.388728Z'
+  stage: approval
 ---
 
 # The settings
@@ -386,3 +391,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     6. **Earlier tests.** None. The only test file in the diff, `tests/control/test_settings.c`, is new (status A).
 
     no findings
+17. factory: done (pull request merged); cost: 7 runs, 16.0 min, 51 turns, 296291 tokens in (1819316 more from cache), 60149 out, $3.05
