@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 23
 comments_read: [6818639434]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T08:27:29.261379Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-12T08:27:29.261379Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T08:27:45.889095Z'
+  stage: review
+  run: c668bf3a82ab45f89fb2dab9c7ca51de
 ---
 
 # The pump values from MQTT
@@ -247,3 +249,24 @@ Expect: `2`
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 11. factory: started review as heishamon.
+12. reviewer: Review, round 1, after the human's answer (a) in entry 10.
+
+    No findings.
+
+    The diff is the same one reviewed in entry 9, because no builder run came between that review and this one. I checked it again against all six groups of the checklist:
+    1. **Acceptance criteria:**
+       - Criteria 1 to 4 each have a table test or a check in `tests/control/test_settings.c` (`test_pump_topics`, `test_defaults`, `test_pump_from_mqtt`) or in `tests/control/test_dispatch.c` (`test_pump_topics`).
+       - The failing sides are tested: empty topics give NONE, `pv_topic` and a room topic alone give false, and the whole order rooms, PV, outdoor, heat, valve, defrost is pinned row by row.
+       - The three glue rules in `ctl_firmware.cpp` (frames hand nothing, the pump topics are subscribed, the source is logged) are covered only because they compile. The human accepted that in entry 10 (option a).
+       - The journal says `make check` was green.
+    2. **Architecture:** only the fork's three folders changed. The `.c` files stay pure C99, and the new public name is `ctl_settings_pump_from_mqtt`.
+    3. **Embedded safety:** the loops run over fixed tables, the topic buffers are fixed size, nothing allocates, and payloads still go through `ctl_loop_input`.
+    4. **Quality:** `topic_field` replaces the per-topic switch cases without leaving dead ones. `ends_with` is used for both suffixes.
+    5. **Work item hygiene:** `docs/control/decisions.md` has the decision and what was rejected. The *Shadowing another HeishaMon* section of `docs/control/firmware.md` and its settings rows match the code (`ctl_loop_input`, the log only on a change, the two log texts, a topic shared by two settings). The Description matches what was built.
+    6. **Earlier tests:**
+       - `tests/control/test_settings.c` (M): the story names it with the owner's leave. Only the rows that state the count or the order changed: `test_defaults` (20 and the four names), `test_name_list` (24, 23, 24) and `test_rooms` (22). Everything else only adds tests.
+       - `tests/control/test_dispatch.c` (M): the story names it. The change only adds `test_pump_topics` and its call.
+
+    Notes (carried from entry 9; they don't send the item back):
+    - `tests/control/test_dispatch.c` `test_pump_topics`: `check_row` gets the loop's `__LINE__`, so a failure does not say which row failed.
+    - `docs/control/firmware.md:365`: the line is 101 characters, one over the width of the other prose.
