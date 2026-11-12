@@ -63,6 +63,7 @@ static void test_defaults(void)
         {"heat_topic", ""},
         {"valve_topic", ""},
         {"defrost_topic", ""},
+        {"frame_log_topic", ""},
         {"desired_indoor_c", "22"},
         {"transmission_w_per_k", "155"},
         {"adjustment_w_per_k", "805"},
@@ -80,7 +81,7 @@ static void test_defaults(void)
     size_t i;
     fresh_defaults(&settings);
     CHECK_TRUE(ctl_settings_valid(&settings));
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 20u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 21u);
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_get(__FILE__, __LINE__, &settings, rows[i].name, rows[i].text);
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
@@ -101,15 +102,15 @@ static void test_name_list(void)
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
     check_set(__FILE__, __LINE__, &settings, "room.0.topic", "house/room0");
     check_set(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 24u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 25u);
     for (i = 0; i < sizeof expected / sizeof expected[0]; i++) {
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
         CHECK_TEXT(name, expected[i]);
     }
-    CHECK_TRUE(ctl_settings_name_at(&settings, 23, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 24, name, sizeof name));
     CHECK_TEXT(name, "max_retries");
     strcpy(name, UNTOUCHED);
-    CHECK_TRUE(!ctl_settings_name_at(&settings, 24, name, sizeof name));
+    CHECK_TRUE(!ctl_settings_name_at(&settings, 25, name, sizeof name));
     CHECK_TRUE(!ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic")));
     CHECK_TRUE(ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic") + 1));
 }
@@ -258,6 +259,21 @@ static void test_pump_topics(void)
     }
 }
 
+/* The log topic of another HeishaMon, whose frames the board decodes as its own. */
+static void test_frame_log_topic(void)
+{
+    ctl_settings settings;
+    fresh_defaults(&settings);
+    check_get(__FILE__, __LINE__, &settings, "frame_log_topic", "");
+    check_set(__FILE__, __LINE__, &settings, "frame_log_topic", "jeisha/log");
+    check_get(__FILE__, __LINE__, &settings, "frame_log_topic", "jeisha/log");
+    /* The frames hand the pump's values to the loop, which takes none from them when this holds. */
+    CHECK_TRUE(!ctl_settings_pump_from_mqtt(&settings));
+    check_refused(__FILE__, __LINE__, &settings, "frame_log_topic", "a+b", CTL_SETTING_BAD_VALUE);
+    check_set(__FILE__, __LINE__, &settings, "frame_log_topic", "");
+    check_get(__FILE__, __LINE__, &settings, "frame_log_topic", "");
+}
+
 static void test_pump_from_mqtt(void)
 {
     static const char *const names[] = {"outdoor_topic", "heat_topic", "valve_topic",
@@ -298,7 +314,7 @@ static void test_rooms(void)
 
     /* A lower count keeps what lies above it; the higher count lists it again. */
     check_set(__FILE__, __LINE__, &settings, "rooms", "1");
-    CHECK_UINT(ctl_settings_name_count(&settings), 22);
+    CHECK_UINT(ctl_settings_name_count(&settings), 23);
     CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", value, sizeof value));
     check_refused(__FILE__, __LINE__, &settings, "room.1.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
@@ -508,6 +524,7 @@ int main(void)
     test_largest_number();
     test_topics();
     test_pump_topics();
+    test_frame_log_topic();
     test_pump_from_mqtt();
     test_rooms();
     test_room_names();

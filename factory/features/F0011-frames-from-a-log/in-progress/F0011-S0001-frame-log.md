@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 25
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T23:16:29.906392Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-12T23:16:29.906392Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T23:30:48.925475Z'
+  stage: doing
+  run: fea7d25afbb84620b487227a8d3b41c3
 ---
 
 # The frames from a log topic
@@ -118,3 +120,14 @@ Expect: `2`
 
 1. 2026-11-12 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the frame log path. New: HeishaMon/src/control/glue/ctl_framelog.h, ctl_framelog.c (pure parser, reads lines without a terminating zero by their length, never past it), tests/control/test_framelog.c (the sample, a 14-row refusal table, the checksum), tests/control/data/framelog_sample.txt (a 203-byte main frame 71 C8 01 10 with a valid checksum, then a sent 20-byte frame and the 20-byte answer, all with time stamp and milliseconds). Changed: ctl_settings.h/.c (frame_log_topic after defrost_topic, topic rule, empty default, CTL_SETTINGS_FIXED_NAMES 21), ctl_dispatch.h/.c (CTL_TOPIC_FRAME_LOG after rooms, PV and pump topics, before the setting topics), ctl_telemetry.h/.c (frames_decoded and frames_dropped in ctl_telemetry_source, appended to the inputs group after the rooms; the Interface did not list these two files but the counters need them), ctl_firmware.cpp/.h (subscribes to frame_log_topic with the other input topics; feeds each message to a static ctl_framelog; on FRAME of 203 bytes with 0x71 and 0x10 in byte 3 calls decode_heatpump_data with actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base and updateAllTime through extern declarations, then ctl_firmware_frame; fills the counters into the telemetry source). The file's static pointer mqtt_client was renamed to control_client so that it no longer clashes with upstream's global of the same name. ctl_firmware.cpp now includes upstream's webfunctions.h for settingsStruct.
+
+   Tests: test_settings.c gets test_frame_log_topic (jeisha/log and empty accepted, a+b refused, not a pump topic) and the name counts shifted by the new setting (20->21, 24->25, 22->23, last index 23->24); test_dispatch.c gets test_frame_log_topic (FRAME_LOG when set, NONE when empty, room/PV/defrost win on a shared topic). test_telemetry.c: count rows 21->23, refused index 21->23, 9+3*rooms -> 11+3*rooms; beyond pure count rows I also added the two counter rows to the inputs table and set the counters in set_fixture, without which the fixture's new fields are uninitialised and the inputs table cannot match the new count. I wrote the parser before running the tests, so I never saw them fail first; to check that they bite, I made a temporary copy of the parser with the checksum always true, and the 'one byte changed' row and the checksum test then failed.
+
+   Decisions (recorded in docs/control/decisions.md, 'Frames from another HeishaMon's log'): a sent mark is any text containing 'sent bytes: ' (the ESP32 build logs 'heatpump request query sent bytes: <n>'), rejected matching only at the start; 'Received 0/300 bytes data' starts nothing but still drops a frame in progress; a data line with no bytes adds nothing; whole frames that are no main data frame (optional PCB answer, extra block) count as dropped (rejected a third counter); the parser is reset when the topics move; frame_log_topic is not a pump topic for ctl_settings_pump_from_mqtt. Docs: docs/control/firmware.md lists the setting and the two counters in its tables, names frame_log_topic among the topics whose change moves subscriptions, and has the section 'Frames from another HeishaMon's log' (production board needs Debug hexdump and Debug log to MQTT, the four pump topics must be empty, what the spare board publishes, the counters, the disconnect risk on a failed log publish).
+
+   Smoke test: make firmware | grep -c -E '^(esp8266|esp32):' gives 2. git diff develop --stat -- HeishaMon ':!HeishaMon/src' is empty. make check: green.
+
+   Noticed, not touched: with log to MQTT on, the spare board logs its own decoding; setting its frame_log_topic to its own log topic would feed it back, and there is no guard. With the optional PCB emulation on at the production board, frames_dropped grows steadily from the PCB answers, as documented.
+
+   `check`: check: green

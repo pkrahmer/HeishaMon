@@ -89,6 +89,8 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
         result.input = CTL_INPUT_ROOM;
     } else if (is_named_input(settings, topic, &result.input)) {
         result.kind = CTL_TOPIC_INPUT;
+    } else if (strcmp(settings->frame_log_topic, topic) == 0) {
+        result.kind = CTL_TOPIC_FRAME_LOG;
     } else if (is_setting(base, topic, result.name)) {
         result.kind = CTL_TOPIC_SETTING;
     }

@@ -111,6 +111,8 @@ static void set_fixture(fixture *f)
     f->source.uptime_s = 612.7;
     f->source.enabled = true;
     f->source.gate = CTL_GATE_OPEN;
+    f->source.frames_decoded = 42;
+    f->source.frames_dropped = 3;
 }
 
 static void check_entry(const char *file, int line, const ctl_telemetry_source *source,
@@ -166,7 +168,7 @@ static void test_counts(void)
 {
     fixture f;
     set_fixture(&f);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 21u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 23u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 10u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
@@ -195,6 +197,8 @@ static void test_entries(void)
         {"inputs/room/3/value_c", "-"},
         {"inputs/room/3/fresh", "0"},
         {"inputs/room/3/weight", "1.5"},
+        {"inputs/frames_decoded", "42"},
+        {"inputs/frames_dropped", "3"},
     };
     static const entry_row status[] = {
         {"status/demand", "HEATING"},
@@ -373,7 +377,7 @@ static void test_refusals(void)
                         value_fits - 1);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_OUTPUTS, 4,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 21,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 23,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 10,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
@@ -408,7 +412,7 @@ static void test_longest_subtopic_fits(void)
     set_fixture(&f);
     f.rooms_config.count = CTL_ROOMS_MAX;
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
-               (uint32_t)(9 + 3 * CTL_ROOMS_MAX));
+               (uint32_t)(11 + 3 * CTL_ROOMS_MAX));
     CHECK_TRUE(ctl_telemetry_entry(&f.source, CTL_GROUP_INPUTS, 9 + 3 * CTL_ROOMS_MAX - 3,
                                    subtopic, sizeof subtopic, value, sizeof value));
     CHECK_TEXT(subtopic, "inputs/room/15/value_c");
@@ -421,7 +425,7 @@ static void test_room_count_is_capped(void)
     set_fixture(&f);
     f.rooms_config.count = CTL_ROOMS_MAX + 1;
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
-               (uint32_t)(9 + 3 * CTL_ROOMS_MAX));
+               (uint32_t)(11 + 3 * CTL_ROOMS_MAX));
 }
 
 static void test_no_group_has_no_entries(void)
