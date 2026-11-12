@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T23:32:50.202907Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-12T23:32:44.111475Z'
   stage: review
   run: 4f960e63056f4aae8c64f404d20de3f1
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:32:50.202907Z'
+  stage: doing
 ---
 
 # The frames from a log topic
@@ -162,3 +171,4 @@ Expect: `2`
    - tests/control/test_dispatch.c: only adds test_frame_log_topic, and every earlier test is unchanged.
    - tests/control/test_settings.c: name-count rows 20→21, 24→25, 22→23 and index 23→24/24→25 changed under the story's leave ("test_settings.c … by the owner's leave"); the defaults table row and test_frame_log_topic are additions.
    - tests/control/test_telemetry.c: the count rows (21→23, refused index 23, 11+3*rooms) changed under the story's leave. The two inputs-table rows and the fixture counters are part of that leave, because CHECK_GROUP compares the inputs table one row per counted entry, so the table states the count. Finding 3 asks for the Description to say so.
+6. factory: started doing as heishamon.
