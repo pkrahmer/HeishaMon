@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T05:55:27.608045Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-12T05:55:27.608045Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T05:55:55.245302Z'
+  stage: review
+  run: 8a35f05f3e3b41ff9abb9c3239ff9842
 ---
 
 # The settings
@@ -139,7 +141,7 @@ The names, in the order `ctl_settings_name_at` lists them:
 | `cooling` | `0` or `1` | `0` | |
 | `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
-| `room.<i>.weight` | number | `1.0` | one per room `i` below `rooms`; 0 to 1000 |
+| `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
@@ -157,6 +159,7 @@ The names, in the order `ctl_settings_name_at` lists them:
 The values:
 
 - A number is parsed by `ctl_payload_parse` as a bare number, and a decimal must be a whole number in its range.
+- A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set.
 - A topic is empty, or 1 to `CTL_SETTINGS_TOPIC_MAX` printable ASCII characters (0x21 to 0x7e) without `+` and `#`. An empty room topic means a room that never receives a value; an empty `pv_topic` means no PV.
 - `ctl_settings_get` writes numbers through `ctl_format_fixed`: 0 decimals for whole numbers, otherwise 3 decimals, with trailing zeros after the point removed, and the point too when nothing follows it. It writes `none` for a disabled trim limit, and the flags and decimals as above. It returns false for an unknown name or a too-small buffer.
 
@@ -303,3 +306,25 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 11. factory: started review as heishamon.
+12. reviewer: Round 1 review, after the human's answer (a) in entry 10. I reviewed `git diff develop...HEAD -- . ':!factory'` (glue/ctl_settings.h/.c, tests/control/test_settings.c, docs/control/firmware.md, docs/control/decisions.md) against the Description as it now stands.
+
+    **What I changed in the work item (the human asked for both in entry 10):**
+    - `## Description`, the table: the default of `room.<i>.weight` is now `1` (it was `1.0`).
+    - `## Description`, *The values*: added the line "A number must have a magnitude below 10¹² and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set." The Description now matches `parse_number` in `HeishaMon/src/control/glue/ctl_settings.c`, and round 0 finding 3 is closed.
+
+    **Checklist:**
+    1. Acceptance criteria: every criterion has a test. Each stated limit is tested on both sides:
+       - the 10¹² limit: `999999999999` is accepted and `1e12` is refused;
+       - the 3-decimal limit: `0.001` is accepted and `0.0004` is refused;
+       - `rooms`: 0, 16, 17 and -1;
+       - the topic length: 96 is accepted and 97 is refused;
+       - the weight: 0 to 1000.
+       The factory's `make check` after the builder was green (entry 7).
+    2. Architecture: only the fork's folders are touched. The new code is pure C99, with `ctl_` names and status returns.
+    3. Embedded safety: no dynamic memory and no recursion. Loops are bounded, and every buffer is written with its size. Number values go through the payload parser and the range checks.
+    4. Quality: nothing new since round 1.
+    5. Work item hygiene: one finding, below.
+    6. Earlier tests: none. The only test file in the diff is `tests/control/test_settings.c`, which is new (status A). `docs/control/decisions.md` (M) is not a test.
+
+    **Findings:**
+    1. `docs/control/firmware.md`, the settings table, row `room.<i>.weight`: the Default column still says `1.0`. The human's answer (entry 10) makes it `1`, which is what the getter writes and what `test_rooms` expects. Fix: change that cell to `1`, as entry 10 tells the builder. No other change is needed. Once it is made, I would approve.
