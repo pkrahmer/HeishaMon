@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T06:15:12.446286Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T06:15:06.299782Z'
   stage: doing
   run: dbb1b6ee67cf4ed88ead722414c53370
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:15:12.446286Z'
+  stage: review
 ---
 
 # The telemetry
@@ -169,3 +178,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - Upstream's Rules harness prints compiler warnings during `make test`. They were already there and are upstream's.
 
    `check`: check: green
+4. factory: started review as heishamon.
