@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T05:40:41.904990Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T05:40:35.177733Z'
   stage: doing
   run: 0763807b24eb407c87248602f8a31091
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:40:41.904990Z'
+  stage: review
 ---
 
 # The settings
@@ -196,3 +205,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    - No sketch includes `glue/` yet, so `make device` compiles the new folder as a library but builds none of its code for the board.
 
    `check`: check: green
+4. factory: started review as heishamon.
