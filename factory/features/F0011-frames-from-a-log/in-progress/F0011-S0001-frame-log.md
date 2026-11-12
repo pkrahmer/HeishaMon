@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T23:30:57.783863Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T23:30:57.783863Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T23:32:44.111475Z'
+  stage: review
+  run: 4f960e63056f4aae8c64f404d20de3f1
 ---
 
 # The frames from a log topic
@@ -141,3 +143,22 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. tests/control/test_framelog.c test_refusals: the Interface says `Received <n> bytes data` starts a frame for n from 1 to CTL_FRAMELOG_MAX. 0/256/257 (and 300) are tested, but nothing tests that n = 1 starts a frame, so the lower bound has only one side covered. Fix: add a row such as `Received 1 bytes data` + `data: 00` that expects `NF` (a 1-byte zero frame passes the checksum), or `Received 1` + `sent bytes:` that expects `ND`.
+   2. Against the story, HeishaMon/src/control/glue/ctl_firmware.cpp is_main_data_frame/handle_frame_log: the glue rule "FRAME with 203 bytes, frame[0] 0x71 and frame[3] 0x10 is decoded, any other frame is counted and ignored", and the two counters that follow from it, have no criterion and no test for the failing side. A whole 20-byte answer, or a 203-byte frame with frame[3] != 0x10, going to decode_heatpump_data would pass every check. Fix: the human decides whether to add a criterion (for example a pure classifier in ctl_framelog.c with a table test) or to accept the gap knowingly.
+   3. Work item `## Description`, Interface "New files / Changed": the list leaves out ctl_telemetry.h, ctl_telemetry.c and ctl_firmware.h, which the build changed. It also limits the test_telemetry.c leave to "the rows that state the inputs count", while the build also added the two counter rows to the inputs table and the counter values to set_fixture. Fix: rewrite the Interface's file list and the test_telemetry.c sentence so they match what was built.
+   4. HeishaMon/src/control/glue/ctl_firmware.h:38 (111 chars), :45 (170 chars), ctl_settings.h:61 (115), ctl_telemetry.h:35 (123): the edited comments run past 100 columns, and no line on develop does. Fix: re-wrap those comments at 100 columns, as the rest of each header is.
+
+   Checked with no finding:
+   - The parser's rules and refusals (criteria 1–3): the sample plays NNNNNNNFNNNNFN, and both frames are compared byte for byte.
+   - Settings and dispatch order (criterion 4).
+   - Architecture: the .c files are pure, no upstream file changed, and upstream headers are included only from the .cpp.
+   - Embedded safety: every loop is bounded by length or expected, no frame write can exceed CTL_FRAMELOG_MAX, and there is no dynamic memory.
+   - Against upstream: the decode_heatpump_data signature, the actData/mqtt_client/heishamonSettings/log_message globals, the format of logHex and the "Received %d bytes data" line, the "sent bytes:" lines, and log_message's disconnect when a publish fails all match what firmware.md and decisions.md claim.
+   - The builder's make check was green, per the journal.
+
+   Earlier tests (status M):
+   - tests/control/test_dispatch.c: only adds test_frame_log_topic, and every earlier test is unchanged.
+   - tests/control/test_settings.c: name-count rows 20→21, 24→25, 22→23 and index 23→24/24→25 changed under the story's leave ("test_settings.c … by the owner's leave"); the defaults table row and test_frame_log_topic are additions.
+   - tests/control/test_telemetry.c: the count rows (21→23, refused index 23, 11+3*rooms) changed under the story's leave. The two inputs-table rows and the fixture counters are part of that leave, because CHECK_GROUP compares the inputs table one row per counted entry, so the table states the count. Finding 3 asks for the Description to say so.
