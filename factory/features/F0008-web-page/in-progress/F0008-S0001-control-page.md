@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T07:38:11.016727Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-12T07:38:11.016727Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T07:40:24.700417Z'
+  stage: review
+  run: 6764c4b297484c27970ee782737b54f6
 ---
 
 # The control page
@@ -206,3 +208,22 @@ Expect: `2`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Findings:
+
+   1. `HeishaMon/src/control/glue/ctl_web.cpp` `keep_argument`: a long value can be saved as a fragment, silently. When a name with its URL-encoded value overflows upstream's buffer (128 bytes on the ESP8266), upstream's `webserver_parse_post` (`HeishaMon/src/common/webserver.cpp`, the `pos1+2 >= WEBSERVER_BUFFER_SIZE` branch) sends the value in several args steps under the same name. `keep_argument` finds the name with `argument_index` and overwrites `value`, so only the last fragment is applied. The form posts every topic on every save, so any save, even one that only changes `rooms`, replaces a long room or PV topic (many `/`, each sent as `%2F`) with its tail. The topic setter accepts that tail. The builder's note, "may not get through a form post", understates this: the setting is corrupted, not refused. Fix: when an argument arrives with the same name as the last kept one, append its value to that one, and mark it as not fitting if the total exceeds `CTL_SETTINGS_VALUE_MAX - 1`. Say in `docs/control/firmware.md` how a long field is handled.
+   2. `HeishaMon/src/control/glue/ctl_firmware.h` (the comment on `ctl_firmware_change_end`) and `docs/control/decisions.md` (the new entry, the lines "choosing whether every `OK` counts as a change. A save from the" and "saving over MQTT only on a change, which changes a behaviour no one asked to change; comparing…"): the round-1 edits left lines far past the width of the files around them and broke the wrapping mid-sentence. Fix: rewrap both texts to the files' width.
+   3. Story gap, for the human (this repeats finding 5 of the earlier review, which is still open): no acceptance criterion and no host test covers any rule of `ctl_web`. Those rules are: every other URI passes on untouched, settings apply in `ctl_settings_name_at` order (rooms first), the accepted and refused report, the buffer is freed, and, after finding 1 above, fragments are joined. All of this is Arduino C++ that only `make firmware` compiles. Both the leak in the previous round and finding 1 got through because of this. Option: a criterion that moves the collect, join, order and report logic into a pure `.c` module under `glue/`, with a host test.
+
+   Checked without findings:
+   - Criteria 1 and 2: `tests/control/test_html.c` covers the escapes, plain text, both sides of the exact-size boundary, the entity that would fit only in part, and the exact row and input forms with name and value escaped.
+   - Criterion 4: the hook lines are as the story states. `HeishaMon.ino` has +2 lines and `htmlcode.h` +1, with nothing removed.
+   - Round-1 fixes:
+     - The save buffer is now freed at write step 0. Upstream clears `userdata` before the close step, and the frees at close and at the args step with no argument still cover a dropped connection.
+     - `SAVE_EMPTY` is shown for a save that held no setting.
+     - The report lists every OK, the MQTT path again saves on every OK, and the page saves only on a change, as the Description says.
+     - `CTL_SETTINGS_NAMES_MAX` comes from `ctl_settings.h`, with a build-time check against `FIXED_NAMES`.
+   - Route handling: upstream resets `route` and `userdata` per connection (`webserver_reset_client`). The METHOD step comes before the URI step, so claiming at the URI step overrides route 110, and skipping the METHOD step is correct.
+   - Page chunking: state reaches `FINISHED` within the pass bound. `menuJS` and `webFooter` are sent once. A step that sends nothing comes only after the end. No section reaches 255 rows (at most 48 settings).
+   - The malloc'd save buffer is the one allocation the Interface allows.
+
+   Earlier tests: none changed. `tests/control/test_html.c` is the only test file in the diff, and it is new (status `A`).
