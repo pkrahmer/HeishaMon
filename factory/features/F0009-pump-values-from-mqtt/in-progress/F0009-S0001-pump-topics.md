@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 23
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T08:16:06.743355Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T08:16:01.899234Z'
   stage: doing
   run: 204fcf85989c4af289f310c35185c882
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:16:06.743355Z'
+  stage: review
 ---
 
 # The pump values from MQTT
@@ -109,3 +118,4 @@ Expect: `2`
    Noticed but not touched: upstream's rules harness prints compiler warnings (`rules.cpp`, `settimer.cpp`) during `make test`. They are upstream's, and the build stays green.
 
    `check`: check: green
+4. factory: started review as heishamon.
