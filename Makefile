@@ -2,7 +2,7 @@
 # Upstream HeishaMon builds with arduino-cli (scripts/); this file covers only what runs on the
 # host with gcc, g++ and python3, plus the device test sketch compiled for the D1 mini. The
 # firmware build for the two boards is not part of `check` yet.
-.PHONY: check lint test device device-replay sync facts-diff facts-files
+.PHONY: check lint test device firmware device-replay sync facts-diff facts-files
 .SILENT:
 
 # The fork's own folders: the control code, its host tests, its documents.
@@ -12,6 +12,9 @@ TESTS = tests/control
 # The device test: a sketch that serves the core over a serial line, and its host twin.
 DEVICE = $(TESTS)/device
 FQBN = esp8266:esp8266:d1_mini
+# The firmware's two boards, with the options of upstream's scripts/build_esp8266.sh and build_esp32s3.sh.
+FIRMWARE_D1 = esp8266:esp8266:d1_mini:xtal=160,vt=flash,ssl=basic,mmu=3216,non32xfer=fast,eesz=4M2M,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=921600
+FIRMWARE_S3 = esp32:esp32:esp32s3:CDCOnBoot=cdc,PSRAM=enabled,PartitionScheme=min_spiffs
 # No fused multiply-add: the core must round as the Python reference does, twice where it does.
 CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -ffp-contract=off
 
@@ -24,7 +27,7 @@ SHELL := /bin/bash
 start = started=$$(date +%s%N)
 green = tenths=$$(( ($$(date +%s%N) - started) / 100000000 )); echo "$@: green ($$((tenths / 10)).$$((tenths % 10)) s)"
 
-check: lint test device
+check: lint test device firmware
 	echo "check: green"
 
 # Nothing to fetch: the stage image (factory/stage.Containerfile) holds every tool.
@@ -108,6 +111,21 @@ device:
 	  fi
 	  echo "$$name:"
 	  grep -E '^\. (Variables|Code in flash)' "$$build/$$name.log"
+	done
+	$(green)
+
+# The firmware, HeishaMon/HeishaMon.ino with the control code under its src/, compiled for both boards;
+# nothing is flashed. Each board prints its name and its memory lines.
+firmware:
+	$(start)
+	build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
+	for target in $(FIRMWARE_D1) $(FIRMWARE_S3); do
+	  name=$${target%%:*}
+	  if ! arduino-cli compile --fqbn="$$target" --build-path "$$build/$$name" --warnings=none HeishaMon > "$$build/$$name.log" 2>&1; then
+	    grep -E 'error|Error' "$$build/$$name.log" | head -40; exit 1
+	  fi
+	  echo "$$name:"
+	  grep -E '^\. (Variables|Code in flash)|^Sketch uses|^Global variables' "$$build/$$name.log"
 	done
 	$(green)
 
