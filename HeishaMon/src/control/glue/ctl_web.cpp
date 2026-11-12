@@ -15,6 +15,7 @@
 #include "ctl_firmware.h"
 
 extern "C" {
+#include "ctl_form.h"
 #include "ctl_html.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
@@ -27,8 +28,6 @@ extern "C" {
 static const uint8_t ROUTE_PAGE = 240;
 static const uint8_t ROUTE_SAVE = 241;
 
-static const size_t SETTINGS_MAX = CTL_SETTINGS_NAMES_MAX;
-
 // The largest piece of the page held at once; webserver_send_content copies it.
 static const size_t CHUNK_SIZE = 512;
 
@@ -36,128 +35,30 @@ static const char TOO_LONG[] = "too long to show here";
 
 // --- The save ------------------------------------------------------------------------------
 
-typedef struct {
-    char name[CTL_SETTINGS_NAME_MAX];
-    char value[CTL_SETTINGS_VALUE_MAX];
-    size_t length;
-    bool fits; // false: the value was longer than any setting takes, or held a zero byte
-} save_argument;
-
-// Every argument of one save, kept until all have arrived, so that the order of the settings
-// list decides and not the order the browser sends.
-typedef struct {
-    size_t count;
-    size_t last; // the argument the previous step kept, or SETTINGS_MAX
-    save_argument argument[SETTINGS_MAX];
-} save_arguments;
-
 // What the last save accepted and refused, by name, for the page.
-static bool saved;
-static size_t report_count;
-static char report_name[SETTINGS_MAX][CTL_SETTINGS_NAME_MAX];
-static bool report_accepted[SETTINGS_MAX];
+static ctl_form_report last_report;
 
-static size_t argument_index(const save_arguments *arguments, const char *name)
+static ctl_setting_status change_setting(void *context, const char *name, const char *value,
+                                         bool *changed)
 {
-    for (size_t i = 0; i < arguments->count && i < SETTINGS_MAX; i++) {
-        if (strcmp(arguments->argument[i].name, name) == 0) {
-            return i;
-        }
-    }
-    return SETTINGS_MAX;
+    (void)context;
+    return ctl_firmware_change(name, value, changed);
 }
 
-static void start_value(save_argument *argument)
-{
-    argument->value[0] = '\0';
-    argument->length = 0;
-    argument->fits = true;
-}
-
-// A value that does not fit is refused whole, never cut, so a later piece cannot revive it.
-static void append_value(save_argument *argument, const arguments_t *args)
-{
-    size_t length = args->value == NULL ? 0 : args->len;
-    if (!argument->fits || length == 0) {
-        return;
-    }
-    if (length >= sizeof argument->value - argument->length
-        || memchr(args->value, '\0', length) != NULL) {
-        argument->fits = false;
-        return;
-    }
-    memcpy(&argument->value[argument->length], args->value, length);
-    argument->length += length;
-    argument->value[argument->length] = '\0';
-}
-
-// Upstream hands a value longer than its buffer over in pieces, one step each under the same
-// name, so a step that repeats the previous step's name continues that value. A name too long
-// for any setting cannot be one; when the buffer is full, the rest is dropped.
-static void keep_argument(save_arguments *arguments, const arguments_t *args)
-{
-    const char *name = (const char *)args->name;
-    if (name == NULL || strlen(name) >= CTL_SETTINGS_NAME_MAX) {
-        arguments->last = SETTINGS_MAX;
-        return;
-    }
-    size_t index = argument_index(arguments, name);
-    if (index == SETTINGS_MAX) {
-        if (arguments->count >= SETTINGS_MAX) {
-            arguments->last = SETTINGS_MAX;
-            return;
-        }
-        index = arguments->count++;
-        strcpy(arguments->argument[index].name, name);
-    }
-    save_argument *argument = &arguments->argument[index];
-    if (index != arguments->last) {
-        start_value(argument);
-    }
-    append_value(argument, args);
-    arguments->last = index;
-}
-
-static void report(const char *name, bool accepted)
-{
-    if (report_count < SETTINGS_MAX) {
-        strcpy(report_name[report_count], name);
-        report_accepted[report_count] = accepted;
-        report_count++;
-    }
-}
-
-// The list grows when rooms is raised, so its count is read again after every setting.
-static void apply_arguments(const save_arguments *arguments)
+static void apply_form(const ctl_form *form)
 {
     const ctl_settings *settings = ctl_firmware_settings();
-    saved = true;
-    report_count = 0;
     if (settings == NULL) {
+        last_report.saved = true;
+        last_report.count = 0;
         return;
     }
-    char name[CTL_SETTINGS_NAME_MAX];
-    bool any_changed = false;
     // The form holds every topic, so any save may move one; a field posted with the value it
     // already had is no reason to write the file.
     ctl_firmware_change_begin(true, false);
-    for (size_t i = 0; i < SETTINGS_MAX && i < ctl_settings_name_count(settings); i++) {
-        if (!ctl_settings_name_at(settings, i, name, sizeof name)) {
-            continue;
-        }
-        size_t index = argument_index(arguments, name);
-        if (index == SETTINGS_MAX) {
-            continue;
-        }
-        const save_argument *argument = &arguments->argument[index];
-        bool changed = false;
-        bool accepted = argument->fits
-                        && ctl_firmware_change(name, argument->value, &changed) == CTL_SETTING_OK;
-        report(name, accepted);
-        any_changed = any_changed || changed;
-    }
+    bool changed = ctl_form_apply(form, settings, change_setting, NULL, &last_report);
     ctl_firmware_change_end();
-    if (any_changed) {
+    if (changed) {
         ctl_firmware_publish_settings();
     }
 }
@@ -195,9 +96,7 @@ typedef struct {
     const char *absent; // written instead when the section is not shown
 } section_text;
 
-static const char SAVE_OPEN[] FLASHPROG = "<h2>Last save</h2><div class='panel'><table>";
 static const char TABLE_CLOSE[] FLASHPROG = "</table></div>";
-static const char SAVE_EMPTY[] FLASHPROG = "<p>The last save held no setting.</p>";
 static const char STATUS_OPEN[] FLASHPROG = "<h2>Status</h2><div class='panel'><table>";
 static const char NO_DECISION[] FLASHPROG = "<p>No decision has been made yet.</p>";
 static const char INPUTS_OPEN[] FLASHPROG = "<h2>Inputs</h2><div class='panel'><table>";
@@ -211,8 +110,9 @@ static const char PAGE_END[] FLASHPROG = "</main>";
 static const char EMPTY[] FLASHPROG = "";
 
 static const section_text SECTION_TEXT[SECTION_COUNT] = {
-    {SAVE_OPEN, TABLE_CLOSE, EMPTY},       {STATUS_OPEN, TABLE_CLOSE, NO_DECISION},
-    {INPUTS_OPEN, TABLE_CLOSE, EMPTY},     {FORM_OPEN, FORM_CLOSE, NOT_STARTED},
+    // The report writes its own opening and closing, as its first and last rows.
+    {EMPTY, EMPTY, EMPTY},             {STATUS_OPEN, TABLE_CLOSE, NO_DECISION},
+    {INPUTS_OPEN, TABLE_CLOSE, EMPTY}, {FORM_OPEN, FORM_CLOSE, NOT_STARTED},
     {EMPTY, EMPTY, PAGE_END},
 };
 
@@ -240,8 +140,8 @@ static section_shape shape_of(const page_view *view, section part)
     section_shape shape = {false, 0};
     switch (part) {
     case SECTION_SAVE:
-        shape.shown = saved && report_count > 0;
-        shape.rows = report_count;
+        shape.rows = ctl_form_report_items(&last_report);
+        shape.shown = shape.rows > 0;
         break;
     case SECTION_STATUS:
         shape.shown = view->decided;
@@ -324,8 +224,7 @@ static bool render_row(const page_view *view, section part, size_t index, char *
 {
     switch (part) {
     case SECTION_SAVE:
-        return ctl_html_row(report_name[index], report_accepted[index] ? "accepted" : "refused",
-                            out, size);
+        return ctl_form_report_item(&last_report, index, out, size);
     case SECTION_STATUS:
         return status_row(&view->source, index, out, size, alone);
     case SECTION_INPUTS:
@@ -349,8 +248,7 @@ static bool render_item(const page_view *view, uintptr_t state, char *out, size_
     section_shape shape = shape_of(view, part);
     const section_text *text = &SECTION_TEXT[part];
     if (!shape.shown) {
-        bool save_empty = part == SECTION_SAVE && saved;
-        return put_flash(save_empty ? SAVE_EMPTY : text->absent, out, size);
+        return put_flash(text->absent, out, size);
     }
     if (item == 0) {
         return put_flash(text->open, out, size);
@@ -424,14 +322,13 @@ static int8_t claim_route(struct webserver_t *client, const char *uri, bool *cla
         return 0;
     }
     if (strcmp_P(uri, PSTR("/savecontrol")) == 0) {
-        save_arguments *arguments = (save_arguments *)malloc(sizeof(save_arguments));
-        if (arguments == NULL) {
+        ctl_form *form = (ctl_form *)malloc(sizeof(ctl_form));
+        if (form == NULL) {
             return -1;
         }
-        arguments->count = 0;
-        arguments->last = SETTINGS_MAX;
+        ctl_form_start(form);
         client->route = ROUTE_SAVE;
-        client->userdata = arguments;
+        client->userdata = form;
         return 0;
     }
     *claimed = false;
@@ -462,22 +359,23 @@ static int8_t page_step(struct webserver_t *client)
 
 static int8_t save_step(struct webserver_t *client, void *dat)
 {
-    save_arguments *arguments = (save_arguments *)client->userdata;
+    ctl_form *form = (ctl_form *)client->userdata;
     switch (client->step) {
     case WEBSERVER_CLIENT_ARGS:
         // A connection lost while the body arrives closes with this step and no argument.
         if (dat == NULL) {
             release(client);
-        } else if (arguments != NULL) {
-            keep_argument(arguments, (const arguments_t *)dat);
+        } else if (form != NULL) {
+            const arguments_t *args = (const arguments_t *)dat;
+            ctl_form_keep(form, (const char *)args->name, (const char *)args->value, args->len);
         }
         return 0;
     case WEBSERVER_CLIENT_WRITE:
         // Upstream clears userdata before the close step of a finished request, so the buffer
         // is freed here; the other releases cover a connection lost before this step.
         if (client->content == 0) {
-            if (arguments != NULL) {
-                apply_arguments(arguments);
+            if (form != NULL) {
+                apply_form(form);
             }
             release(client);
             webserver_send(client, 301, (char *)"text/plain", 0);

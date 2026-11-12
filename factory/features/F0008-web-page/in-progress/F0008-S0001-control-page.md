@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 22
 comments_read: [6818002485]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T07:54:26.520270Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -106,6 +102,12 @@ journal:
   kind: started
   at: '2026-11-12T07:54:26.520270Z'
   stage: doing
+- number: 18
+  speaker: builder
+  kind: result
+  at: '2026-11-12T08:02:17.558836Z'
+  stage: doing
+  run: 1422039c256a41a6a51df05f76107649
 ---
 
 # The control page
@@ -351,3 +353,34 @@ Expect: `2`
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 17. factory: started doing as heishamon.
+18. builder: Round 3, after the human's answer (a). I moved the save's logic into a pure C module, `ctl_form`, and gave it a host test. `make check` is green (lint, test, device, firmware, `check: green`). Smoke test: `grep -c "control loop hook" HeishaMon/HeishaMon.ino` gives `8`, and `make firmware` prints one `esp8266:` and one `esp32:` block, so the grep gives `2`. Among upstream's files, the diff stat still shows only `HeishaMon.ino` +2 and `htmlcode.h` +1. No board was run.
+
+    Built:
+    - `HeishaMon/src/control/glue/ctl_form.h` and `ctl_form.c` (pure C99) hold everything the save decides:
+      - `ctl_form_start` and `ctl_form_keep` collect the fields and join a value that arrives in pieces. A joined value that reaches `CTL_SETTINGS_VALUE_MAX`, or holds a zero byte, is refused whole. A name that is too long, or arrives once the form is full, is dropped.
+      - `ctl_form_apply` applies the fields in `ctl_settings_name_at` order, reading the count again after each one. It ignores names that are not listed and fills `ctl_form_report`.
+      - `ctl_form_report_start`, `ctl_form_report_items` and `ctl_form_report_item` write the report's HTML. There is nothing before a save, one empty-save line after a save that held no setting, and otherwise an opening, one `ctl_html_row` per name with `accepted` or `refused`, and a closing.
+      - The rules are the same as last round's `ctl_web.cpp`; only where they live has moved.
+    - `tests/control/test_form.c` covers:
+      - browser order with room fields before `rooms`, a raised `rooms` and its new room fields, an unknown field and a refused value;
+      - an unchanged save: accepted, but nothing changed;
+      - a value in pieces, plus a name that comes back after another and starts its value again;
+      - the exact longest value against one byte more, and a zero byte, all refused without calling the setter;
+      - an unknown name and a name that is too long;
+      - a full form;
+      - the report text: none, the empty save, accepted and refused rows, and a buffer one byte too small.
+      - I saw it fail at link before I wrote `ctl_form.c`.
+    - `HeishaMon/src/control/glue/ctl_web.cpp` now keeps only the upstream steps: routes, page chunks, the redirect and the buffer's life. The malloc'd buffer is now a `ctl_form`, the same size as before. The *last save* section renders through `ctl_form_report_item`, and its opening, closing and empty line are now the report's own items. `apply_form` wraps the call between `ctl_firmware_change_begin(true, false)` and `ctl_firmware_change_end`.
+    - Work item: I updated the Interface (new files, signatures and rules) and added criterion 5 (the `test_form.c` coverage from the human's answer) before the two closing criteria, which are now 6 and 7.
+    - Docs: `docs/control/firmware.md` (*Saving*) gained a paragraph on where the save lives and how it is tested. `docs/control/decisions.md` has a new entry.
+
+    Decisions:
+    - `ctl_form_apply` takes the setter as a function pointer plus a context. The firmware passes a wrapper around `ctl_firmware_change`, which keeps its log line and change tracking. The test passes the real `ctl_settings_set` on its own settings, so nothing is faked. I rejected applying the form to a copy of the settings and comparing old with new: that needs a second settings struct on the stack and loses the setter's log line for each field.
+    - The report's HTML (opening, rows, closing, empty-save line) is in `ctl_form.c` so that the empty save is tested too. On the ESP8266 these few strings now sit in RAM instead of flash, which costs about 120 bytes.
+    - When `ctl_firmware_settings()` is NULL (before setup), `apply_form` marks the report saved with no names, as before.
+
+    Noticed, not touched: the upstream rules harness prints its own compiler warnings during `make test`, as before. The earlier remarks still hold: upstream's routes have the same gap when a connection drops, and the other upstream pages keep menus without the Control link.
+
+    The factory left out changes outside the write paths: factory/features/F0008-web-page/in-progress/F0008-S0001-control-page.md.
+
+    `check`: check: green

@@ -288,6 +288,11 @@ name the setter accepted as *accepted*, the value it already had included, and e
 setter refused as *refused*; a refusal is also logged with the setter's answer, and the refused
 setting keeps its old value. A save that only repeats the current values writes no file.
 
+The keeping, joining, ordering and applying of the fields, and the HTML of the report, are the
+pure module `glue/ctl_form.c`, which `tests/control/test_form.c` covers on the host; it applies
+through a setter it is given, here the glue's `ctl_firmware_change`. `glue/ctl_web.cpp` only
+hands it the web server's steps.
+
 **Adding rooms.** The form shows the fields of the rooms below the current count only. To add
 rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
 weight fields, which a second save sets. Lowering the count and saving drops the fields above it.

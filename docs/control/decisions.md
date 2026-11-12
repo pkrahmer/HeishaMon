@@ -741,3 +741,19 @@ stack; cutting a joined value that is too long, which would save a topic no one 
 value across chunks so that any length fits; and a page of its own CSS, which would look unlike
 HeishaMon. `htmlcode.h`'s texts are `static`, so the few the page uses exist twice in flash;
 reaching upstream's copies would need a change to upstream's files.
+
+## 2026-11-12: The save of the control page is pure C, with the setter passed in
+
+**Decision.** Keeping the posted fields, joining a value's pieces, applying the fields in the
+order of the settings list and writing the report's HTML live in `glue/ctl_form.c`, pure C99 with
+a host test. `glue/ctl_web.cpp` keeps only upstream's steps: the routes, the chunks of the page,
+the redirect and the buffer's life. `ctl_form_apply` takes the setter as a function and a context,
+so the page passes the glue's `ctl_firmware_change` and the test passes `ctl_settings_set` on
+settings of its own; the report's opening, rows, closing and empty-save line are its items, so
+the page writes them like any other section's rows.
+**Reason.** Everything the save decides was Arduino C++ that only `make firmware` compiles, and
+two faults got past review there. With the setter passed in, the module needs no file, no topic
+and no state of the glue, and the test calls the real settings setter.
+**Rejected.** Applying to a copy of the settings and letting the glue compare old and new, which
+needs a second settings struct on the stack and loses the setter's per-field log; keeping the
+report's HTML in the page, which would leave the empty-save line untested.
