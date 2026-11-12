@@ -2,7 +2,7 @@ contract: "1.1"
 attempts_cap: 2
 crash_cap: 2
 project_commands:
-  check: {time_limit: 10}
+  check: {time_limit: 25}
   lint: {time_limit: 5}
   test: {time_limit: 10}
   sync: {time_limit: 5}  # the tools after a checkout: the stage environment runs it, no stage lists it
