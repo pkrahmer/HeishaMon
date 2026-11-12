@@ -33,9 +33,27 @@ static bool is_room(const ctl_settings *settings, const char *topic, size_t *roo
     return false;
 }
 
-static bool is_pv(const ctl_settings *settings, const char *topic)
+/* The inputs a topic setting other than a room's names, in the order they are checked. */
+static bool is_named_input(const ctl_settings *settings, const char *topic, ctl_input *input)
 {
-    return strcmp(settings->pv_topic, topic) == 0;
+    const struct {
+        const char *setting;
+        ctl_input input;
+    } inputs[] = {
+        {settings->pv_topic, CTL_INPUT_PV},
+        {settings->outdoor_topic, CTL_INPUT_OUTDOOR},
+        {settings->heat_topic, CTL_INPUT_HEAT},
+        {settings->valve_topic, CTL_INPUT_VALVE},
+        {settings->defrost_topic, CTL_INPUT_DEFROST},
+    };
+    size_t i;
+    for (i = 0; i < sizeof inputs / sizeof inputs[0]; i++) {
+        if (strcmp(inputs[i].setting, topic) == 0) {
+            *input = inputs[i].input;
+            return true;
+        }
+    }
+    return false;
 }
 
 /* Writes the name of a <base>/control/set/<name> topic, when the name is one the struct holds. */
@@ -62,16 +80,15 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
 {
     static const ctl_topic none;
     ctl_topic result = none;
-    /* Refusing the empty topic here is what keeps an empty room or PV topic from matching. */
+    /* Refusing the empty topic here is what keeps an empty topic setting from matching. */
     if (settings == NULL || base == NULL || topic == NULL || topic[0] == '\0') {
         return none;
     }
     if (is_room(settings, topic, &result.room)) {
         result.kind = CTL_TOPIC_INPUT;
         result.input = CTL_INPUT_ROOM;
-    } else if (is_pv(settings, topic)) {
+    } else if (is_named_input(settings, topic, &result.input)) {
         result.kind = CTL_TOPIC_INPUT;
-        result.input = CTL_INPUT_PV;
     } else if (is_setting(base, topic, result.name)) {
         result.kind = CTL_TOPIC_SETTING;
     }

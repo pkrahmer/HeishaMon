@@ -63,6 +63,9 @@ static ctl_loop loop_state;
 static ctl_clock board_clock;
 static ctl_loop_record record;
 static gate last_gate = GATE_UNKNOWN;
+// Where the pump's values came from when last logged, so that only a change is logged again.
+static bool pump_source_logged;
+static bool pump_from_mqtt;
 // What the telemetry of the last decision was made from, for the page.
 static bool decided;
 static double decision_s;
@@ -280,19 +283,39 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
-    if (settings.pv_topic[0] != '\0') {
-        subscribe_one(settings.pv_topic, subscribe);
+    const char *const named[] = {settings.pv_topic, settings.outdoor_topic, settings.heat_topic,
+                                 settings.valve_topic, settings.defrost_topic};
+    for (const char *topic : named) {
+        if (topic[0] != '\0') {
+            subscribe_one(topic, subscribe);
+        }
     }
 }
 
-// The names whose change moves the set of input topics.
+static void log_pump_source()
+{
+    bool from_mqtt = ctl_settings_pump_from_mqtt(&settings);
+    if (pump_source_logged && from_mqtt == pump_from_mqtt) {
+        return;
+    }
+    pump_source_logged = true;
+    pump_from_mqtt = from_mqtt;
+    log_text(from_mqtt ? "control: the pump values come from MQTT, the frames hand none"
+                       : "control: the pump values come from this board's frames");
+}
+
+static bool ends_with(const char *text, const char *suffix)
+{
+    size_t length = strlen(text);
+    size_t suffix_length = strlen(suffix);
+    return length > suffix_length && strcmp(text + length - suffix_length, suffix) == 0;
+}
+
+// The names whose change moves the set of input topics: the count of rooms, a room's topic and
+// every other topic setting.
 static bool moves_topics(const char *name)
 {
-    static const char ROOM_TOPIC_SUFFIX[] = ".topic";
-    size_t length = strlen(name);
-    size_t suffix = sizeof ROOM_TOPIC_SUFFIX - 1;
-    return strcmp(name, "rooms") == 0 || strcmp(name, "pv_topic") == 0
-           || (length > suffix && strcmp(name + length - suffix, ROOM_TOPIC_SUFFIX) == 0);
+    return strcmp(name, "rooms") == 0 || ends_with(name, ".topic") || ends_with(name, "_topic");
 }
 
 // A change begun here ends with ctl_firmware_change_end; between them only the settings move.
@@ -341,6 +364,7 @@ void ctl_firmware_change_end()
     if (change_topics) {
         subscribe_inputs(true);
     }
+    log_pump_source();
 }
 
 static void handle_setting(const char *name, const byte *payload, unsigned int length)
@@ -429,6 +453,7 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     ctl_settings_to_loop(&settings, &config);
     ctl_loop_init(&loop_state, &config, now_s());
     started = true;
+    log_pump_source();
 }
 
 void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, bool listen_only)
@@ -467,7 +492,9 @@ static void hand_value(ctl_input input, char *data, unsigned int topic_number, d
 
 void ctl_firmware_frame(char *data)
 {
-    if (!started) {
+    // A board that shadows another HeishaMon takes the pump's values from MQTT alone; a frame
+    // from a pump of its own would otherwise mix two pumps in one loop.
+    if (!started || ctl_settings_pump_from_mqtt(&settings)) {
         return;
     }
     double now = now_s();

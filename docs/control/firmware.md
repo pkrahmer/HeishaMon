@@ -27,6 +27,10 @@ below, with the rooms' names after `rooms`.
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
+| `outdoor_topic` | text | empty | the outdoor temperature from MQTT; see *Shadowing another HeishaMon* |
+| `heat_topic` | text | empty | the produced heat from MQTT; see *Shadowing another HeishaMon* |
+| `valve_topic` | text | empty | the three-way valve from MQTT; see *Shadowing another HeishaMon* |
+| `defrost_topic` | text | empty | the defrost flag from MQTT; see *Shadowing another HeishaMon* |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
 | `adjustment_w_per_k` | number | the core's default | as the core validates it |
@@ -239,8 +243,8 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
-allowed demands at once, and a change of `rooms`, a room's topic or `pv_topic` unsubscribes the
-old input topics and subscribes the new ones.
+allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic` or a pump topic
+unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
 `<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
@@ -334,3 +338,45 @@ commands disabled, no rooms, no PV. It runs the loop and publishes, but sends no
    until the phase runs and the demands it shows make sense for the house. The log says why no
    command goes to the pump.
 4. Only then set `control/set/enabled` to `1`, and watch `control/outputs/` and the pump.
+
+## Shadowing another HeishaMon
+
+A board without a pump never decodes a frame, so its loop never gets the pump's values. Four
+settings name MQTT topics for them instead, as another HeishaMon publishes them under
+`<its base>/main/`:
+
+| Setting | Input | Topic of a HeishaMon with base `jeisha` |
+|---|---|---|
+| `outdoor_topic` | the outdoor temperature | `jeisha/main/Outside_Temp` |
+| `heat_topic` | the produced heat | `jeisha/main/Heat_Power_Production` |
+| `valve_topic` | the three-way valve | `jeisha/main/ThreeWay_Valve_State` |
+| `defrost_topic` | the defrost flag | `jeisha/main/Defrosting_State` |
+
+The glue subscribes to every one that is set and hands its messages to the loop as that input,
+through the same adapters as a decoded frame's values (`ctl_dispatch_topic`). A topic equal to a
+room's topic is the room's; one equal to `pv_topic` is PV.
+
+**While any of the four is set, the frames hand nothing.** `ctl_settings_pump_from_mqtt` is then
+true, and `ctl_firmware_frame` hands no value to the loop, so that a board never mixes the values
+of two pumps; a value whose topic is left empty then never arrives, and the core treats it as
+missing. The glue logs where the pump's values come from at setup and on each change:
+`control: the pump values come from MQTT, the frames hand none` or `control: the pump values come
+from this board's frames`. A board on a pump leaves the four empty and behaves as before.
+
+To run the firmware on a spare board beside a production HeishaMon, whose base is `jeisha` here:
+
+1. Flash the spare board and give it its own MQTT base in HeishaMon's settings, such as
+   `jeisha_shadow`, so that its values, its `control/` topics and its setting topics never mix
+   with the production board's.
+2. Turn listen-only mode on in its HeishaMon settings: it has no pump to talk to, and it must send
+   nothing.
+3. Leave `control/set/enabled` at `0`, the default, so that no command is ever queued for a pump.
+4. Set the four pump topics, each by `<its base>/control/set/<name>`: `outdoor_topic` to
+   `jeisha/main/Outside_Temp`, `heat_topic` to `jeisha/main/Heat_Power_Production`,
+   `valve_topic` to `jeisha/main/ThreeWay_Valve_State` and `defrost_topic` to
+   `jeisha/main/Defrosting_State`. Check the answers under `control/config/` and the log line that
+   the pump values come from MQTT.
+5. Set `rooms`, each `room.<i>.topic` to the same room topics the house's sensors publish, and
+   `pv_topic` if there is PV, as on a first start (*First start on a board*).
+6. Watch `control/inputs/` until every room and the pump's values arrive, and then compare the
+   spare board's `control/status/` and `control/outputs/` with what the production board does.
