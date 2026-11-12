@@ -1,2 +1,4 @@
 {"event":"raised","scope":"repository","reason":"fetch_failed","at":"2026-11-12T00:34:11.973428Z","instance":"heishamon"}
 {"event":"cleared","scope":"repository","reason":"fetch_failed","at":"2026-11-12T00:36:12.384303Z","instance":"heishamon"}
+{"event":"raised","scope":"repository","reason":"pipeline_definition_invalid","at":"2026-11-12T05:50:28.838222Z","instance":"heishamon"}
+{"event":"cleared","scope":"repository","reason":"pipeline_definition_invalid","at":"2026-11-12T05:54:29.836969Z","instance":"heishamon"}
