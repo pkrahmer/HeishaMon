@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 25
 comments_read: [6839264563]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T23:44:18.985447Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-12T23:44:18.985447Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T23:44:57.015518Z'
+  stage: review
+  run: a0254920b3d24fbcac00723fe10adcb0
 ---
 
 # The frames from a log topic
@@ -91,11 +93,12 @@ This story adds a setting `frame_log_topic`. When it is set, the glue subscribes
 
 ## Interface
 
-New files: `HeishaMon/src/control/glue/ctl_framelog.h`, `ctl_framelog.c`, `tests/control/test_framelog.c`. Changed: `ctl_settings.h`, `ctl_settings.c`, `ctl_dispatch.h`, `ctl_dispatch.c`, `ctl_firmware.cpp`, and the tests `tests/control/test_settings.c` and `tests/control/test_dispatch.c` by the owner's leave as the criteria say.
+New files: `HeishaMon/src/control/glue/ctl_framelog.h`, `ctl_framelog.c`, `tests/control/test_framelog.c`, `tests/control/data/framelog_sample.txt`. Changed: `ctl_settings.h`, `ctl_settings.c`, `ctl_dispatch.h`, `ctl_dispatch.c`, `ctl_telemetry.h`, `ctl_telemetry.c`, `ctl_firmware.h`, `ctl_firmware.cpp`, and the tests `tests/control/test_settings.c`, `tests/control/test_dispatch.c` and `tests/control/test_telemetry.c` by the owner's leave as the criteria and the *Counters* bullet say.
 
 ```c
 /* ctl_framelog.h */
 #define CTL_FRAMELOG_MAX 256
+#define CTL_FRAMELOG_MAIN_LENGTH 203
 
 typedef struct {
     bool collecting;
@@ -109,6 +112,7 @@ typedef enum { CTL_FRAMELOG_NOTHING, CTL_FRAMELOG_FRAME, CTL_FRAMELOG_DROPPED } 
 void ctl_framelog_init(ctl_framelog *log);
 ctl_framelog_result ctl_framelog_line(ctl_framelog *log, const char *line, size_t length);
 bool ctl_framelog_checksum_ok(const uint8_t *frame, size_t length);
+bool ctl_framelog_is_main_data(const uint8_t *frame, size_t length);
 ```
 
 - **The message text.** The parser reads the text after the first `): `. A line without it gives `NOTHING`.
@@ -118,6 +122,7 @@ bool ctl_framelog_checksum_ok(const uint8_t *frame, size_t length);
 - **`sent bytes: ...`** ends a frame in progress as `DROPPED`, and starts nothing.
 - Every other line gives `NOTHING` and changes nothing.
 - `ctl_framelog_checksum_ok` is true when the sum of all bytes, the checksum included, is 0 modulo 256, as `isValidReceiveChecksum` checks.
+- `ctl_framelog_is_main_data` is true when the frame has `CTL_FRAMELOG_MAIN_LENGTH` bytes, `frame[0]` `0x71` and `frame[3]` `0x10`; false for every other frame and for a NULL frame.
 
 The setting and the dispatch:
 
@@ -128,8 +133,8 @@ The glue:
 
 - **Subscribing.** It subscribes to a non-empty `frame_log_topic`.
 - **Feeding.** It feeds each message of that topic to the parser, in arrival order, with a static `ctl_framelog`.
-- **A complete frame.** On `FRAME` with 203 bytes, `frame[0]` `0x71` and `frame[3]` `0x10`, it calls `decode_heatpump_data` with the frame, HeishaMon's `actData`, `mqtt_client`, `log_message`, `heishamonSettings.mqtt_topic_base` and `heishamonSettings.updateAllTime`, through `extern` declarations of those globals. Then it calls `ctl_firmware_frame` with the frame. Any other frame is counted and ignored.
-- **Counters.** It counts the decoded frames and the dropped ones, and publishes both as telemetry entries `inputs/frames_decoded` and `inputs/frames_dropped`, appended to the inputs group. The rows of `tests/control/test_telemetry.c` that state the inputs count change by the owner's leave.
+- **A complete frame.** On `FRAME` with a frame for which `ctl_framelog_is_main_data` holds, it calls `decode_heatpump_data` with the frame, HeishaMon's `actData`, `mqtt_client`, `log_message`, `heishamonSettings.mqtt_topic_base` and `heishamonSettings.updateAllTime`, through `extern` declarations of those globals. Then it calls `ctl_firmware_frame` with the frame. Any other frame is counted and ignored.
+- **Counters.** It counts the decoded frames and the dropped ones, and publishes both as telemetry entries `inputs/frames_decoded` and `inputs/frames_dropped`, appended to the inputs group. By the owner's leave, in `tests/control/test_telemetry.c` the rows that state the inputs count change, the inputs table gains the two counter rows, and the fixture sets the two counters; nothing else in that file changes.
 - **No upstream change.** No upstream file changes in this story.
 
 ## Acceptance criteria
@@ -251,3 +256,28 @@ Expect: `2`
     — Kumpel, for the human who owns this project
     <!-- kumpel -->
 11. factory: started review as heishamon.
+12. reviewer: Round 1 review, after the human's answer in entry 10.
+
+    Done on the human's instruction (option 2): I rewrote the work item's `## Description`, Interface section, and changed nothing else in it.
+    - (a) The file list now names `tests/control/data/framelog_sample.txt`, `ctl_telemetry.h`, `ctl_telemetry.c`, `ctl_firmware.h` and `tests/control/test_telemetry.c`.
+    - (b) The header sketch now declares `CTL_FRAMELOG_MAIN_LENGTH 203` and `ctl_framelog_is_main_data`. A new bullet says what that function returns. The 'A complete frame' bullet now decodes on `FRAME` when `ctl_framelog_is_main_data` holds.
+    - (c) The *Counters* bullet states the wider leave in the human's words. In `tests/control/test_telemetry.c` the inputs-count rows change, the inputs table gains the two counter rows and the fixture sets the two counters. Nothing else in that file changes.
+
+    The code has not changed since entry 9, because no builder round ran in between. The two wrapping findings from entry 9 are still open, and the human gave them to the builder:
+
+    1. docs/control/decisions.md:806 (151 chars) and :816 (166 chars), in the entry 'Frames from another HeishaMon's log': lines run past 100 columns. No line of decisions.md on develop does. Fix: re-wrap that entry at 100 columns.
+    2. docs/control/firmware.md:406 (143), :416 (103), :421 (126), in the section 'Frames from another HeishaMon's log': new prose lines run past 100 columns. On develop the only long prose lines are :229 and :378, and the new table row at :34 matches the other long table rows. Fix: re-wrap those three prose lines at 100 columns.
+
+    Checked with no finding:
+    - Criteria 1–4: each has a test that bites. Limits are tested on both sides: Received 0/1 and 256/257/300; bytes beyond the count; a malformed byte (7G) and a missing space; a line without `): `; checksum true and false; main data true, and false for one byte short, another header, another type, the 20-byte answer and NULL.
+    - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` shows no upstream file changed.
+    - `make check` was green after the builder (entry 7).
+    - Architecture: `ctl_framelog.c` is pure C99 with static helpers and no upstream include. Upstream globals are reached only from `ctl_firmware.cpp` through `extern`.
+    - Embedded safety: frame writes are bounded by expected <= CTL_FRAMELOG_MAX, the count parse is capped at 4 digits, every loop is bounded by a length, and nothing is allocated.
+    - Docs: the claims in firmware.md and decisions.md match the code (the counters, the reset when topics move, the sent mark anywhere in the line, `pump_from_mqtt` ignoring `frame_log_topic`).
+    - Description: it now matches what was built.
+
+    Earlier tests (status M):
+    - tests/control/test_settings.c: the name-count and index rows changed under the story's leave. The defaults row and test_frame_log_topic are additions.
+    - tests/control/test_dispatch.c: adds test_frame_log_topic only. Earlier tests are unchanged.
+    - tests/control/test_telemetry.c: the count rows (23, refused index 23, 11+3*rooms), the two inputs-table rows and the two fixture counters all changed under the leave of entry 10. Nothing else in the file changed.
