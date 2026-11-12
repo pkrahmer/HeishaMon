@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 23
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T08:24:32.834648Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-12T08:24:25.249531Z'
   stage: doing
   run: b6a46e8286054586a772612bba849141
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:24:32.834648Z'
+  stage: review
 ---
 
 # The pump values from MQTT
@@ -182,3 +191,4 @@ Expect: `2`
    Noticed but not touched: upstream's rules harness still prints compiler warnings during `make test`.
 
    `check`: check: green
+8. factory: started review as heishamon.
