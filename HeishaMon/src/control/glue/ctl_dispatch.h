@@ -23,11 +23,13 @@ typedef struct {
 } ctl_topic;
 
 /* Returns INPUT with CTL_INPUT_ROOM and the room's index for a topic equal to the topic of a
- * room below room_count, the first such room when several are equal; INPUT with CTL_INPUT_PV for
- * a topic equal to a non-empty pv_topic; SETTING with the name for <base>/control/set/<name>,
+ * room below room_count, the first such room when several are equal; else INPUT with CTL_INPUT_PV,
+ * CTL_INPUT_OUTDOOR, CTL_INPUT_HEAT, CTL_INPUT_VALVE or CTL_INPUT_DEFROST for a topic equal to a
+ * non-empty pv_topic, outdoor_topic, heat_topic, valve_topic or defrost_topic, the first in that
+ * order when several are equal; SETTING with the name for <base>/control/set/<name>,
  * when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
- * for a NULL argument; an empty room or PV topic matches nothing, since an empty topic is NONE.
+ * for a NULL argument; an empty topic setting matches nothing, since an empty topic is NONE.
  * Every field the kind does not use is zero. */
 ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, const char *topic);
 

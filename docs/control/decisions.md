@@ -757,3 +757,20 @@ and no state of the glue, and the test calls the real settings setter.
 **Rejected.** Applying to a copy of the settings and letting the glue compare old and new, which
 needs a second settings struct on the stack and loses the setter's per-field log; keeping the
 report's HTML in the page, which would leave the empty-save line untested.
+
+## 2026-11-12: The pump's values may come from MQTT, and then only from there
+
+**Decision.** Four topic settings, `outdoor_topic`, `heat_topic`, `valve_topic` and
+`defrost_topic`, follow `pv_topic` in the settings list. `ctl_dispatch_topic` checks the rooms
+first, then `pv_topic` and the four in that order, from one table, so a topic two settings share
+goes to the first. While any one of the four is set, `ctl_firmware_frame` hands nothing, not even
+the values whose topic is empty. The glue keeps the last source it logged and logs again only when
+it changes, at setup and at the end of every change of settings. Any setting name ending in
+`_topic` or `.topic`, and `rooms`, moves the subscriptions on a change over MQTT.
+**Reason.** A board shadowing another HeishaMon must not mix in a pump of its own; one switch for
+all four is simpler to reason about than four. The topic settings share one field lookup in
+`ctl_settings.c`, so the setter and the getter treat every topic the same.
+**Rejected.** Switching each value separately (a frame value for every empty topic), which mixes
+two pumps on a board that has one; a separate on/off setting, which the story does not name and
+which the topics already imply; logging on every frame skipped, which floods the log.
+

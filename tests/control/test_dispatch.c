@@ -126,6 +126,60 @@ static void test_empty_topics_match_nothing(void)
     check_row(__FILE__, __LINE__, &settings, &row);
 }
 
+static void set_pump_topics(ctl_settings *settings)
+{
+    set_or_fail(settings, "outdoor_topic", "jeisha/main/Outside_Temp");
+    set_or_fail(settings, "heat_topic", "jeisha/main/Heat_Power_Production");
+    set_or_fail(settings, "valve_topic", "jeisha/main/ThreeWay_Valve_State");
+    set_or_fail(settings, "defrost_topic", "jeisha/main/Defrosting_State");
+}
+
+static void test_pump_topics(void)
+{
+    static const struct {
+        bool pump_topics_set;
+        const char *shared_name; /* NULL: no setting shares a topic */
+        const char *shared_topic;
+        topic_row row;
+    } rows[] = {
+        {true, NULL, NULL,
+         {"jeisha/main/Outside_Temp", CTL_TOPIC_INPUT, CTL_INPUT_OUTDOOR, 0, ""}},
+        {true, NULL, NULL,
+         {"jeisha/main/Heat_Power_Production", CTL_TOPIC_INPUT, CTL_INPUT_HEAT, 0, ""}},
+        {true, NULL, NULL,
+         {"jeisha/main/ThreeWay_Valve_State", CTL_TOPIC_INPUT, CTL_INPUT_VALVE, 0, ""}},
+        {true, NULL, NULL,
+         {"jeisha/main/Defrosting_State", CTL_TOPIC_INPUT, CTL_INPUT_DEFROST, 0, ""}},
+        {true, NULL, NULL, {"a/room1", CTL_TOPIC_INPUT, CTL_INPUT_ROOM, 0, ""}},
+        {true, NULL, NULL, {"pv/dc", CTL_TOPIC_INPUT, CTL_INPUT_PV, 0, ""}},
+        {false, NULL, NULL, {"jeisha/main/Outside_Temp", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""}},
+        {false, NULL, NULL,
+         {"jeisha/main/Defrosting_State", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""}},
+        {true, "room.1.topic", "jeisha/main/Outside_Temp",
+         {"jeisha/main/Outside_Temp", CTL_TOPIC_INPUT, CTL_INPUT_ROOM, 1, ""}},
+        {true, "pv_topic", "jeisha/main/Outside_Temp",
+         {"jeisha/main/Outside_Temp", CTL_TOPIC_INPUT, CTL_INPUT_PV, 0, ""}},
+        {true, "outdoor_topic", "jeisha/main/Heat_Power_Production",
+         {"jeisha/main/Heat_Power_Production", CTL_TOPIC_INPUT, CTL_INPUT_OUTDOOR, 0, ""}},
+        {true, "heat_topic", "jeisha/main/ThreeWay_Valve_State",
+         {"jeisha/main/ThreeWay_Valve_State", CTL_TOPIC_INPUT, CTL_INPUT_HEAT, 0, ""}},
+        {true, "valve_topic", "jeisha/main/Defrosting_State",
+         {"jeisha/main/Defrosting_State", CTL_TOPIC_INPUT, CTL_INPUT_VALVE, 0, ""}},
+    };
+    size_t i;
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+        ctl_settings settings;
+        two_rooms(&settings);
+        if (rows[i].pump_topics_set) {
+            set_pump_topics(&settings);
+        }
+        if (rows[i].shared_name != NULL) {
+            set_or_fail(&settings, rows[i].shared_name, rows[i].shared_topic);
+        }
+        check_row(__FILE__, __LINE__, &settings, &rows[i].row);
+    }
+}
+
 static void check_none(const char *file, int line, ctl_topic actual)
 {
     check_uint(file, line, (uint32_t)actual.kind, (uint32_t)CTL_TOPIC_NONE);
@@ -162,6 +216,7 @@ int main(void)
     test_first_equal_room_wins();
     test_rooms_above_the_count_match_nothing();
     test_empty_topics_match_nothing();
+    test_pump_topics();
     test_null_arguments_give_none();
     test_thermostat_state();
     return check_result();

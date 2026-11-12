@@ -1,3 +1,82 @@
+---
+stage: approval
+blocked: null
+round: 1
+attempts: 0
+crashes: 0
+pull_request: 23
+comments_read: [6818639434]
+handed_over: approval
+claim: null
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-12T08:06:29.448826Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:06:29.455689Z'
+  stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T08:16:01.899234Z'
+  stage: doing
+  run: 204fcf85989c4af289f310c35185c882
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:16:06.743355Z'
+  stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T08:17:05.938591Z'
+  stage: review
+  run: 18bc86d353874978a0ba8c4129f52e6f
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:17:12.084296Z'
+  stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T08:24:25.249531Z'
+  stage: doing
+  run: b6a46e8286054586a772612bba849141
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:24:32.834648Z'
+  stage: review
+- number: 9
+  speaker: reviewer
+  kind: question
+  at: '2026-11-12T08:25:39.231606Z'
+  stage: review
+  run: e32e3ad798a245e59576ab6ee37c1971
+  blocked: question
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-12T08:27:26.683102Z'
+  stage: review
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-12T08:27:29.261379Z'
+  stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T08:27:45.889095Z'
+  stage: review
+  run: c668bf3a82ab45f89fb2dab9c7ca51de
+---
+
 # The pump values from MQTT
 
 ## Description
@@ -42,3 +121,152 @@ make firmware | grep -c -E '^(esp8266|esp32):'
 Expect: `2`
 
 ## Journal
+
+1. 2026-11-12 human: created.
+2. factory: started doing as heishamon.
+3. builder: Built the four pump topic settings and the MQTT path for the pump's values.
+
+   Code:
+   - `HeishaMon/src/control/glue/ctl_settings.h`, `ctl_settings.c`: added `outdoor_topic`, `heat_topic`, `valve_topic` and `defrost_topic` after `pv_topic`. They use the same rule as `pv_topic` and are empty by default. `CTL_SETTINGS_FIXED_NAMES` is now 20. Added `ctl_settings_pump_from_mqtt`. The setter and getter now find every topic setting (the room topics, `pv_topic` and the four new ones) through one helper, `topic_field`, instead of one switch case per topic.
+   - `HeishaMon/src/control/glue/ctl_dispatch.c`, `.h`: rooms are still checked first. After them comes one table, in the order PV, outdoor, heat, valve, defrost, that gives the matching `CTL_INPUT_*`. It replaces `is_pv`. The header comment now describes the new order.
+   - `HeishaMon/src/control/glue/ctl_firmware.cpp`:
+     - `subscribe_inputs` (and so unsubscribe too) also handles every non-empty pump topic.
+     - `ctl_firmware_frame` returns early while `ctl_settings_pump_from_mqtt` is true.
+     - `log_pump_source` logs the source at setup and at the end of every change, but only when the source differs from the one logged last.
+     - `moves_topics` is now `rooms`, or any name ending in `.topic` or `_topic`, so changing a pump topic over MQTT moves the subscriptions. The control page already resubscribes on every save.
+
+   Tests:
+   - `tests/control/test_settings.c`:
+     - New `test_pump_topics`, a table over the four names: each defaults to empty, takes `jeisha/main/Outside_Temp` and the empty text, and refuses `a+b` with `BAD_VALUE`.
+     - New `test_pump_from_mqtt`: false at the defaults, true when any one of the four is set.
+     - With the owner's leave, only the rows that state the count or order changed. `test_defaults` now expects a count of 20 and has the four names after `pv_topic`. In `test_name_list` the count is 24 and the indices are 23 and 24. In `test_rooms` the count is 22.
+   - `tests/control/test_dispatch.c`: new table test `test_pump_topics`. With the four `jeisha/main/` topics set, each topic gives its input, and a room topic and the PV topic still give theirs. With the four empty, `jeisha/main/Outside_Temp` and `jeisha/main/Defrosting_State` give NONE. A topic equal to `room.1.topic` and to `outdoor_topic` gives room 1.
+   - I saw the new tests fail before writing the code.
+
+   Docs:
+   - `docs/control/firmware.md`: the four rows in *The settings*. The MQTT change paragraph now names the pump topics. New section *Shadowing another HeishaMon*: the topic table, that the frames then hand nothing, the log lines, and the steps for a spare board (its own MQTT base, listen-only, `enabled` left at 0, the four `jeisha/main/` topics, the room topics and PV).
+   - `docs/control/decisions.md`: a new entry for the decisions below.
+
+   Decisions:
+   - One switch for all four: while any topic is set, the frames hand nothing, even the values whose topic is empty. The story's wording asks for this, and it never mixes two pumps. I rejected switching each value separately and adding a separate on/off setting.
+   - A topic two non-room settings share goes to the first in the order PV, outdoor, heat, valve, defrost.
+   - The source is logged only when it changes, not on every frame skipped.
+
+   Checks:
+   - `make check`: green (lint, test, device, firmware; `check: green`).
+   - Smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` gave `2`, as expected.
+
+   Noticed but not touched: upstream's rules harness prints compiler warnings (`rules.cpp`, `settimer.cpp`) during `make test`. They are upstream's, and the build stays green.
+
+   `check`: check: green
+4. factory: started review as heishamon.
+5. reviewer: Review, round 0. I read the diff against develop, plus `ctl_firmware.cpp` around `subscribe_inputs`, `ctl_firmware_change_end`, `ctl_firmware_frame` and `ctl_firmware_mqtt`, and `ctl_web.cpp`'s call to `ctl_firmware_change_begin`. The factory's `make check` after the builder was green, as the journal says.
+
+   Findings:
+   1. `tests/control/test_dispatch.c` `test_pump_topics`: the Interface fixes the order rooms, then PV, then outdoor, heat, valve and defrost. Only rooms-before-outdoor is tested. No row shows that PV comes before a pump topic, or that the four keep their order among themselves, so a table in another order would still pass. Fix: add a row where `pv_topic` equals `outdoor_topic` (expects `CTL_INPUT_PV`) and a row where two of the four share a topic, for example valve and defrost (expects `CTL_INPUT_VALVE`).
+   2. `tests/control/test_settings.c` `test_pump_from_mqtt`: the failing side is tested only at the defaults. An implementation that also counted `pv_topic` (or a room topic) would pass. Fix: add a check that `pv_topic` set with the four empty gives false.
+   3. Gap in the story, for the human (`ctl_firmware.cpp:293`, `:300`, `:497`): three glue rules have no criterion beyond criterion 5 (it compiles). They are: frames hand nothing while `ctl_settings_pump_from_mqtt` is true, the pump topics are subscribed, and the source is logged. Fix: the human either accepts compile-only coverage for these `.cpp` lines, or adds a criterion over a pure helper, for example one that lists the input topics to subscribe.
+   4. `docs/control/firmware.md`, section *Shadowing another HeishaMon*, has two claims that do not match the code:
+      - "through the same adapters as a decoded frame's values (`ctl_dispatch_topic`)": `ctl_dispatch_topic` only matches the topic. The value reaches the loop through `ctl_loop_input` (`ctl_firmware.cpp:530`).
+      - "logs … at setup and on each change": `log_pump_source` logs only when the source differs from the one logged last.
+      Fix: name `ctl_loop_input` there, and say the source is logged at setup and whenever it changes.
+   5. `HeishaMon/src/control/glue/ctl_settings.h`, the comment on `ctl_settings_defaults`: the edited line is 113 characters, while the file wraps at 100. Fix: rewrap the comment.
+
+   Earlier tests:
+   - `tests/control/test_settings.c` (M): the story names it with the owner's leave. Only rows that state the count or the order changed:
+     - `test_defaults`: count 20, plus the four name rows after `pv_topic`.
+     - `test_name_list`: count 24 and indices 23 and 24.
+     - `test_rooms`: count 22.
+     The rest of the changes only add tests.
+   - `tests/control/test_dispatch.c` (M): the story names it. The change only adds `test_pump_topics` and its call; every earlier test is as it was.
+
+   Checked and found fine:
+   - Architecture: no file outside the fork's three folders changed, and the `.c` files stay pure.
+   - Embedded safety: the loops are bounded by fixed tables, the four topic buffers are fixed size, and nothing allocates.
+   - The `.topic`/`_topic` rule in `moves_topics`.
+   - The decisions entry, and the Description against the build.
+6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed findings 1, 2, 4 and 5 from the review. Finding 3 is still open for the human.
+
+   1. `tests/control/test_dispatch.c` `test_pump_topics`: each row can now set one more setting by name and topic (`shared_name`/`shared_topic`). This replaces the room-only column. New rows:
+      - `pv_topic` equal to `outdoor_topic` gives `CTL_INPUT_PV`.
+      - `outdoor_topic` equal to the heat topic gives OUTDOOR.
+      - `heat_topic` equal to the valve topic gives HEAT.
+      - `valve_topic` equal to the defrost topic gives VALVE.
+      Together these fix the whole order PV, outdoor, heat, valve, defrost. The earlier row with `room.1.topic` equal to `outdoor_topic` (gives room 1) is unchanged.
+   2. `tests/control/test_settings.c` `test_pump_from_mqtt`: added a check that it is still false when `pv_topic` and a room topic are set and the four are empty.
+   4. `docs/control/firmware.md`, *Shadowing another HeishaMon*:
+      - It now says the value reaches the loop through `ctl_loop_input`, and that `ctl_dispatch_topic` only picks the input from the topic.
+      - It says what happens when two of the four share a topic.
+      - It says the source is logged at setup and whenever it changes.
+   5. `HeishaMon/src/control/glue/ctl_settings.h`: rewrapped the comment on `ctl_settings_defaults` to fit within 100 characters.
+
+   Open: finding 3, for the human. Three glue rules in `ctl_firmware.cpp` are covered only by the compile (criterion 5): frames hand nothing while `ctl_settings_pump_from_mqtt` is true, the pump topics are subscribed, and the source is logged. I added no pure helper for them, because the story names no such criterion and that would go beyond its scope. My choice: accept compile-only coverage for this story. If the human wants it, a later criterion could cover a pure helper that lists the input topics to subscribe.
+
+   Checks:
+   - `make check`: green (lint, test, device, firmware; `check: green`).
+   - Smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` gave `2`, as expected.
+
+   Noticed but not touched: upstream's rules harness still prints compiler warnings during `make test`.
+
+   `check`: check: green
+8. factory: started review as heishamon.
+9. reviewer: Review, round 1. I read the diff against develop, plus these parts of `ctl_firmware.cpp`: `load_settings`, `write_settings`, `subscribe_inputs`, `log_pump_source`, `moves_topics`, `ctl_firmware_change_begin`/`_end`, `ctl_firmware_frame` and `ctl_firmware_mqtt`. I also read `ctl_loop_input` and `offer_pump` in `HeishaMon/src/control/loop/ctl_loop.c`. The journal says the factory's `make check` after the builder was green.
+
+   Round 0 findings 1, 2, 4 and 5 are fixed. Every one of the six checklist groups passes, so the code and the tests have no findings. The one open point is round 0 finding 3. It is a gap in the story, only the human can close it, and sending the item back to doing again would cost a round without changing anything. So I am asking instead of sending it back.
+
+   Checked:
+   1. Acceptance criteria:
+      - Criterion 1: `test_settings.c` `test_pump_topics` is a table over the four names. Each defaults to empty, takes `jeisha/main/Outside_Temp` and the empty text, and refuses `a+b` with `BAD_VALUE`.
+      - Criterion 2: `test_defaults` checks the count of 20 and the order through `ctl_settings_name_at`.
+      - Criterion 3: `test_pump_from_mqtt` checks the defaults, the case with only `pv_topic` and a room topic set (false), and each of the four set alone (true).
+      - Criterion 4: `test_dispatch.c` `test_pump_topics` covers each input, NONE when the four are empty, the room before outdoor, and the full order PV, outdoor, heat, valve, defrost, with each neighbouring pair sharing a topic.
+   2. Architecture: no file outside the three folders changed, the `.c` files stay pure C99, and the new public name has the `ctl_` prefix.
+   3. Embedded safety: the loops run over fixed tables, the four topic buffers are fixed size, and nothing allocates. MQTT payloads go through the same `ctl_loop_input` adapters as frame values (`ctl_firmware.cpp:530`).
+   4. Quality: `topic_field` replaces the per-topic switch cases without leaving dead code, and `ends_with` is used twice.
+   5. Hygiene: the decisions entry and the *Shadowing another HeishaMon* section match the code. The source is logged only when it changes. A value whose topic is left empty is never observed, so the core treats it as missing.
+   6. Earlier tests:
+      - `tests/control/test_settings.c` (M): the story names it with the owner's leave. Only rows that state the count or the order changed (`test_defaults` count 20 and four name rows, `test_name_list` 24/23/24, `test_rooms` 22); everything else only adds tests.
+      - `tests/control/test_dispatch.c` (M): the story names it. The change only adds `test_pump_topics` and its call.
+
+   Question for the human (round 0 finding 3, a gap in the story): three glue rules in `HeishaMon/src/control/glue/ctl_firmware.cpp` are covered only by criterion 5, which checks that the code compiles:
+   - `ctl_firmware_frame` hands nothing while `ctl_settings_pump_from_mqtt` is true (`:497`);
+   - `subscribe_inputs` subscribes the non-empty pump topics (`:286`);
+   - `log_pump_source` logs the source at setup and whenever it changes (`:295`).
+
+   The `moves_topics` rule, under which any `_topic`/`.topic` name moves the subscriptions (`:315`), is also untested. No test can reach a `.cpp` file. The options I see:
+   - (a) Accept compile-only coverage for these lines in this story. The decision each one rests on, `ctl_settings_pump_from_mqtt` and `ctl_dispatch_topic`, is pure and tested.
+   - (b) Add a criterion to this story: a pure helper in a `.c` file under `glue/`, for example one that lists the input topics to subscribe and says whether a setting name moves them, with a table test. The builder would then move that logic out of the `.cpp`.
+   - (c) Option (a) now, and a later story in the backlog for the helper in (b).
+
+   I would choose (a). Each of these glue lines is a single call on a tested pure function, and (b) adds scope that the story's Interface does not name. If you answer (a) or (c), I will approve on the next run unless something new turns up.
+
+   Notes:
+   - `tests/control/test_dispatch.c` `test_pump_topics`: `check_row` gets the `__LINE__` of the loop, so a failure does not say which row failed. Passing the row index, or a line field per row, would help.
+   - `docs/control/firmware.md:365` is 101 characters, one over the width of the rest of the prose.
+10. 2026-11-12 human: (a). Each of those glue lines calls a tested pure function; the board run after this story is their test.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
+11. factory: started review as heishamon.
+12. reviewer: Review, round 1, after the human's answer (a) in entry 10.
+
+    No findings.
+
+    The diff is the same one reviewed in entry 9, because no builder run came between that review and this one. I checked it again against all six groups of the checklist:
+    1. **Acceptance criteria:**
+       - Criteria 1 to 4 each have a table test or a check in `tests/control/test_settings.c` (`test_pump_topics`, `test_defaults`, `test_pump_from_mqtt`) or in `tests/control/test_dispatch.c` (`test_pump_topics`).
+       - The failing sides are tested: empty topics give NONE, `pv_topic` and a room topic alone give false, and the whole order rooms, PV, outdoor, heat, valve, defrost is pinned row by row.
+       - The three glue rules in `ctl_firmware.cpp` (frames hand nothing, the pump topics are subscribed, the source is logged) are covered only because they compile. The human accepted that in entry 10 (option a).
+       - The journal says `make check` was green.
+    2. **Architecture:** only the fork's three folders changed. The `.c` files stay pure C99, and the new public name is `ctl_settings_pump_from_mqtt`.
+    3. **Embedded safety:** the loops run over fixed tables, the topic buffers are fixed size, nothing allocates, and payloads still go through `ctl_loop_input`.
+    4. **Quality:** `topic_field` replaces the per-topic switch cases without leaving dead ones. `ends_with` is used for both suffixes.
+    5. **Work item hygiene:** `docs/control/decisions.md` has the decision and what was rejected. The *Shadowing another HeishaMon* section of `docs/control/firmware.md` and its settings rows match the code (`ctl_loop_input`, the log only on a change, the two log texts, a topic shared by two settings). The Description matches what was built.
+    6. **Earlier tests:**
+       - `tests/control/test_settings.c` (M): the story names it with the owner's leave. Only the rows that state the count or the order changed: `test_defaults` (20 and the four names), `test_name_list` (24, 23, 24) and `test_rooms` (22). Everything else only adds tests.
+       - `tests/control/test_dispatch.c` (M): the story names it. The change only adds `test_pump_topics` and its call.
+
+    Notes (carried from entry 9; they don't send the item back):
+    - `tests/control/test_dispatch.c` `test_pump_topics`: `check_row` gets the loop's `__LINE__`, so a failure does not say which row failed.
+    - `docs/control/firmware.md:365`: the line is 101 characters, one over the width of the other prose.

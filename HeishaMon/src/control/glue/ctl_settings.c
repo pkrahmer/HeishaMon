@@ -32,6 +32,10 @@ typedef enum {
     SETTING_ROOM_WEIGHT,
     SETTING_ROOM_TIMEOUT,
     SETTING_PV_TOPIC,
+    SETTING_OUTDOOR_TOPIC,
+    SETTING_HEAT_TOPIC,
+    SETTING_VALVE_TOPIC,
+    SETTING_DEFROST_TOPIC,
     SETTING_DESIRED_INDOOR,
     SETTING_TRANSMISSION,
     SETTING_ADJUSTMENT,
@@ -57,6 +61,10 @@ static const fixed_name FIXED_NAMES[] = {
     {"rooms", SETTING_ROOMS},
     {"room_timeout_s", SETTING_ROOM_TIMEOUT},
     {"pv_topic", SETTING_PV_TOPIC},
+    {"outdoor_topic", SETTING_OUTDOOR_TOPIC},
+    {"heat_topic", SETTING_HEAT_TOPIC},
+    {"valve_topic", SETTING_VALVE_TOPIC},
+    {"defrost_topic", SETTING_DEFROST_TOPIC},
     {"desired_indoor_c", SETTING_DESIRED_INDOOR},
     {"transmission_w_per_k", SETTING_TRANSMISSION},
     {"adjustment_w_per_k", SETTING_ADJUSTMENT},
@@ -316,6 +324,27 @@ static bool write_room_name(size_t room, const char *suffix, char *name, size_t 
 
 /* ---- Values -------------------------------------------------------------------------------- */
 
+/* The text a topic setting keeps, or NULL for a setting that is no topic. */
+static char *topic_field(ctl_settings *settings, setting_key key)
+{
+    switch (key.id) {
+    case SETTING_ROOM_TOPIC:
+        return settings->room_topic[key.room];
+    case SETTING_PV_TOPIC:
+        return settings->pv_topic;
+    case SETTING_OUTDOOR_TOPIC:
+        return settings->outdoor_topic;
+    case SETTING_HEAT_TOPIC:
+        return settings->heat_topic;
+    case SETTING_VALVE_TOPIC:
+        return settings->valve_topic;
+    case SETTING_DEFROST_TOPIC:
+        return settings->defrost_topic;
+    default:
+        return NULL;
+    }
+}
+
 /* The double a number setting keeps, or NULL for a setting that is no plain number. */
 static double *number_field(ctl_settings *settings, setting_key key)
 {
@@ -388,6 +417,10 @@ static bool apply_rooms(ctl_settings *settings, const char *value)
 static bool apply_value(ctl_settings *settings, setting_key key, const char *value)
 {
     double *number = number_field(settings, key);
+    char *topic = topic_field(settings, key);
+    if (topic != NULL) {
+        return parse_topic(value, topic);
+    }
     if (number != NULL) {
         double parsed = 0.0;
         if (!parse_number(value, &parsed) || !number_in_rule(key.id, parsed)) {
@@ -403,10 +436,6 @@ static bool apply_value(ctl_settings *settings, setting_key key, const char *val
         return parse_flag(value, &settings->cooling);
     case SETTING_ROOMS:
         return apply_rooms(settings, value);
-    case SETTING_ROOM_TOPIC:
-        return parse_topic(value, settings->room_topic[key.room]);
-    case SETTING_PV_TOPIC:
-        return parse_topic(value, settings->pv_topic);
     case SETTING_TRIM_LIMIT:
         return apply_trim_limit(settings, value);
     case SETTING_HEAT_COOL:
@@ -421,6 +450,11 @@ static bool apply_value(ctl_settings *settings, setting_key key, const char *val
 
 static bool write_value(const ctl_settings *settings, setting_key key, char *value, size_t size)
 {
+    /* topic_field and number_field take no const settings; they only give the address read here. */
+    const char *topic = topic_field((ctl_settings *)settings, key);
+    if (topic != NULL) {
+        return copy_text(topic, value, size);
+    }
     switch (key.id) {
     case SETTING_ENABLED:
         return format_whole(settings->enabled ? 1 : 0, value, size);
@@ -428,10 +462,6 @@ static bool write_value(const ctl_settings *settings, setting_key key, char *val
         return format_whole(settings->cooling ? 1 : 0, value, size);
     case SETTING_ROOMS:
         return format_whole((int)settings->room_count, value, size);
-    case SETTING_ROOM_TOPIC:
-        return copy_text(settings->room_topic[key.room], value, size);
-    case SETTING_PV_TOPIC:
-        return copy_text(settings->pv_topic, value, size);
     case SETTING_TRIM_LIMIT:
         return settings->trim_limit_enabled ? format_number(settings->trim_limit_k, value, size)
                                             : copy_text(TRIM_LIMIT_NONE, value, size);
@@ -440,7 +470,6 @@ static bool write_value(const ctl_settings *settings, setting_key key, char *val
     case SETTING_MAX_RETRIES:
         return format_whole(settings->max_retries, value, size);
     default: {
-        /* number_field takes no const settings; it only gives the address read here. */
         const double *number = number_field((ctl_settings *)settings, key);
         return number != NULL && format_number(*number, value, size);
     }
@@ -469,6 +498,10 @@ void ctl_settings_defaults(ctl_settings *settings)
     }
     settings->room_timeout_s = rooms.room_timeout_s;
     settings->pv_topic[0] = '\0';
+    settings->outdoor_topic[0] = '\0';
+    settings->heat_topic[0] = '\0';
+    settings->valve_topic[0] = '\0';
+    settings->defrost_topic[0] = '\0';
     settings->desired_indoor_c = core.desired_indoor_c;
     settings->transmission_w_per_k = core.transmission_w_per_k;
     settings->adjustment_w_per_k = core.adjustment_w_per_k;
@@ -535,6 +568,12 @@ bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name
         return write_room_name(index / 2u, suffix, name, size);
     }
     return copy_text(FIXED_NAMES[NAMES_BEFORE_ROOMS + index - room_names].name, name, size);
+}
+
+bool ctl_settings_pump_from_mqtt(const ctl_settings *settings)
+{
+    return settings->outdoor_topic[0] != '\0' || settings->heat_topic[0] != '\0' ||
+           settings->valve_topic[0] != '\0' || settings->defrost_topic[0] != '\0';
 }
 
 bool ctl_settings_valid(const ctl_settings *settings)
