@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 20
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T06:16:37.135682Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-12T06:16:31.390554Z'
   stage: review
   run: 348c1bef3e00484594044243824bf447
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-12T06:16:37.135682Z'
+  stage: doing
 ---
 
 # The telemetry
@@ -191,3 +200,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    Earlier tests:
    - `tests/control/test_loop.c` (M): changed by the story's own leave, which says the owner allows one added row. It adds one test, `test_record_sent_state`, and its call in `main`; every earlier test is unchanged.
+6. factory: started doing as heishamon.
