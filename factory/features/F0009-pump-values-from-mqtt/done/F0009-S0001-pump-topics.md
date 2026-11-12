@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -75,6 +75,11 @@ journal:
   at: '2026-11-12T08:27:45.889095Z'
   stage: review
   run: c668bf3a82ab45f89fb2dab9c7ca51de
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-12T08:29:37.330366Z'
+  stage: approval
 ---
 
 # The pump values from MQTT
@@ -270,3 +275,4 @@ Expect: `2`
     Notes (carried from entry 9; they don't send the item back):
     - `tests/control/test_dispatch.c` `test_pump_topics`: `check_row` gets the loop's `__LINE__`, so a failure does not say which row failed.
     - `docs/control/firmware.md:365`: the line is 101 characters, one over the width of the other prose.
+13. factory: done (pull request merged); cost: 5 runs, 13.9 min, 42 turns, 185016 tokens in (1600690 more from cache), 31748 out, $1.88
