@@ -604,3 +604,37 @@ byte would end or break the line on the board. The CSV files get a header row wh
 report of that source.
 **Rejected.** Leaving skipped messages out of the file, which would hide a source that sends what
 the board cannot take.
+
+## 2026-11-12: The settings are one flat set of names with text values
+
+**Decision.** Every setting the owner can set is a name with a text value (`enabled`,
+`room.0.topic`, `hysteresis_wh`, …), set, read and listed through `glue/ctl_settings.h`. A room's
+settings are names of their own, listed only for rooms below `rooms`; a lower count keeps the
+values above it, so that raising it again brings them back.
+**Reason.** The settings file, the MQTT setting topics and a web page each map one name to one
+value; with one setter and one getter, the rules and the text forms live in one place, and a
+setting topic is `<subtree>/<name>` with no further mapping.
+**Rejected.** Nested settings (a JSON document, or a room list as one value), which would need a
+parser of their own on the board and make one MQTT topic change several values at once.
+
+## 2026-11-12: Commands are disabled by default
+
+**Decision.** `enabled` is 0 by default: the board runs the loop and publishes what it would do,
+but sends no command to the pump until the owner sets `enabled` to 1.
+**Reason.** A board fresh from the flash, or one whose settings file was lost, has no room topics
+and possibly a wrong polarity; it must not switch the pump on its own. Disabled by default makes
+switching the pump the owner's deliberate step.
+**Rejected.** Enabled by default, which would let a fresh board send commands before the owner
+has seen a single decision.
+
+## 2026-11-12: A setting's number is one the getter writes back exactly
+
+**Decision.** The setter refuses (`BAD_VALUE`) a number with a magnitude of 10¹² or more and a
+number with more than three decimals, so that its value survives the getter's text. A JSON object
+is refused even though the payload parser reads one. `max_retries` takes any whole number an `int`
+holds, and the router's range decides; `rooms`, the flags and `heat_cool_heat_value` have their
+own ranges. `trim_limit_k` 0 or below is `BAD_VALUE`, its own rule beside `none`.
+**Reason.** The settings file is written through the getter; a value it rounds would change
+silently at the next boot. Every value the core takes has at most three meaningful decimals.
+**Rejected.** Rounding on set, which would apply a value the owner did not send; and more
+decimals in the getter, which would make `0.02` read `0.020000`.

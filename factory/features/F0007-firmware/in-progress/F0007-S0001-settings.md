@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 18
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T05:32:49.016173Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-12T05:32:49.016173Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T05:40:35.177733Z'
+  stage: doing
+  run: 0763807b24eb407c87248602f8a31091
 ---
 
 # The settings
@@ -159,3 +161,38 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
 1. 2026-11-12 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the settings as pure C99 in the new folder `HeishaMon/src/control/glue/`.
+
+   **What I built**
+   - `HeishaMon/src/control/glue/ctl_settings.h` and `ctl_settings.c` provide the interface the story names.
+     - Names are found in a fixed table of 16. The `room.<i>.topic` and `room.<i>.weight` names are parsed separately and listed after `rooms`.
+     - The setter applies the value to a copy, runs `ctl_settings_valid` on it, and replaces the settings only on OK.
+     - Defaults come from `ctl_config_defaults`, `ctl_rooms_config_defaults` and `ctl_router_config_defaults`, so no number is written twice.
+     - `ctl_settings_to_loop` starts from `ctl_loop_config_defaults` with one room when `rooms` is 0.
+   - `tests/control/test_settings.c` covers every criterion with table tests. It also covers:
+     - texts that do not parse: a JSON object, `1e12`, `0.0004`, `2.5` for a decimal, NULL;
+     - bad room names: a leading zero, a missing index, a wrong suffix, an index of 16 or more;
+     - topics with a tab and with 0x7f;
+     - a lower `rooms` count keeping what lies above it, which comes back when the count rises again;
+     - a buffer one byte too small for both names and values;
+     - every setting reaching its field in the loop's configuration.
+   - I checked that the tests catch faults by breaking the code on purpose: dropping the whole-set check, the round-trip check, the JSON refusal and the cooling bit each makes the test fail.
+   - Docs:
+     - `docs/control/firmware.md` is new, with the section *The settings*: the table, the value rules, the rule that a refused change keeps the old value, and why `rooms` 0 is valid.
+     - `docs/control/decisions.md` has three new entries: the flat name set, commands disabled by default, and the getter-exact numbers below.
+
+   **Decisions where the story was open** (recorded in decisions.md)
+   - **Where a rule is checked:** a rule that belongs to the row itself gives BAD_VALUE (flags, `rooms` 0–16, room weight via `CTL_BOUND_WEIGHT`, `room_timeout_s` > 0, `trim_limit_k` > 0, `heat_cool_heat_value` −1..1, topics). Rules the core, rooms or router check give INVALID_SET, so each rule lives in one place. So `max_retries 11` and `desired_indoor_c 30.001` give INVALID_SET.
+   - **Numbers the getter can write back exactly:** a number must be below 1e12 in magnitude (the limit of `ctl_format_fixed`) and have at most 3 decimals, or it is BAD_VALUE. Otherwise a value saved through the getter would read back changed at the next boot. Rejected: rounding on set.
+   - **Bare numbers only:** a JSON object is refused, even though `ctl_payload_parse` accepts one.
+   - **Decimals:** the flags and `heat_cool_heat_value` go through the same parse as other decimals, so `1.0` is accepted. `max_retries` accepts any whole number that fits an `int`, and the router decides its range.
+   - **Room names:** the index is written without leading zeros (`room.00.topic` is UNKNOWN). A NULL name is UNKNOWN; a NULL value is BAD_VALUE.
+
+   **Smoke test:** `make test | grep '^control:'` gives `control: 19 test programs passed`; there were 18 before. `make check` is green.
+
+   **Noticed, not touched**
+   - `ctl_settings_set` keeps a full copy of the settings on the stack (about 1.9 KB, mostly the 16 room topics), as the story's copy-then-validate rule asks. That is a lot for the ESP8266's 4 KB stack. The glue story should call it from a shallow stack, or we decide to shorten the topics.
+   - `write_value` casts away `const` to reuse `number_field`; there is a comment on it. A separate const accessor would duplicate the switch.
+   - No sketch includes `glue/` yet, so `make device` compiles the new folder as a library but builds none of its code for the board.
+
+   `check`: check: green
