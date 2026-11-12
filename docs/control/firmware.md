@@ -24,7 +24,7 @@ below, with the rooms' names after `rooms`.
 | `cooling` | `0` or `1` | `0` | |
 | `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
-| `room.<i>.weight` | number | `1.0` | one per room `i` below `rooms`; 0 to 1000 |
+| `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
 | `desired_indoor_c` | number | the core's default | as the core validates it |

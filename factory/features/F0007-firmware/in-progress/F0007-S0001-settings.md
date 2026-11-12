@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 18
 comments_read: [6815816296]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T05:56:00.134320Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -84,6 +80,12 @@ journal:
   kind: started
   at: '2026-11-12T05:56:00.134320Z'
   stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-12T06:01:40.178741Z'
+  stage: doing
+  run: d8386c11a922448796205189666d8450
 ---
 
 # The settings
@@ -338,3 +340,14 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
     **Findings:**
     1. `docs/control/firmware.md`, the settings table, row `room.<i>.weight`: the Default column still says `1.0`. The human's answer (entry 10) makes it `1`, which is what the getter writes and what `test_rooms` expects. Fix: change that cell to `1`, as entry 10 tells the builder. No other change is needed. Once it is made, I would approve.
 13. factory: started doing as heishamon.
+14. builder: Round 2: fixed the reviewer's one finding (entry 12), as the human asked in entry 10, and changed nothing else.
+
+    - `docs/control/firmware.md`, settings table, row `room.<i>.weight`: the Default column is now `1`. It was `1.0`. This matches the Description, what the getter writes, and what `test_rooms` expects.
+
+    No code or test changed in this round.
+
+    Smoke test: `make test | grep '^control:'` gives `control: 19 test programs passed`. There were 18 before this story, so N is one more, as expected. `make check` is green.
+
+    Still open from earlier rounds, not touched: the setter keeps a copy of the settings on the stack, about 1.9 KB. The glue story should call it from a shallow stack.
+
+    `check`: check: green
