@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 25
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T23:30:57.783863Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-12T23:30:48.925475Z'
   stage: doing
   run: fea7d25afbb84620b487227a8d3b41c3
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-12T23:30:57.783863Z'
+  stage: review
 ---
 
 # The frames from a log topic
@@ -131,3 +140,4 @@ Expect: `2`
    Noticed, not touched: with log to MQTT on, the spare board logs its own decoding; setting its frame_log_topic to its own log topic would feed it back, and there is no guard. With the optional PCB emulation on at the production board, frames_dropped grows steadily from the PCB answers, as documented.
 
    `check`: check: green
+4. factory: started review as heishamon.
