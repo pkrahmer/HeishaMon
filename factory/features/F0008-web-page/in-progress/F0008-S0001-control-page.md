@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T07:38:11.016727Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-12T07:38:04.376675Z'
   stage: doing
   run: fdd58fdf603f4d10be8195daa39b58fb
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:38:11.016727Z'
+  stage: review
 ---
 
 # The control page
@@ -196,3 +205,4 @@ Expect: `2`
    Noticed, not touched: my earlier remarks still hold. Upstream's ESP8266 `WEBSERVER_BUFFER_SIZE` of 128 bytes limits a long URL-encoded topic in a form post. Upstream's own routes have the same gap on a dropped connection. The other upstream pages keep menus without the Control link.
 
    `check`: check: green
+8. factory: started review as heishamon.
