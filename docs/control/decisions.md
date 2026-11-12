@@ -638,3 +638,28 @@ own ranges. `trim_limit_k` 0 or below is `BAD_VALUE`, its own rule beside `none`
 silently at the next boot. Every value the core takes has at most three meaningful decimals.
 **Rejected.** Rounding on set, which would apply a value the owner did not send; and more
 decimals in the getter, which would make `0.02` read `0.020000`.
+
+## 2026-11-12: A telemetry entry with a number the fixed format refuses is refused whole
+
+**Decision.** `ctl_telemetry_entry` returns false, writing nothing, when a value holds a number of
+magnitude 10¹² or more, as for a buffer too small. NaN and the infinities are written as the fixed
+format writes them (`nan`, `inf`). A room without a value writes `-` for `value_c`, and a sent
+state below 0 writes `-`. The entries are composed in buffers of the module's own and copied out
+only when both fit.
+**Reason.** The record's text (`ctl_loop_format_record`) treats such a number the same way; a cut
+or empty value would read as a measurement. Such a number never comes from a running board.
+**Rejected.** Writing `-` for it, which would hide a broken value as a missing one; and writing
+straight into the caller's buffers, which would leave half a text behind on a refusal.
+
+## 2026-11-12: One text writer for the record line and the telemetry
+
+**Decision.** The writer that builds texts piece by piece lives in `loop/ctl_text.h` (`ctl_text`,
+`ctl_text_put`, `ctl_text_put_bounded`, `ctl_text_put_number`, `ctl_text_put_input`,
+`ctl_text_put_commands`), and the router's status names are public as `ctl_router_status_name`.
+Both `ctl_loop_format_record` and the telemetry use them. The writer keeps its text terminated
+after every piece.
+**Reason.** The record line and the telemetry must write the same numbers, the same `-` for a
+missing input and the same command list; two copies would drift apart.
+**Rejected.** A static copy in each module; and a test program of its own for the writer, since
+the record's and the telemetry's table tests already cover every piece through the public
+functions.

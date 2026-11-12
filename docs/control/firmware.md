@@ -72,3 +72,72 @@ The loop's configuration starts from `ctl_loop_config_defaults` and takes from t
 core's tuning, with `internal_w` as the fallback of `P_INTERNAL`; the rooms' count, weights and
 timeout; the router's pacing and polarity; the allowed demands, heating and no demand, with
 cooling when `cooling` is 1; and no assumed landing.
+
+## The telemetry
+
+The board publishes every input, status, output and setting (`firmware-design.md` §6, decision
+F-7), so that the owner can see what the loop saw, what it decided and why, and what it sent. The
+pure part (`glue/ctl_telemetry.h`) lists, for a decision record, the rooms and the settings, each
+subtopic with its value text; the glue prefixes `<mqtt_topic_base>/control/` and publishes them.
+The loop never reads them back.
+
+The entries come one at a time, by index, so that the glue needs no buffer for all of them:
+`ctl_telemetry_count` gives a group's count and `ctl_telemetry_entry` the entry at an index of
+`CTL_GROUP_INPUTS`, `CTL_GROUP_STATUS` or `CTL_GROUP_OUTPUTS`. The source holds the record of the
+last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds and
+whether commands are enabled. A subtopic, with its terminating zero, fits
+`CTL_TELEMETRY_SUBTOPIC_MAX` (48 bytes).
+
+A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
+does not have is written `-`. A flag is `1` or `0`.
+
+**Inputs**, 9 entries and 3 for each configured room:
+
+| Subtopic | Value |
+|---|---|
+| `inputs/indoor_c` | the decision's indoor input, 2 decimals |
+| `inputs/outdoor_c` | outdoor input, 2 decimals |
+| `inputs/produced_w` | produced input, 0 decimals |
+| `inputs/solar_w` | solar input, 0 decimals |
+| `inputs/internal_w` | internal input, 0 decimals |
+| `inputs/substituted` | the substituted signals' names joined by `,`, such as `P_SOLAR,P_INTERNAL`, or `-` |
+| `inputs/unhealthy` | the unhealthy signals' names joined by `,`, or `-` |
+| `inputs/rooms_fresh` | the fresh rooms' count |
+| `inputs/rooms_fresh_weight` | the fresh rooms' weight, 1 decimal |
+| `inputs/room/<i>/value_c` | for each configured room `i`: its last value, 2 decimals, or `-` |
+| `inputs/room/<i>/fresh` | `1` when the room is fresh at the record's instant, else `0` |
+| `inputs/room/<i>/weight` | its weight, 1 decimal |
+
+The five input values are `-` when the decision has no inputs: the core resolved nothing then.
+
+**Status**, 10 entries:
+
+| Subtopic | Value |
+|---|---|
+| `status/demand` | the demand's name: `HEATING`, `COOLING` or `NO_DEMAND` |
+| `status/reason` | the reason's name, such as `WAITING_FOR_INPUTS` |
+| `status/phase` | the phase's name, such as `RUNNING` |
+| `status/energy_wh` | the energy, 1 decimal |
+| `status/p_net_w` | the net power, 0 decimals, or `-` without inputs |
+| `status/clamped` | `1` or `0` |
+| `status/integrated_s` | 0 decimals |
+| `status/skipped_s` | 0 decimals |
+| `status/uptime_s` | 0 decimals |
+| `status/enabled` | `1` or `0` |
+
+**Outputs**, 3 entries:
+
+| Subtopic | Value |
+|---|---|
+| `outputs/router` | `IDLE`, `WAITING` or `FAULT` |
+| `outputs/thermostat_state` | the record's `sent_state`, the state the router last sent, or `-` before the first send |
+| `outputs/commands` | the record's commands as `name:value` joined by `,`, such as `SetExternalThermostat1State:2,SetHeatCoolMode:1`, or `-` |
+
+**Settings.** `ctl_telemetry_setting` gives, for index `i` of `ctl_settings_name_at`, the subtopic
+`config/<name>` and the value text of `ctl_settings_get`: `config/enabled`, `config/room.0.topic`,
+… `config/max_retries`, in the order of the settings' table above. It returns false past the last
+name.
+
+**A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
+for an index past the end, for a buffer too small for the subtopic or the value with its
+terminating zero, and for a number the fixed format refuses: a text is never cut.

@@ -62,6 +62,20 @@ int ctl_router_state_for(ctl_demand demand)
     }
 }
 
+const char *ctl_router_status_name(ctl_router_status status)
+{
+    switch (status) {
+    case CTL_ROUTER_IDLE:
+        return "IDLE";
+    case CTL_ROUTER_WAITING:
+        return "WAITING";
+    case CTL_ROUTER_FAULT:
+        return "FAULT";
+    default:
+        return "INVALID";
+    }
+}
+
 /* The name is a literal of this file, shorter than the field; the value is one digit. A full
  * list takes nothing more, so that the array is bounded by its own size and not by the callers. */
 static void add_command(ctl_commands *commands, const char *name, int digit)

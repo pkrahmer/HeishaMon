@@ -55,8 +55,9 @@ main loop, with the current instant. An instant that is not finite changes nothi
    3. `ctl_evaluate` at the instant;
    4. `ctl_router_step` with the decision's demand and the pump's state (see *The defaults*);
    5. the next decision tick `tick_interval_s` (60 s) later;
-   6. the record: the instant, the decision, the room average, the commands to send and the
-      router's status after the step. Only this tick returns true.
+   6. the record: the instant, the decision, the room average, the commands to send, the
+      router's status after the step and `sent_state`, the thermostat state the router last sent
+      (-1 while it has sent none). Only this tick returns true.
 
 Both ticks are scheduled from the instant they ran, not from the one they were due, so a caller
 that is late shifts the ticks rather than catching up with a burst.
@@ -82,6 +83,10 @@ An example, a decision that turns the heating on with the heat/cool polarity set
 ```
 t=600.0 demand=HEATING reason=NORMAL phase=RUNNING E=-1523.4 pnet=-2735 indoor=22.46 outdoor=5.00 produced=3200 solar=20 rooms=3:3.0/4.0 router=WAITING cmd=SetExternalThermostat1State:2,SetHeatCoolMode:0
 ```
+
+The line is built by the text writer of `ctl_text.h`, which the telemetry shares, so that both
+write the same numbers, the same `-` and the same command list, and the router's status by
+`ctl_router_status_name`.
 
 Numbers are written by `ctl_format_fixed` (`ctl_format.h`) with integer arithmetic, never by
 `printf` of a float: fixed decimals, rounded half away from zero, no sign before a result that

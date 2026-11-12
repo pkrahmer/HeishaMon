@@ -8,7 +8,7 @@
 #include "../core/ctl_relay.h"
 #include "../core/ctl_types.h"
 #include "../route/ctl_router.h"
-#include "ctl_format.h"
+#include "ctl_text.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -172,6 +172,7 @@ static void decide(ctl_loop *loop, const ctl_loop_config *config, double now,
     record->rooms = average;
     record->commands = commands;
     record->router_status = loop->router.status;
+    record->sent_state = loop->router.sent_state;
 }
 
 bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,
@@ -192,135 +193,53 @@ bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,
     return true;
 }
 
-/* The text is written straight into the caller's buffer; once a piece does not fit, the writer
- * stops and the whole text is refused rather than cut. */
-typedef struct {
-    char *text;
-    size_t size;
-    size_t length;
-    bool fits;
-} text_writer;
-
-static void put_text(text_writer *writer, const char *piece)
-{
-    size_t i;
-    for (i = 0; writer->fits && piece[i] != '\0'; i++) {
-        if (writer->length + 1 >= writer->size) {
-            writer->fits = false;
-            return;
-        }
-        writer->text[writer->length++] = piece[i];
-    }
-}
-
-/* A command's fields are arrays of a known size, so a missing terminator stops at their end. */
-static void put_bounded(text_writer *writer, const char *piece, size_t limit)
-{
-    char one[2] = {'\0', '\0'};
-    size_t i;
-    for (i = 0; i < limit && piece[i] != '\0'; i++) {
-        one[0] = piece[i];
-        put_text(writer, one);
-    }
-}
-
-static void put_number(text_writer *writer, double value, int decimals)
-{
-    char number[CTL_FORMAT_TEXT_MAX];
-    if (!ctl_format_fixed(value, decimals, number, sizeof number)) {
-        writer->fits = false;
-        return;
-    }
-    put_text(writer, number);
-}
-
-static void put_field(text_writer *writer, const char *key)
+static void put_field(ctl_text *writer, const char *key)
 {
     if (writer->length > 0) {
-        put_text(writer, " ");
+        ctl_text_put(writer, " ");
     }
-    put_text(writer, key);
-    put_text(writer, "=");
+    ctl_text_put(writer, key);
+    ctl_text_put(writer, "=");
 }
 
-static void put_number_field(text_writer *writer, const char *key, double value, int decimals)
+static void put_number_field(ctl_text *writer, const char *key, double value, int decimals)
 {
     put_field(writer, key);
-    put_number(writer, value, decimals);
+    ctl_text_put_number(writer, value, decimals);
 }
 
-/* Without inputs the core resolved nothing, and its zeros there are no measurement. */
-static void put_input_field(text_writer *writer, const char *key, bool has_inputs, double value,
+static void put_input_field(ctl_text *writer, const char *key, bool has_inputs, double value,
                             int decimals)
 {
     put_field(writer, key);
-    if (has_inputs) {
-        put_number(writer, value, decimals);
-    } else {
-        put_text(writer, "-");
-    }
+    ctl_text_put_input(writer, has_inputs, value, decimals);
 }
 
-static const char *router_status_name(ctl_router_status status)
-{
-    switch (status) {
-    case CTL_ROUTER_IDLE:
-        return "IDLE";
-    case CTL_ROUTER_WAITING:
-        return "WAITING";
-    case CTL_ROUTER_FAULT:
-        return "FAULT";
-    default:
-        return "INVALID";
-    }
-}
-
-static void put_rooms(text_writer *writer, const ctl_rooms_average *rooms)
+static void put_rooms(ctl_text *writer, const ctl_rooms_average *rooms)
 {
     put_field(writer, "rooms");
-    put_number(writer, (double)rooms->fresh_count, 0);
-    put_text(writer, ":");
-    put_number(writer, rooms->fresh_weight, 1);
-    put_text(writer, "/");
-    put_number(writer, rooms->total_weight, 1);
-}
-
-static void put_commands(text_writer *writer, const ctl_commands *commands)
-{
-    size_t i;
-    put_field(writer, "cmd");
-    if (commands->count == 0) {
-        put_text(writer, "-");
-        return;
-    }
-    for (i = 0; i < commands->count && i < CTL_ROUTER_COMMANDS_MAX; i++) {
-        if (i > 0) {
-            put_text(writer, ",");
-        }
-        put_bounded(writer, commands->command[i].name, CTL_ROUTER_NAME_MAX);
-        put_text(writer, ":");
-        put_bounded(writer, commands->command[i].value, CTL_ROUTER_VALUE_MAX);
-    }
+    ctl_text_put_number(writer, (double)rooms->fresh_count, 0);
+    ctl_text_put(writer, ":");
+    ctl_text_put_number(writer, rooms->fresh_weight, 1);
+    ctl_text_put(writer, "/");
+    ctl_text_put_number(writer, rooms->total_weight, 1);
 }
 
 bool ctl_loop_format_record(const ctl_loop_record *record, char *text, size_t size)
 {
     const ctl_decision *decision = &record->decision;
     const bool has_inputs = decision->has_inputs;
-    text_writer writer;
+    ctl_text writer;
 
-    writer.text = text;
-    writer.size = size;
-    writer.length = 0;
-    writer.fits = size > 0;
+    ctl_text_start(&writer, text, size);
 
     put_number_field(&writer, "t", record->t, 1);
     put_field(&writer, "demand");
-    put_text(&writer, ctl_demand_name(decision->demand));
+    ctl_text_put(&writer, ctl_demand_name(decision->demand));
     put_field(&writer, "reason");
-    put_text(&writer, ctl_reason_name(decision->reason));
+    ctl_text_put(&writer, ctl_reason_name(decision->reason));
     put_field(&writer, "phase");
-    put_text(&writer, ctl_phase_name(decision->phase));
+    ctl_text_put(&writer, ctl_phase_name(decision->phase));
     put_number_field(&writer, "E", decision->energy_wh, 1);
     put_input_field(&writer, "pnet", has_inputs, decision->balance.p_net_w, 0);
     put_input_field(&writer, "indoor", has_inputs, decision->inputs.t_indoor_c, 2);
@@ -329,8 +248,9 @@ bool ctl_loop_format_record(const ctl_loop_record *record, char *text, size_t si
     put_input_field(&writer, "solar", has_inputs, decision->inputs.p_solar_w, 0);
     put_rooms(&writer, &record->rooms);
     put_field(&writer, "router");
-    put_text(&writer, router_status_name(record->router_status));
-    put_commands(&writer, &record->commands);
+    ctl_text_put(&writer, ctl_router_status_name(record->router_status));
+    put_field(&writer, "cmd");
+    ctl_text_put_commands(&writer, &record->commands);
 
     if (!writer.fits) {
         if (size > 0) {
@@ -338,6 +258,5 @@ bool ctl_loop_format_record(const ctl_loop_record *record, char *text, size_t si
         }
         return false;
     }
-    text[writer.length] = '\0';
     return true;
 }

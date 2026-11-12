@@ -66,6 +66,7 @@ typedef struct {
     ctl_rooms_average rooms;
     ctl_commands commands;
     ctl_router_status router_status;
+    int sent_state; /* the router's after the step; -1 before its first send */
 } ctl_loop_record;
 
 /* Writes the core's, the rooms' (for room_count rooms) and the router's defaults, allows heating
@@ -97,8 +98,8 @@ ctl_input_status ctl_loop_input(ctl_loop *loop, const ctl_loop_config *config, c
 void ctl_loop_confirm(ctl_loop *loop, bool known, int state);
 
 /* Advances the core when the integration tick is due and decides when the decision tick is
- * due. Returns true, with the decision, the room average, the commands to send and the router's
- * status in *record, when it decided; false otherwise, leaving *record as it was. Refuses,
+ * due. Returns true, with the decision, the room average, the commands to send, the router's
+ * status and its sent state in *record, when it decided; false otherwise, leaving *record as it was. Refuses,
  * returning false and changing nothing, a now that is not finite. */
 bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,
                    ctl_loop_record *record);
