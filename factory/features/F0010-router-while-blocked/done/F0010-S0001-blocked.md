@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 0
 attempts: 0
@@ -36,6 +36,11 @@ journal:
   at: '2026-11-12T23:01:50.294048Z'
   stage: review
   run: 943484cd380c420e84a79aa1c9d50151
+- number: 6
+  speaker: factory
+  kind: done
+  at: '2026-11-12T23:15:53.541572Z'
+  stage: approval
 ---
 
 # Assumed landing and the reason while blocked
@@ -173,3 +178,4 @@ Expect: `2`
         - `test_blocked` is new, and adding a test is allowed.
       
       No other earlier row changed. I accept these as within the leave.
+6. factory: done (pull request merged); cost: 2 runs, 6.8 min, 26 turns, 102919 tokens in (975739 more from cache), 19942 out, $1.11
