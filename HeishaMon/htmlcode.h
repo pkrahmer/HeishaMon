@@ -1331,6 +1331,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <a href="/firmware"><span class="nav-icon">&#8679;</span> Firmware</a>
 <a href="/reboot" onclick="return confirm('Reboot the device?')"><span class="nav-icon">&#8635;</span> Reboot</a>
 <a href="/rules"><span class="nav-icon">&#8881;</span> Rules</a>
+<a href="/control"><span class="nav-icon">&#9832;</span> Control</a>
 <a href="/settings"><span class="nav-icon">&#9881;</span> Settings</a>
 )===="
 #ifdef ESP32

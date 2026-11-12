@@ -40,6 +40,7 @@
 #include "src/common/progmem.h"
 #include "src/rules/rules.h"
 #include "src/control/glue/ctl_firmware.h" // control loop hook
+#include "src/control/glue/ctl_web.h" // control loop hook
 
 #include "webfunctions.h"
 #include "decode.h"
@@ -1143,6 +1144,7 @@ void setupOTA() {
 
 
 int8_t webserver_cb(struct webserver_t *client, void *dat) {
+  { int8_t result; if (ctl_web(client, dat, &result)) return result; } // control loop hook
   
 
   switch (client->step) {

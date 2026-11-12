@@ -4,13 +4,20 @@
  * MQTT inputs to the loop, ticks the loop with the board's clock, publishes the telemetry and
  * sends the router's commands through upstream's command path when commands may reach the pump.
  * Everything it decides is in the pure modules beside it; it only moves values between them and
- * HeishaMon. It never waits, and it allocates nothing of its own after setup.
+ * HeishaMon. It never waits, and it allocates nothing of its own after setup. The control page
+ * reads the settings and the last decision here, and changes the settings the way a setting
+ * topic does.
  */
 #ifndef CTL_FIRMWARE_H
 #define CTL_FIRMWARE_H
 
 #include <Arduino.h>
 #include <PubSubClient.h>
+
+extern "C" {
+#include "ctl_settings.h"
+#include "ctl_telemetry.h"
+}
 
 /* Loads /control.json, or the defaults when there is no valid file, and starts the loop cold at
  * the board's clock. Keeps both functions for the commands and the log lines. Refuses nothing: a
@@ -37,5 +44,34 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base);
  * handled here; false, touching nothing, for every other topic, which upstream then handles as
  * before, and for every topic before ctl_firmware_setup and ctl_firmware_subscribe. */
 bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length);
+
+/* Returns the settings in use, or NULL before ctl_firmware_setup. */
+const ctl_settings *ctl_firmware_settings();
+
+/* Writes the source of the last decision's telemetry, the one published with it, and returns
+ * true. Refuses, returning false and writing nothing, before setup and before the first
+ * decision. The source points into the glue's state and stays current until the next tick. */
+bool ctl_firmware_last_decision(ctl_telemetry_source *source);
+
+/* A change of settings is ctl_firmware_change_begin, any number of ctl_firmware_change and
+ * ctl_firmware_change_end, with nothing in between that ticks the loop. With topics true, begin
+ * unsubscribes the input topics and end subscribes the new ones; a change that may move a topic
+ * must pass true. With every_ok true, every accepted value counts as a change, even one that
+ * leaves the value text as it was. Begin and end refuse nothing; call them only after
+ * ctl_firmware_setup. */
+void ctl_firmware_change_begin(bool topics, bool every_ok);
+
+/* Applies one setting with ctl_settings_set and returns its answer; a refusal is logged and
+ * keeps the old value. Sets *changed when the setting's value text differs after an OK. */
+ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool *changed);
+
+/* When a change since begin altered a value, or with every_ok accepted one: saves
+ * /control.json and applies the settings from the next tick, setting the allowed demands at
+ * once when cooling changed. */
+void ctl_firmware_change_end();
+
+/* Publishes every listed setting retained under <base>/control/config/, as at a connect. Does
+ * nothing before ctl_firmware_subscribe or while the client is not connected. */
+void ctl_firmware_publish_settings();
 
 #endif

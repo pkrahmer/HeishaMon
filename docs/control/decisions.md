@@ -710,3 +710,50 @@ board writes always reads back the same; a reset while writing leaves the old fi
 **Rejected.** Converting JSON numbers to text, which would read back a value the getter never
 wrote; writing in place; and echoing an empty value for an unknown name, which would create a
 retained topic for a setting that does not exist.
+
+## 2026-11-12: The control page reports every answer, and saves the file only on a change
+
+**Decision.** A save from `/control` lists as *accepted* every setting the setter accepted, an
+unchanged value included, and as *refused* those it refused; a save that held no setting says so.
+A save from the page writes the settings file only when a value text changed; a setting topic
+over MQTT still writes it on every `OK`. Both share one way to change settings in the glue
+(`ctl_firmware_change_begin`, `ctl_firmware_change`, `ctl_firmware_change_end`), the caller
+choosing whether every `OK` counts as a change. A save from the page unsubscribes and
+resubscribes every input topic, and publishes every setting under `config/` when anything
+changed. A value upstream hands over in pieces is joined again, and refused whole when the
+joined value is too long for any setting. The page shows each telemetry entry by its MQTT
+subtopic. A value too long to show escaped in one chunk shows its name without a field. The page
+keeps upstream's look by including `htmlcode.h` for its header, CSS, body start, menu script
+and footer, and fills the side menu with links of its own, as every upstream page does.
+**Reason.** The page shows what the last save accepted and refused, and an unchanged value is
+accepted. The form posts every setting on every save, so writing the file only on a change spares
+the flash a write per identical save; a setting topic carries one value the owner chose to send,
+and its behaviour stays as it was. The form holds every topic, and the old topics must be
+unsubscribed before they are replaced, so the save cannot wait to know which moved. The form
+posts every topic on every save, so keeping only the last piece of a long value would replace a
+topic with its tail on any save. The subtopics are the names the owner already knows from MQTT,
+and they keep status and outputs apart in one table. A field missing from the form is a field
+the save does not touch, which is safer than a cut value.
+**Rejected.** Listing only the settings whose value changed, which is not what the page promises;
+saving over MQTT only on a change, which changes a behaviour no one asked to change; comparing
+the old and new topics to subscribe only what moved, which needs a copy of the settings on the
+stack; cutting a joined value that is too long, which would save a topic no one wrote; showing a
+value across chunks so that any length fits; and a page of its own CSS, which would look unlike
+HeishaMon. `htmlcode.h`'s texts are `static`, so the few the page uses exist twice in flash;
+reaching upstream's copies would need a change to upstream's files.
+
+## 2026-11-12: The save of the control page is pure C, with the setter passed in
+
+**Decision.** Keeping the posted fields, joining a value's pieces, applying the fields in the
+order of the settings list and writing the report's HTML live in `glue/ctl_form.c`, pure C99 with
+a host test. `glue/ctl_web.cpp` keeps only upstream's steps: the routes, the chunks of the page,
+the redirect and the buffer's life. `ctl_form_apply` takes the setter as a function and a context,
+so the page passes the glue's `ctl_firmware_change` and the test passes `ctl_settings_set` on
+settings of its own; the report's opening, rows, closing and empty-save line are its items, so
+the page writes them like any other section's rows.
+**Reason.** Everything the save decides was Arduino C++ that only `make firmware` compiles, and
+two faults got past review there. With the setter passed in, the module needs no file, no topic
+and no state of the glue, and the test calls the real settings setter.
+**Rejected.** Applying to a copy of the settings and letting the glue compare old and new, which
+needs a second settings struct on the stack and loses the setter's per-field log; keeping the
+report's HTML in the page, which would leave the empty-save line untested.

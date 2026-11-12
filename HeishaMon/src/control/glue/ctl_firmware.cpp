@@ -63,6 +63,10 @@ static ctl_loop loop_state;
 static ctl_clock board_clock;
 static ctl_loop_record record;
 static gate last_gate = GATE_UNKNOWN;
+// What the telemetry of the last decision was made from, for the page.
+static bool decided;
+static double decision_s;
+static bool decision_enabled;
 
 static char log_line[LOG_SIZE];
 static char topic_text[TOPIC_SIZE];
@@ -242,15 +246,13 @@ static void publish_settings()
     }
 }
 
-static void publish_telemetry(double now, bool enabled)
+static void publish_telemetry()
 {
     static const ctl_group groups[] = {CTL_GROUP_INPUTS, CTL_GROUP_STATUS, CTL_GROUP_OUTPUTS};
     ctl_telemetry_source source;
-    source.record = &record;
-    source.rooms = &loop_state.rooms;
-    source.rooms_config = &config.rooms;
-    source.uptime_s = now;
-    source.enabled = enabled;
+    if (!ctl_firmware_last_decision(&source)) {
+        return;
+    }
     for (ctl_group group : groups) {
         size_t count = ctl_telemetry_count(&source, group);
         for (size_t i = 0; i < count; i++) {
@@ -293,35 +295,70 @@ static bool moves_topics(const char *name)
            || (length > suffix && strcmp(name + length - suffix, ROOM_TOPIC_SUFFIX) == 0);
 }
 
-static void handle_setting(const char *name, const byte *payload, unsigned int length)
+// A change begun here ends with ctl_firmware_change_end; between them only the settings move.
+static bool change_cooling;
+static bool change_topics;
+static bool change_any;
+static bool change_every_ok;
+
+void ctl_firmware_change_begin(bool topics, bool every_ok)
 {
-    ctl_setting_status status = CTL_SETTING_BAD_VALUE;
-    bool cooling = settings.cooling;
-    bool topics = moves_topics(name);
-    // The payload lives in the client's buffer, which the next subscribe or publish overwrites.
-    bool fits = length < sizeof setting_value && memchr(payload, '\0', length) == NULL;
-    if (fits) {
-        memcpy(setting_value, payload, length);
-        setting_value[length] = '\0';
-    }
-    if (topics) {
+    change_cooling = settings.cooling;
+    change_any = false;
+    change_every_ok = every_ok;
+    // Unsubscribing needs the old topics, which the change is about to replace.
+    change_topics = topics && mqtt_client != NULL;
+    if (change_topics) {
         subscribe_inputs(false);
     }
-    if (fits) {
-        status = ctl_settings_set(&settings, name, setting_value);
-    }
+}
+
+ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool *changed)
+{
+    char before[CTL_SETTINGS_VALUE_MAX];
+    bool known = ctl_settings_get(&settings, name, before, sizeof before);
+    ctl_setting_status status = ctl_settings_set(&settings, name, value);
+    *changed = false;
     if (status == CTL_SETTING_OK) {
-        save_settings();
-        ctl_settings_to_loop(&settings, &config);
-        if (settings.cooling != cooling) {
-            ctl_set_allowed(&loop_state.state, config.allowed, now_s(), &config.core);
-        }
+        *changed = !known || !ctl_settings_get(&settings, name, setting_value, sizeof setting_value)
+                   || strcmp(before, setting_value) != 0;
+        change_any = change_any || *changed || change_every_ok;
     } else {
         log_text("control: setting %s refused (%s)", name, setting_status_name(status));
     }
-    if (topics) {
+    return status;
+}
+
+void ctl_firmware_change_end()
+{
+    if (change_any) {
+        save_settings();
+        ctl_settings_to_loop(&settings, &config);
+        if (settings.cooling != change_cooling) {
+            ctl_set_allowed(&loop_state.state, config.allowed, now_s(), &config.core);
+        }
+    }
+    if (change_topics) {
         subscribe_inputs(true);
     }
+}
+
+static void handle_setting(const char *name, const byte *payload, unsigned int length)
+{
+    char value[CTL_SETTINGS_VALUE_MAX];
+    bool changed;
+    // A setting topic has always saved on every OK, the same value included.
+    ctl_firmware_change_begin(moves_topics(name), true);
+    // The payload lives in the client's buffer, which the next subscribe or publish overwrites.
+    if (length < sizeof value && memchr(payload, '\0', length) == NULL) {
+        memcpy(value, payload, length);
+        value[length] = '\0';
+        ctl_firmware_change(name, value, &changed);
+    } else {
+        log_text("control: setting %s refused (%s)", name,
+                 setting_status_name(CTL_SETTING_BAD_VALUE));
+    }
+    ctl_firmware_change_end();
     publish_setting(name);
 }
 
@@ -411,8 +448,11 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     if (!ctl_loop_tick(&loop_state, &config, now, &record)) {
         return;
     }
+    decided = true;
+    decision_s = now;
+    decision_enabled = current == GATE_OPEN;
     if (mqtt.connected()) {
-        publish_telemetry(now, current == GATE_OPEN);
+        publish_telemetry();
     }
     if (current == GATE_OPEN) {
         send_commands(optional_pcb);
@@ -470,4 +510,29 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
         break;
     }
     return false;
+}
+
+const ctl_settings *ctl_firmware_settings()
+{
+    return started ? &settings : NULL;
+}
+
+bool ctl_firmware_last_decision(ctl_telemetry_source *source)
+{
+    if (!started || !decided) {
+        return false;
+    }
+    source->record = &record;
+    source->rooms = &loop_state.rooms;
+    source->rooms_config = &config.rooms;
+    source->uptime_s = decision_s;
+    source->enabled = decision_enabled;
+    return true;
+}
+
+void ctl_firmware_publish_settings()
+{
+    if (started && mqtt_client != NULL && topic_base != NULL && mqtt_client->connected()) {
+        publish_settings();
+    }
 }
