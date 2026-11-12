@@ -72,6 +72,9 @@ static const fixed_name FIXED_NAMES[] = {
 
 #define FIXED_NAME_COUNT (sizeof FIXED_NAMES / sizeof FIXED_NAMES[0])
 
+/* A caller sizes its lists by the header's count, so the build stops when the two part ways. */
+typedef char fixed_names_match_header[FIXED_NAME_COUNT == CTL_SETTINGS_FIXED_NAMES ? 1 : -1];
+
 /* A name resolved: the setting and, for a room's setting, the room. */
 typedef struct {
     setting_id id;

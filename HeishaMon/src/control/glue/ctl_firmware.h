@@ -56,14 +56,16 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source);
 /* A change of settings is ctl_firmware_change_begin, any number of ctl_firmware_change and
  * ctl_firmware_change_end, with nothing in between that ticks the loop. With topics true, begin
  * unsubscribes the input topics and end subscribes the new ones; a change that may move a topic
- * must pass true. Begin and end refuse nothing; call them only after ctl_firmware_setup. */
-void ctl_firmware_change_begin(bool topics);
+ * must pass true. With every_ok true, every accepted value counts as a change, even one that
+ * leaves the value text as it was. Begin and end refuse nothing; call them only after
+ * ctl_firmware_setup. */
+void ctl_firmware_change_begin(bool topics, bool every_ok);
 
 /* Applies one setting with ctl_settings_set and returns its answer; a refusal is logged and
  * keeps the old value. Sets *changed when the setting's value text differs after an OK. */
 ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool *changed);
 
-/* When a change since begin altered a value: saves /control.json and applies the settings from
+/* When a change since begin altered a value, or with every_ok accepted one: saves /control.json and applies the settings from
  * the next tick, setting the allowed demands at once when cooling changed. */
 void ctl_firmware_change_end();
 

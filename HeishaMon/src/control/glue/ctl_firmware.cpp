@@ -299,11 +299,13 @@ static bool moves_topics(const char *name)
 static bool change_cooling;
 static bool change_topics;
 static bool change_any;
+static bool change_every_ok;
 
-void ctl_firmware_change_begin(bool topics)
+void ctl_firmware_change_begin(bool topics, bool every_ok)
 {
     change_cooling = settings.cooling;
     change_any = false;
+    change_every_ok = every_ok;
     // Unsubscribing needs the old topics, which the change is about to replace.
     change_topics = topics && mqtt_client != NULL;
     if (change_topics) {
@@ -320,7 +322,7 @@ ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool
     if (status == CTL_SETTING_OK) {
         *changed = !known || !ctl_settings_get(&settings, name, setting_value, sizeof setting_value)
                    || strcmp(before, setting_value) != 0;
-        change_any = change_any || *changed;
+        change_any = change_any || *changed || change_every_ok;
     } else {
         log_text("control: setting %s refused (%s)", name, setting_status_name(status));
     }
@@ -345,7 +347,8 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
 {
     char value[CTL_SETTINGS_VALUE_MAX];
     bool changed;
-    ctl_firmware_change_begin(moves_topics(name));
+    // A setting topic has always saved on every OK, the same value included.
+    ctl_firmware_change_begin(moves_topics(name), true);
     // The payload lives in the client's buffer, which the next subscribe or publish overwrites.
     if (length < sizeof value && memchr(payload, '\0', length) == NULL) {
         memcpy(value, payload, length);

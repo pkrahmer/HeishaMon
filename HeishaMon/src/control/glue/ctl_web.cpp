@@ -27,8 +27,7 @@ extern "C" {
 static const uint8_t ROUTE_PAGE = 240;
 static const uint8_t ROUTE_SAVE = 241;
 
-// The settings list at most 16 names, and two for each room.
-static const size_t SETTINGS_MAX = 16 + 2 * CTL_ROOMS_MAX;
+static const size_t SETTINGS_MAX = CTL_SETTINGS_NAMES_MAX;
 
 // The largest piece of the page held at once; webserver_send_content copies it.
 static const size_t CHUNK_SIZE = 512;
@@ -50,7 +49,7 @@ typedef struct {
     save_argument argument[SETTINGS_MAX];
 } save_arguments;
 
-// What the last save changed and refused, by name, for the page.
+// What the last save accepted and refused, by name, for the page.
 static bool saved;
 static size_t report_count;
 static char report_name[SETTINGS_MAX][CTL_SETTINGS_NAME_MAX];
@@ -112,8 +111,9 @@ static void apply_arguments(const save_arguments *arguments)
     }
     char name[CTL_SETTINGS_NAME_MAX];
     bool any_changed = false;
-    // The form holds every topic, so any save may move one.
-    ctl_firmware_change_begin(true);
+    // The form holds every topic, so any save may move one; a field posted with the value it
+    // already had is no reason to write the file.
+    ctl_firmware_change_begin(true, false);
     for (size_t i = 0; i < SETTINGS_MAX && i < ctl_settings_name_count(settings); i++) {
         if (!ctl_settings_name_at(settings, i, name, sizeof name)) {
             continue;
@@ -126,9 +126,7 @@ static void apply_arguments(const save_arguments *arguments)
         bool changed = false;
         bool accepted = argument->fits
                         && ctl_firmware_change(name, argument->value, &changed) == CTL_SETTING_OK;
-        if (!accepted || changed) {
-            report(name, accepted);
-        }
+        report(name, accepted);
         any_changed = any_changed || changed;
     }
     ctl_firmware_change_end();
@@ -171,7 +169,7 @@ typedef struct {
 
 static const char SAVE_OPEN[] FLASHPROG = "<h2>Last save</h2><div class='panel'><table>";
 static const char TABLE_CLOSE[] FLASHPROG = "</table></div>";
-static const char SAVE_NOTHING[] FLASHPROG = "<p>The last save changed nothing.</p>";
+static const char SAVE_EMPTY[] FLASHPROG = "<p>The last save held no setting.</p>";
 static const char STATUS_OPEN[] FLASHPROG = "<h2>Status</h2><div class='panel'><table>";
 static const char NO_DECISION[] FLASHPROG = "<p>No decision has been made yet.</p>";
 static const char INPUTS_OPEN[] FLASHPROG = "<h2>Inputs</h2><div class='panel'><table>";
@@ -322,7 +320,8 @@ static bool render_item(const page_view *view, uintptr_t state, char *out, size_
     section_shape shape = shape_of(view, part);
     const section_text *text = &SECTION_TEXT[part];
     if (!shape.shown) {
-        return put_flash(text->absent, out, size);
+        bool save_empty = part == SECTION_SAVE && saved;
+        return put_flash(save_empty ? SAVE_EMPTY : text->absent, out, size);
     }
     if (item == 0) {
         return put_flash(text->open, out, size);
@@ -444,10 +443,13 @@ static int8_t save_step(struct webserver_t *client, void *dat)
         }
         return 0;
     case WEBSERVER_CLIENT_WRITE:
+        // Upstream clears userdata before the close step of a finished request, so the buffer
+        // is freed here; the other releases cover a connection lost before this step.
         if (client->content == 0) {
             if (arguments != NULL) {
                 apply_arguments(arguments);
             }
+            release(client);
             webserver_send(client, 301, (char *)"text/plain", 0);
         }
         return 0;

@@ -149,7 +149,7 @@ compiled only by `make firmware`; everything it decides is in the pure modules b
 the host tests cover. `glue/ctl_dispatch.h` is its pure half: which input or setting a topic is,
 and the thermostat state of the emulated frame. The glue never waits and never retries a publish
 within one call, its state is static, and it allocates nothing of its own after setup but the
-argument buffer of a save from the control page (below), freed when the request closes. Upstream's
+argument buffer of a save from the control page (below), freed once the save is applied. Upstream's
 decoder (`getDataValue`) returns an Arduino `String`; that allocation is upstream's.
 
 ## The hooks
@@ -227,7 +227,8 @@ the setter's answer and skipped; the rest of the file still applies. A missing f
 cannot be opened or does not hold a JSON object, and a set that ends invalid give the defaults
 for every setting, and the reason is logged.
 
-The glue writes the file whenever a setting changes over MQTT or from the control page, every setting in the order of
+The glue writes the file on every accepted setting over MQTT, and on a save from the control
+page that changed a value, every setting in the order of
 `ctl_settings_name_at`. It writes `/control.json.new` first and renames it over `/control.json`,
 so that a reset while writing leaves the old file. A failed write is logged; the change then
 holds until the next start.
@@ -236,7 +237,7 @@ holds until the next start.
 
 A setting changes by a message to `<base>/control/set/<name>`, its payload the value text, such as
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
-`ctl_settings_set`. On `OK` it saves the file, when the value text changed, and applies the new settings from the next tick
+`ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
 allowed demands at once, and a change of `rooms`, a room's topic or `pv_topic` unsubscribes the
 old input topics and subscribes the new ones.
@@ -258,8 +259,8 @@ cleared by hand.
 HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
 the root page. From top to bottom it shows:
 
-- what the last save from the page changed and refused, by name, if the board saved since its
-  start (a save that changed nothing says so);
+- what the last save from the page accepted and refused, by name, if the board saved since its
+  start (a save that held no setting says so);
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
   carries them; before the first decision, a line saying that no decision has been made yet;
@@ -279,10 +280,10 @@ settings as a setting topic does: from the next tick, without restarting the loo
 `cooling` sets the allowed demands at once with `ctl_set_allowed`. Since the form holds every
 topic, a save unsubscribes the input topics before it applies and subscribes the current ones
 after, and when anything changed it publishes every setting again under `control/config/`. The
-answer redirects to `/control`, which then lists every name whose value changed as *accepted*
-and every name the setter refused as *refused*; a refusal is also logged with the setter's
-answer, and the refused setting keeps its old value. A field saved with the value it had is
-neither.
+answer redirects to `/control`, which then lists every name the setter accepted as *accepted*,
+the value it already had included, and every name the setter refused as *refused*; a refusal is
+also logged with the setter's answer, and the refused setting keeps its old value. A save that
+only repeats the current values writes no file.
 
 **Adding rooms.** The form shows the fields of the rooms below the current count only. To add
 rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
@@ -291,8 +292,9 @@ weight fields, which a second save sets. Lowering the count and saving drops the
 **Memory.** Every piece of the page the glue builds fits one buffer of 512 bytes on the stack, and
 the page goes out one content step at a time, as upstream's Modbus page does. A save allocates
 one buffer for the names and values of every setting at their maximum lengths when the request
-for `/savecontrol` arrives and frees it when the request closes. What the last save changed and
-refused stays in a static list of every setting's name.
+for `/savecontrol` arrives and frees it right after applying it, before the answer goes out; a
+connection lost before that frees it at its close. What the last save accepted and refused stays
+in a static list of every setting's name, `CTL_SETTINGS_NAMES_MAX` long.
 
 **The hook lines.** Two lines of `HeishaMon/HeishaMon.ino` and one of `HeishaMon/htmlcode.h`
 carry the page:

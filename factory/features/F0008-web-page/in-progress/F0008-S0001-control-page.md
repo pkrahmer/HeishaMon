@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T07:31:43.858425Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-12T07:31:43.858425Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T07:38:04.376675Z'
+  stage: doing
+  run: fdd58fdf603f4d10be8195daa39b58fb
 ---
 
 # The control page
@@ -176,3 +178,21 @@ Expect: `2`
 
    Earlier tests: none changed. The only test file in the diff, `tests/control/test_html.c`, is new.
 6. factory: started doing as heishamon.
+7. builder: Round 1: I fixed findings 1 to 4 and left finding 5 to the human. `make check` is green (`check: green`). Both smoke-test commands match their Expect lines: `grep -c` gives `8`, and `make firmware` prints both an `esp8266:` and an `esp32:` block. Among upstream's files, the diff stat still shows only `HeishaMon.ino` +2 and `htmlcode.h` +1. No board was run, so the free on a finished save has only been compiled, not seen running.
+
+   Changed:
+   1. **Save buffer leak.** In `HeishaMon/src/control/glue/ctl_web.cpp` `save_step`, the write step at `content == 0` now frees the buffer and sets `userdata` to NULL right after `apply_arguments`, before the 301 goes out, as upstream's routes 100 and 110 do. The release at the close step and the one at the args step with no argument are kept, but only for a connection lost before the write. `docs/control/firmware.md` (the glue section and *Memory*) now says when the buffer is freed.
+   2. **Unused `SAVE_NOTHING`.** It is replaced by `SAVE_EMPTY` ("The last save held no setting."). `render_item` writes it when a save happened and its report is empty, for example after a plain GET of `/savecontrol`. The doc bullet now says "a save that held no setting says so". With finding 3 fixed, "changed nothing" would no longer be true, so the old wording is gone.
+   3. **Report and save rules now follow the Description.**
+      - The page lists every name the setter accepted, an unchanged value included, plus every refused name.
+      - MQTT's save-on-OK is back. `ctl_firmware_change_begin` in `ctl_firmware.cpp`/`.h` now takes `(bool topics, bool every_ok)`: `handle_setting` passes `every_ok` true, so every OK saves and applies as before this story. The page passes false, so it writes `/control.json` only when a value text changed, which is what the Description asks for.
+      - In `firmware.md`, the persistence and MQTT paragraphs are back to save-on-OK, and the *Saving* paragraph is rewritten.
+      - The decision entry in `docs/control/decisions.md` is rewritten (new title, reason and what was rejected). It rejects listing only changed settings and rejects changing MQTT's saving.
+   4. **Hand-copied 16.** `HeishaMon/src/control/glue/ctl_settings.h` gains `CTL_SETTINGS_FIXED_NAMES` (16) and `CTL_SETTINGS_NAMES_MAX` (16 + 2 × `CTL_ROOMS_MAX`), and the comment on `ctl_settings_name_count` refers to them. In `ctl_settings.c`, a file-scope typedef with a negative array size stops the build if `FIXED_NAMES` and the header's count ever differ. `ctl_web.cpp` takes `SETTINGS_MAX` from `CTL_SETTINGS_NAMES_MAX`.
+
+   Not done, open for the human:
+   5. **Host tests for `ctl_web`.** Moving the collect, order and report logic into a pure `.c` module under `glue/` with a host test would need new files the Interface does not list, and the reviewer addressed this finding to the human. If wanted, it needs a criterion. Until then, everything `ctl_web` decides is only compiled by `make firmware`, never tested.
+
+   Noticed, not touched: my earlier remarks still hold. Upstream's ESP8266 `WEBSERVER_BUFFER_SIZE` of 128 bytes limits a long URL-encoded topic in a form post. Upstream's own routes have the same gap on a dropped connection. The other upstream pages keep menus without the Control link.
+
+   `check`: check: green

@@ -17,6 +17,9 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
+#define CTL_SETTINGS_FIXED_NAMES 16 /* the names listed whatever the count of rooms */
+/* The most names the list ever holds, for a caller that keeps one entry per setting. */
+#define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
 typedef struct {
     bool enabled; /* commands reach the pump; default false */
@@ -64,7 +67,8 @@ ctl_setting_status ctl_settings_set(ctl_settings *settings, const char *name, co
  * the text with its terminating zero; the buffer then holds nothing to rely on. */
 bool ctl_settings_get(const ctl_settings *settings, const char *name, char *value, size_t size);
 
-/* Returns the number of names listed: 16, and two more for each room below room_count. */
+/* Returns the number of names listed: CTL_SETTINGS_FIXED_NAMES, and two more for each room below
+ * room_count; never more than CTL_SETTINGS_NAMES_MAX. */
 size_t ctl_settings_name_count(const ctl_settings *settings);
 
 /* Writes the name at index of the list and returns true. Refuses, returning false, an index not
