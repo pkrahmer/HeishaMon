@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import types
 
 sys.dont_write_bytecode = True  # the checkout stays as it was
 
@@ -202,6 +203,39 @@ def test_forwarding(folder):
         check(len(file.read().splitlines()), 3)
 
 
+class SplitPort:
+    """A serial port whose readline gives the pieces in turn, as pyserial does when its timeout
+    runs out in the middle of a line."""
+
+    def __init__(self, port, baudrate, timeout):  # pylint: disable=unused-argument
+        self.pieces = [b"D t=60.0 reason=", b"NORMAL\n", b"", b"ok\n"]
+        self.timeout = timeout
+        self.dtr = False
+        self.rts = False
+
+    def readline(self):
+        return self.pieces.pop(0) if self.pieces else b""
+
+    def close(self):
+        pass
+
+
+def test_serial_keeps_a_cut_line():
+    fake_serial = types.ModuleType("serial")
+    fake_serial.Serial = SplitPort
+    saved = sys.modules.get("serial")
+    sys.modules["serial"] = fake_serial
+    try:
+        link = shadow.SerialLink("/dev/null")
+    finally:
+        if saved is None:
+            del sys.modules["serial"]
+        else:
+            sys.modules["serial"] = saved
+    received = [link.receive(shadow.WAIT_S) for _ in range(4)]
+    check(received, [None, b"D t=60.0 reason=NORMAL", None, b"ok"])
+
+
 def main():
     folder = tempfile.mkdtemp(dir=os.environ.get("CTL_BUILD"))
     twin = build_twin(folder)
@@ -213,6 +247,7 @@ def main():
     test_bridge_refuses(twin, folder)
     test_bridge_stops_on_a_bad_start(twin, folder)
     test_forwarding(folder)
+    test_serial_keeps_a_cut_line()
     return 0 if failures == 0 else 1
 
 

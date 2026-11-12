@@ -188,7 +188,8 @@ due. Request lines are at most 240 characters without frame and line end.
 | `I <input> <room> <payload>` | `ctl_loop_input`; `<input>` is `room`, `outdoor`, `heat`, `valve`, `defrost` or `pv`; `<room>` decimal; `<payload>` everything after the third space | `taken`, `no_reading`, `refused` or `bad` |
 | `S` | | `stats inputs=<n> records=<n> heap=<n> uptime_s=<n>` |
 
-- Every number in a `K` line is a bare number as the payload parser reads it; a count or an index
+- Every number in a `K` line is a bare number as the payload parser reads it, with no white space
+  and no JSON object around it; a count or an index
   is a whole number, and an index is below the room count.
 - A `K` line or a second `G` after the start gives `error`, and so does an `I` line before it.
 - `inputs` counts every `I` line that got one of the four input replies; `records` every `D` line.

@@ -351,6 +351,23 @@ class Bridge:
                    self.counts["refused"], self.counts["bad"], self.skipped, self.broken))
 
 
+class SerialLink(replay.SerialLink):
+    """The serial link of replay.py, but a line the timeout cuts is kept until its end arrives,
+    not dropped: the bridge reads with a short timeout, and a record line now and then takes
+    longer than that to come in."""
+
+    partial = b""
+
+    def receive(self, timeout):
+        self.port.timeout = timeout
+        self.partial += self.port.readline()
+        if not self.partial.endswith(b"\n"):
+            return None
+        line = self.partial[:-1]
+        self.partial = b""
+        return line
+
+
 def start_board(link, config):
     """Sends the configuration and the start one at a time; returns the request whose reply was
     not "ok", or None when the board started."""
@@ -478,7 +495,7 @@ def main(argv):
     output = Output(arguments.out)
     try:
         link = replay.ProcessLink(arguments.command) if arguments.command is not None \
-            else replay.SerialLink(arguments.port)
+            else SerialLink(arguments.port)
     except Exception as error:  # pylint: disable=broad-except
         print("shadow: cannot open the link: %s" % error, file=sys.stderr)
         output.close()

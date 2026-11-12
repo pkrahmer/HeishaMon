@@ -76,12 +76,27 @@ static bool field_is(const field *f, const char *name)
     return f->length == length && memcmp(f->text, name, length) == 0;
 }
 
-/* A configuration value is a bare number: the payload parser also takes a JSON object, which no
- * configuration line carries. */
+/* The payload parser also takes a JSON object and skips white space around a value; neither
+ * belongs in a configuration line, so every byte must be one a bare number can hold. The parser
+ * then checks the number's form. */
+static bool is_bare_number(const field *f)
+{
+    size_t i;
+    if (f->length == 0) {
+        return false;
+    }
+    for (i = 0; i < f->length; i++) {
+        if (strchr("0123456789+-.eE", f->text[i]) == NULL || f->text[i] == '\0') {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool parse_number(const field *f, double *value)
 {
     ctl_payload parsed = {0.0, false, 0};
-    if (f->length == 0 || f->text[0] == '{' || !ctl_payload_parse(f->text, f->length, &parsed)) {
+    if (!is_bare_number(f) || !ctl_payload_parse(f->text, f->length, &parsed)) {
         return false;
     }
     *value = parsed.value;

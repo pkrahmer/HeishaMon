@@ -570,7 +570,11 @@ slowest source; and forwarding them with a flag the loop does not have.
 ## 2026-11-12: The bridge takes its link from `replay.py`
 
 **Decision.** `shadow.py` imports `replay` and uses its `ProcessLink`, `SerialLink`, `wait_ready`
-and frame helpers; nothing moved to a shared `link.py`.
+and frame helpers; nothing moved to a shared `link.py`. Its serial link is a subclass of the
+replay's that keeps a line the timeout cuts until the line's end arrives: the bridge reads with a
+0.1 s timeout, pyserial drops the partial line when it runs out, and a record line takes about
+11 ms at 230,400 baud, so about one record in ten would be cut. The replay waits seconds for each
+reply and keeps its own reader.
 **Reason.** `test_replay.py` replaces `replay.time`, `replay.READY_TIMEOUT_S` and
 `replay.REPLY_TIMEOUT_S` to test the reset and the wait for `ready`; moved to another module, those
 names would no longer reach the code, and the replay's tests would change.

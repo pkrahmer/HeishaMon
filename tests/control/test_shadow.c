@@ -65,6 +65,8 @@ static void test_configure_lines(void)
 {
     static const exchange rows[] = {
         {"K weight 2 2.5", "ok"},
+        {"K rooms 1", "ok"},
+        {"K rooms 16", "ok"},
         {"K rooms 3", "ok"},
         {"K weight 3 1", "error"},
         {"K rooms 0", "error"},
@@ -76,6 +78,12 @@ static void test_configure_lines(void)
         {"K weight 2", "error"},
         {"K weight 1.5 1", "error"},
         {"K weight 0 {\"v\":1}", "error"},
+        {"K weight 0 \t{\"v\":1}", "error"},
+        {"K weight 0 1{", "error"},
+        {"K weight 0 \t1", "error"},
+        {"K weight 0 1\r", "error"},
+        {"K rooms 3\t", "error"},
+        {"K room_timeout_s 600\n", "error"},
         {"K room_timeout_s 10800", "ok"},
         {"K room_timeout_s abc", "error"},
         {"K solar_gain_factor 0.02", "ok"},
