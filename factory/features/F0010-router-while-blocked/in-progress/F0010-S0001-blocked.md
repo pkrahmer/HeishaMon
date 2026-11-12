@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 24
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T22:52:33.252992Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-12T22:52:33.252992Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-12T23:00:39.313623Z'
+  stage: doing
+  run: 528e05ae11c84856aa6dcff3e0a8e06c
 ---
 
 # Assumed landing and the reason while blocked
@@ -84,3 +86,37 @@ Expect: `2`
 
 1. 2026-11-12 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the command gate as pure C, the `outputs/blocked` telemetry entry, and the glue change that turns on assumed landing while commands are blocked. `make check` is green: lint, test (25 test programs, device replay 0 mismatches, shadow), device, firmware for esp8266 and esp32.
+
+   Paths:
+   - New: `HeishaMon/src/control/glue/ctl_gate.h` and `ctl_gate.c`. `ctl_gate_state` returns the first gate that holds, in the order DISABLED, LISTEN_ONLY, NO_OPTIONAL_PCB, then OPEN. `ctl_gate_name` returns `-`, `disabled`, `listen_only` and `no_optional_pcb`, and `invalid` for any other value.
+   - `HeishaMon/src/control/glue/ctl_telemetry.h` and `.c`: the source gains `ctl_gate gate`, and `outputs/blocked` is the 4th and last output. `put_output_entry` now takes the whole source instead of only the record.
+   - `HeishaMon/src/control/glue/ctl_firmware.cpp`: the file's own `gate` enum and `gate_of` are replaced by `ctl_gate_state(settings.enabled, listen_only, optional_pcb)`. "Unknown before the first pass" is now a `gate_known` flag instead of an enum member. Before each tick the glue sets `config.assume_landed = current != CTL_GATE_OPEN`. It sends commands only while the gate is OPEN, as before. It passes the decision's gate to the telemetry. Reopening the gate still resets the router with pacing, unchanged (`ctl_router_reopen`).
+   - New: `tests/control/test_gate.c` holds:
+     - the 8-row table of all flag combinations (criterion 1);
+     - each name and `(ctl_gate)9` (criterion 2);
+     - 20 decision ticks with no confirmation (criterion 4): with `assume_landed` true the router never reaches FAULT, with it false it does.
+   - `tests/control/test_telemetry.c`, changed by the owner's leave:
+     - the outputs count goes from 3u to 4u;
+     - the refused output index moves from 3 to 4, because index 3 is now valid;
+     - the `outputs[]` row table of `test_entries` gains `{"outputs/blocked", "-"}`, because CHECK_GROUP compares the count with the table's size;
+     - `set_fixture` sets `gate = CTL_GATE_OPEN`, which the new field needs;
+     - new `test_blocked` checks `-` for an open gate and `disabled` for a disabled one.
+     
+     No other row changed. The reviewer should confirm that the extra row and the fixture line are within the owner's leave.
+   - `docs/control/firmware.md`, *What reaches the pump*: the gate, its reasons in order, `outputs/blocked`, and a new paragraph on assumed landing while blocked and why. The reopen paragraph now says the router counts its commands as landed while blocked. The Outputs table lists the new entry and says 4 entries.
+   - `docs/control/decisions.md`: new entry "A blocked board assumes its commands landed, and names why it is blocked".
+
+   Decisions:
+   - `status/enabled` stays as it was, meaning "the gate is open". It is now derived from the stored gate, and the stored `decision_enabled` is removed.
+   - The order of the reasons follows the story, so listen-only is now checked before the missing optional PCB emulation. Before, it was the other way round. The log line for each reason is unchanged; only which reason a board with both reads differs.
+   - The criterion-4 test lives in `test_gate.c` and not in `test_loop.c`, because `test_loop.c` is another story's test.
+   - Rejected:
+     - faking the confirmation in the glue, which would put a second rule beside `assume_landed`;
+     - not stepping the router while blocked, which would hide what the loop would send.
+
+   Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, which matches its Expect line.
+
+   Noticed, not touched: `ctl_loop_confirm` is still called with `known = optional_pcb && !listen_only`. While the gate is open this is always true, and while it is blocked `assume_landed` overrides it. So it is now redundant, but I left it as it was so the confirmation path stays as before. `ctl_settings_to_loop` resets `assume_landed` to false on every settings change; that is harmless, because the glue sets it again before each tick.
+
+   `check`: check: green

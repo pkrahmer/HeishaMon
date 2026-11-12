@@ -3,6 +3,7 @@
 #include "adapt/ctl_rooms.h"
 #include "core/ctl_signals.h"
 #include "core/ctl_types.h"
+#include "glue/ctl_gate.h"
 #include "glue/ctl_settings.h"
 #include "glue/ctl_telemetry.h"
 #include "loop/ctl_loop.h"
@@ -109,6 +110,7 @@ static void set_fixture(fixture *f)
     f->source.rooms_config = &f->rooms_config;
     f->source.uptime_s = 612.7;
     f->source.enabled = true;
+    f->source.gate = CTL_GATE_OPEN;
 }
 
 static void check_entry(const char *file, int line, const ctl_telemetry_source *source,
@@ -166,7 +168,7 @@ static void test_counts(void)
     set_fixture(&f);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 21u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 10u);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 3u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
 
 static void test_entries(void)
@@ -210,6 +212,7 @@ static void test_entries(void)
         {"outputs/router", "WAITING"},
         {"outputs/thermostat_state", "2"},
         {"outputs/commands", THERMOSTAT ":2," HEAT_COOL ":1"},
+        {"outputs/blocked", "-"},
     };
     fixture f;
     set_fixture(&f);
@@ -233,6 +236,15 @@ static void test_unhealthy_and_flags(void)
     CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/clamped", "0");
     CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/enabled", "0");
     CHECK_VALUE(&f.source, CTL_GROUP_OUTPUTS, "outputs/router", "FAULT");
+}
+
+static void test_blocked(void)
+{
+    fixture f;
+    set_fixture(&f);
+    CHECK_VALUE(&f.source, CTL_GROUP_OUTPUTS, "outputs/blocked", "-");
+    f.source.gate = CTL_GATE_DISABLED;
+    CHECK_VALUE(&f.source, CTL_GROUP_OUTPUTS, "outputs/blocked", "disabled");
 }
 
 static void test_without_inputs(void)
@@ -359,7 +371,7 @@ static void test_refusals(void)
                         value_fits);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_OUTPUTS, 2, subtopic_fits,
                         value_fits - 1);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_OUTPUTS, 3,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_OUTPUTS, 4,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 21,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
@@ -424,6 +436,7 @@ int main(void)
     test_counts();
     test_entries();
     test_unhealthy_and_flags();
+    test_blocked();
     test_without_inputs();
     test_thermostat_state_and_commands();
     test_settings();

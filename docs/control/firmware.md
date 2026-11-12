@@ -129,13 +129,14 @@ The five input values are `-` when the decision has no inputs: the core resolved
 | `status/uptime_s` | 0 decimals |
 | `status/enabled` | `1` or `0` |
 
-**Outputs**, 3 entries:
+**Outputs**, 4 entries:
 
 | Subtopic | Value |
 |---|---|
 | `outputs/router` | `IDLE`, `WAITING` or `FAULT` |
 | `outputs/thermostat_state` | the record's `sent_state`, the state the router last sent, or `-` before the first send |
 | `outputs/commands` | the record's commands as `name:value` joined by `,`, such as `SetExternalThermostat1State:2,SetHeatCoolMode:1`, or `-` |
+| `outputs/blocked` | why commands do not reach the pump: `disabled`, `listen_only` or `no_optional_pcb`, or `-` while the gate is open; see *What reaches the pump* |
 
 **Settings.** `ctl_telemetry_setting` gives, for index `i` of `ctl_settings_name_at`, the subtopic
 `config/<name>` and the value text of `ctl_settings_get`: `config/enabled`, `config/room.0.topic`,
@@ -185,20 +186,22 @@ line of `HeishaMon/htmlcode.h`, serve the control page and are described with it
 
 ## What reaches the pump
 
-Commands go to the pump only when four things hold:
+Commands go to the pump only when the gate is open and the router has a command at this
+decision. The gate is `ctl_gate_state` (`HeishaMon/src/control/glue/ctl_gate.h`), computed on
+every pass; it is blocked for the first of these reasons that holds, in this order:
 
-- `enabled` is 1;
-- HeishaMon's optional PCB emulation is on, since the thermostat state is a field of the frame
-  it emulates;
-- HeishaMon is not in listen-only mode, in which it sends nothing to the pump;
-- the router has a command at this decision.
+- `disabled`: `enabled` is 0;
+- `listen_only`: HeishaMon is in listen-only mode, in which it sends nothing to the pump;
+- `no_optional_pcb`: HeishaMon's optional PCB emulation is off, and the thermostat state is a
+  field of the frame it emulates.
 
-Otherwise the loop still decides and publishes, and `status/enabled` is `0`: it is `1` only when
-the first three hold, so that it says whether a command would reach the pump. The glue writes one
-log line on each change of the first three, at the first pass and whenever one of them changes:
-`control: commands go to the pump`, or `control: no commands to the pump:` with the first of them
-that fails (`enabled is 0`, `the optional PCB emulation is off`, `HeishaMon is in listen-only
-mode`).
+Otherwise the gate is open. While it is blocked the loop still decides and publishes,
+`status/enabled` is `0` (it is `1` only while the gate is open, so that it says whether a command
+would reach the pump), and `outputs/blocked` names the reason (`ctl_gate_name`); it is `-` while
+the gate is open. The glue writes one log line on each change of the gate, at the first pass and
+whenever it changes: `control: commands go to the pump`, or `control: no commands to the pump:`
+with the reason (`enabled is 0`, `HeishaMon is in listen-only mode`, `the optional PCB emulation
+is off`).
 
 A command goes through upstream's `send_heatpump_command`, the path of the `commands/` topics and
 the rules engine. `SetExternalThermostat1State` writes the state into byte 6 of the emulated frame,
@@ -207,13 +210,20 @@ the rules engine. `SetExternalThermostat1State` writes the state into byte 6 of 
 **The confirmation is the emulated frame itself.** On every pass the glue reads bits 2 and 3 of
 byte 6 of `optionalPCBQuery` (`ctl_dispatch_thermostat_state`) and hands them to the router with
 `ctl_loop_confirm`: a command has landed when the frame carries its state. The state counts as
-known only while the frame goes out, with the emulation on and outside listen-only mode;
-otherwise the router repeats and then faults, as for a dropped command.
+known only while the frame goes out, with the emulation on and outside listen-only mode.
+
+**While the gate is blocked, landing is assumed.** Before each tick the glue sets the loop's
+`assume_landed` to whether the gate is blocked: the router then counts each command as landed at
+the next decision, as a shadow does. A blocked board, such as a spare D1 that shadows the house
+with `enabled` 0, sends nothing, so nothing could ever confirm; without the assumption its router
+would repeat its first send and end in `FAULT`, a fault of a link it never used. While the gate is
+open the confirmation is the frame's, as above, and a command that does not land is repeated and
+then reported as `FAULT`.
 
 **Opening the gate reopens the router, paced.** While commands cannot go out, the router steps as
-if it sent them, and may give up on a state the pump never got. When the gate opens again after
-the first pass, the glue reopens the router (`ctl_router_reopen`): it forgets what it sent and that
-it gave up, but keeps the instant of its last send. The wanted state then goes to the pump once,
+if it sent them and counts them as landed, so it believes the pump holds a state it never got.
+When the gate opens again after the first pass, the glue reopens the router (`ctl_router_reopen`):
+it forgets what it sent and whether it gave up, but keeps the instant of its last send. The wanted state then goes to the pump once,
 and not sooner than `min_change_interval_s` after that last send, so reopening never sends more
 often than the router's pacing allows.
 

@@ -14,6 +14,7 @@ extern "C" {
 #include "../loop/ctl_loop.h"
 #include "../route/ctl_router.h"
 #include "ctl_dispatch.h"
+#include "ctl_gate.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
 }
@@ -42,15 +43,6 @@ static const size_t TOPIC_SIZE = 192;
 static const size_t VALUE_SIZE = 128;
 static const size_t LOG_SIZE = 160;
 
-// Why commands do not reach the pump, or that they do.
-typedef enum {
-    GATE_UNKNOWN,
-    GATE_OPEN,
-    GATE_DISABLED,
-    GATE_NO_PCB,
-    GATE_LISTEN_ONLY
-} gate;
-
 static bool started;
 static bool (*send_command_function)(byte *, int);
 static void (*log_function)(char *);
@@ -62,14 +54,16 @@ static ctl_loop_config config;
 static ctl_loop loop_state;
 static ctl_clock board_clock;
 static ctl_loop_record record;
-static gate last_gate = GATE_UNKNOWN;
+// The gate of the last pass; none before the first, so that the first pass logs it.
+static bool gate_known;
+static ctl_gate last_gate;
 // Where the pump's values came from when last logged, so that only a change is logged again.
 static bool pump_source_logged;
 static bool pump_from_mqtt;
 // What the telemetry of the last decision was made from, for the page.
 static bool decided;
 static double decision_s;
-static bool decision_enabled;
+static ctl_gate decision_gate;
 
 static char log_line[LOG_SIZE];
 static char topic_text[TOPIC_SIZE];
@@ -388,47 +382,33 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
 
 // --- Commands ------------------------------------------------------------------------------
 
-static gate gate_of(bool optional_pcb, bool listen_only)
-{
-    if (!settings.enabled) {
-        return GATE_DISABLED;
-    }
-    if (!optional_pcb) {
-        return GATE_NO_PCB;
-    }
-    if (listen_only) {
-        return GATE_LISTEN_ONLY;
-    }
-    return GATE_OPEN;
-}
-
-static const char *gate_text(gate reason)
+static const char *gate_text(ctl_gate reason)
 {
     switch (reason) {
-    case GATE_OPEN:
+    case CTL_GATE_OPEN:
         return "commands go to the pump";
-    case GATE_DISABLED:
+    case CTL_GATE_DISABLED:
         return "no commands to the pump: enabled is 0";
-    case GATE_NO_PCB:
-        return "no commands to the pump: the optional PCB emulation is off";
-    case GATE_LISTEN_ONLY:
+    case CTL_GATE_LISTEN_ONLY:
         return "no commands to the pump: HeishaMon is in listen-only mode";
-    case GATE_UNKNOWN:
-        break;
+    case CTL_GATE_NO_OPTIONAL_PCB:
+        return "no commands to the pump: the optional PCB emulation is off";
     }
     return "commands to the pump unknown";
 }
 
-// While the gate was shut the router went on as if it sent, and may have given up on a state
-// the pump never got; reopened, it sends the wanted state once, still paced from its last send.
-static void watch_gate(gate current)
+// While the gate was shut the router went on as if it sent and its commands landed, so it may
+// believe in a state the pump never got; reopened, it sends the wanted state once, still paced
+// from its last send.
+static void watch_gate(ctl_gate current)
 {
-    if (current == last_gate) {
+    if (gate_known && current == last_gate) {
         return;
     }
-    if (current == GATE_OPEN && last_gate != GATE_UNKNOWN) {
+    if (current == CTL_GATE_OPEN && gate_known) {
         ctl_router_reopen(&loop_state.router);
     }
+    gate_known = true;
     last_gate = current;
     log_text("control: %s", gate_text(current));
 }
@@ -463,23 +443,26 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     }
     mqtt_client = &mqtt;
     topic_base = base;
-    gate current = gate_of(optional_pcb, listen_only);
+    ctl_gate current = ctl_gate_state(settings.enabled, listen_only, optional_pcb);
     watch_gate(current);
     // Only an emulated frame that goes out is what the pump is told.
     bool known = optional_pcb && !listen_only;
     ctl_loop_confirm(&loop_state, known,
                      ctl_dispatch_thermostat_state(optionalPCBQuery[PCB_THERMOSTAT_BYTE]));
+    // A blocked board sends nothing, so nothing could confirm; without assuming the landing its
+    // router would repeat and report a fault of a link it never used.
+    config.assume_landed = current != CTL_GATE_OPEN;
     double now = now_s();
     if (!ctl_loop_tick(&loop_state, &config, now, &record)) {
         return;
     }
     decided = true;
     decision_s = now;
-    decision_enabled = current == GATE_OPEN;
+    decision_gate = current;
     if (mqtt.connected()) {
         publish_telemetry();
     }
-    if (current == GATE_OPEN) {
+    if (current == CTL_GATE_OPEN) {
         send_commands(optional_pcb);
     }
 }
@@ -553,7 +536,8 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source)
     source->rooms = &loop_state.rooms;
     source->rooms_config = &config.rooms;
     source->uptime_s = decision_s;
-    source->enabled = decision_enabled;
+    source->enabled = decision_gate == CTL_GATE_OPEN;
+    source->gate = decision_gate;
     return true;
 }
 
