@@ -493,3 +493,64 @@ be wrong.
 **Rejected.** Waiting for the core's first demand before sending anything, which would leave the
 pump in whatever state the last run left it; and calling upstream's command sender from the
 router, which would tie it to the Arduino framework.
+
+## 2026-11-11: The loop writes numbers without `printf` of floats
+
+**Decision.** The record's numbers are written by `ctl_format_fixed` with integer arithmetic:
+the magnitude times 10^decimals, rounded half away from zero by comparing the exact fraction
+with one half, and written digit by digit. Magnitudes of 1e12 and more are refused, so the
+scaled value always fits a 64-bit integer.
+**Reason.** The ESP8266 and ESP32 libraries may lack floating point in `printf` or pull in a large
+one for it, and the shadow's lines must read the same on the host and on every board.
+**Rejected.** `snprintf` with `%.2f`, which depends on the library; and `dtostrf`, which exists
+only on Arduino and so cannot be tested on the host.
+
+## 2026-11-11: The loop masks cooling by default
+
+**Decision.** `ctl_loop_config_defaults` allows `HEATING` and `NONE` only; the core then answers a
+cooling decision with `NONE` and the reason `MASKED`.
+**Reason.** Cooling through the energy balance has no field precedent, and the design recommends
+the first winter with cooling masked off and cooling enabled as its own commissioning step
+(`firmware-design.md` §4 and §9, open item 8). The core's mask exists for exactly this and
+clamps the cooling direction's windup.
+**Rejected.** Allowing every demand by default, which would cool on the first warm afternoon of
+a board nobody configured.
+
+## 2026-11-11: `assume_landed` lets a shadow run without a pump
+
+**Decision.** With `assume_landed` the loop tells the router, at each decision tick, that the
+pump reports the state it last sent. It is false by default.
+**Reason.** A shadow computes commands and sends none, so nothing could confirm them; its router
+would repeat and fault on every change, and its records would show faults of a link that does not
+exist. The default keeps the real check for the firmware.
+**Rejected.** Leaving the router out of the shadow, which would hide the commands and their
+pacing, the very thing the shadow is there to show; and a confirmation the shadow sketch fakes
+itself, which would put the same rule in two places.
+
+## 2026-11-11: The loop tells an unchanged flag from a refused one by the adapter's own rule
+
+**Decision.** `ctl_pump_valve` and `ctl_pump_defrost` return false both for a refused payload and
+for an accepted flag that left the mask as it was. The loop answers `NO_READING` when the payload
+parses to exactly 0 or 1 and `REFUSED` otherwise, the same rule the adapter applies.
+**Reason.** The interface asks for the two answers apart, and the adapters were to stay as they
+are.
+**Rejected.** Changing the pump adapter to return a status, which this work was not to do; and
+answering `NO_READING` for both, which would hide a broken source.
+
+## 2026-11-11: A record that does not fit is refused, not cut
+
+**Decision.** `ctl_loop_format_record` writes into the caller's buffer and returns false with an
+empty text when the line does not fit, or when a number is beyond what `ctl_format_fixed` writes.
+**Reason.** A cut line would look whole in a log.
+**Rejected.** Cutting the line at the buffer's end.
+
+## 2026-11-12: The record's buffer holds the longest record
+
+**Decision.** `CTL_LOOP_TEXT_MAX` is 365: the longest line `ctl_loop_format_record` can write
+(every number just below 1e12 and rounding up to thirteen digits with a sign, the longest enum
+names, both commands filling `CTL_ROUTER_NAME_MAX` and `CTL_ROUTER_VALUE_MAX`) and its terminating
+zero. A test builds that record and checks the constant equals its length plus one.
+**Reason.** The human chose a size that holds every record without conditions; the cost is about
+100 bytes more than 256.
+**Rejected.** Keeping 256 and documenting the ranges it holds (instant below 1e8 s, energy and
+powers below 1e7), which made "enough for every record" true only under conditions.
