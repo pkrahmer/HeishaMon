@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T07:40:32.559585Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -58,6 +62,11 @@ journal:
   at: '2026-11-12T07:40:24.700417Z'
   stage: review
   run: 6764c4b297484c27970ee782737b54f6
+- number: 10
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:40:32.559585Z'
+  stage: doing
 ---
 
 # The control page
@@ -227,3 +236,4 @@ Expect: `2`
    - The malloc'd save buffer is the one allocation the Interface allows.
 
    Earlier tests: none changed. `tests/control/test_html.c` is the only test file in the diff, and it is new (status `A`).
+10. factory: started doing as heishamon.
