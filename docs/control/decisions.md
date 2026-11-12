@@ -710,3 +710,27 @@ board writes always reads back the same; a reset while writing leaves the old fi
 **Rejected.** Converting JSON numbers to text, which would read back a value the getter never
 wrote; writing in place; and echoing an empty value for an unknown name, which would create a
 retained topic for a setting that does not exist.
+
+## 2026-11-12: The control page reports changes, and a setting is saved only when it changed
+
+**Decision.** A save from `/control` lists as *accepted* the settings whose value text changed and
+as *refused* those the setter refused; a field saved with its old value is neither, and a save
+that changed nothing says so. The settings file is written only when a value text changed, from
+the page and over MQTT alike, which share one way to change settings in the glue
+(`ctl_firmware_change_begin`, `ctl_firmware_change`, `ctl_firmware_change_end`). A save from the
+page unsubscribes and resubscribes every input topic, and publishes every setting under
+`config/` when anything changed. The page shows each telemetry entry by its MQTT subtopic. A
+value too long to show escaped in one chunk shows its name without a field. The page keeps
+upstream's look by including `htmlcode.h` for its header, CSS, body start, menu script and
+footer, and fills the side menu with links of its own, as every upstream page does.
+**Reason.** The form posts every setting on every save, so listing every `OK` would list them all
+and hide what the save did. Writing the file only on a change spares the flash a write per
+identical save. The form holds every topic, and the old topics must be unsubscribed before they
+are replaced, so the save cannot wait to know which moved. The subtopics are the names the owner
+already knows from MQTT, and they keep status and outputs apart in one table. A field missing
+from the form is a field the save does not touch, which is safer than a cut value.
+**Rejected.** Listing every accepted field; comparing the old and new topics to subscribe only
+what moved, which needs a copy of the settings on the stack; writing a value in pieces so that
+any length fits; and a page of its own CSS, which would look unlike HeishaMon. `htmlcode.h`'s
+texts are `static`, so the few the page uses exist twice in flash; reaching upstream's copies
+would need a change to upstream's files.
