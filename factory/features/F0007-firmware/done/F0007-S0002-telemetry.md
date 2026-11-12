@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -80,6 +80,11 @@ journal:
   at: '2026-11-12T06:30:53.376482Z'
   stage: review
   run: d19ca0292533437e923bb345dde7dee8
+- number: 14
+  speaker: factory
+  kind: done
+  at: '2026-11-12T06:31:41.531455Z'
+  stage: approval
 ---
 
 # The telemetry
@@ -329,3 +334,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
     Earlier tests:
     - `tests/control/test_loop.c` (M): changed under the story's own leave ("Its test in `tests/control/test_loop.c` gains one row by the same leave"). The change only adds `test_record_sent_state` and its call in `main`; every earlier test is unchanged.
+14. factory: done (pull request merged); cost: 6 runs, 19.0 min, 60 turns, 253210 tokens in (2381324 more from cache), 52563 out, $2.79
