@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T07:28:54.107106Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T07:28:54.107106Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T07:31:38.766103Z'
+  stage: review
+  run: 2ae0d64f566b4a1cbd7cdf3735b1b6c5
 ---
 
 # The control page
@@ -150,3 +152,17 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `HeishaMon/src/control/glue/ctl_web.cpp` `save_step`/`release`: the save buffer is never freed when a save ends normally. In upstream's `webserver_process_send` (`HeishaMon/src/common/webserver.cpp`, the `tmp == NULL` branch after the last write callback), the server sets `client->userdata = NULL` before it calls the close step. So the close step's `release()` finds NULL, and every request to `/savecontrol` (also a plain GET) leaks `sizeof(save_arguments)`, about 6.4 KB. On the ESP8266 a few saves use up the heap. This breaks the Interface's "freed at the close step" rule, and the same claim in `docs/control/firmware.md` (*Memory*) and in the glue section of that file is false. Fix: in the write step at `content == 0`, after `apply_arguments`, free the buffer and set `client->userdata = NULL`, as upstream's routes 100 and 110 do. Keep the close and args-without-argument release only as a fallback for a dropped connection.
+   2. `ctl_web.cpp` `SAVE_NOTHING` and `SECTION_TEXT[SECTION_SAVE]`: `SAVE_NOTHING` is never used. Its section's absent text is `EMPTY`, so after a save that changed nothing the page shows nothing. Yet `docs/control/firmware.md` (*The control page*, first bullet) and the new entry in `docs/control/decisions.md` both say "a save that changed nothing says so". This is dead code and a false doc claim. Fix: show `SAVE_NOTHING` when `saved && report_count == 0` (for example, a separate absent text for that case), or remove the constant and both claims.
+   3. `ctl_web.cpp` `apply_arguments` and `ctl_firmware.cpp` `ctl_firmware_change_end`/`handle_setting`: what was built does not match the `## Description`. The Description says the page shows "what the last save accepted and refused". The page lists as *accepted* only the settings whose text changed. The MQTT path, from an earlier story, now saves `/control.json` only on a change rather than on every OK, and the Description does not ask for that. Fix: list every name the setter accepted and keep MQTT's save-on-OK. Or, if you want to keep the narrower meaning, end with `question` so the human can rewrite the Description.
+   4. `ctl_web.cpp` `SETTINGS_MAX = 16 + 2 * CTL_ROOMS_MAX`: the number 16 is copied by hand from a comment in `ctl_settings.h`. If a setting is added, the save drops it silently, because the loop bound and `argument_index` stop at `SETTINGS_MAX`. Fix: take the maximum from one constant in `ctl_settings.h` (for example, a `CTL_SETTINGS_NAMES_MAX` that both modules use).
+   5. Story gap, for the human. The work item has no acceptance criterion and no test for any rule of `ctl_web`: other URIs are passed on untouched, the settings apply in `ctl_settings_name_at` order (rooms first), the page reports what was accepted and refused, and the buffer is freed. All of this lives in Arduino C++ that only `make firmware` compiles, which is how finding 1 got through. One option is a criterion that moves the collecting, ordering and report logic into a pure `.c` module under `glue/` with a host test.
+
+   Checked without findings:
+   - `ctl_html.c` and `tests/control/test_html.c` meet criteria 1 and 2, including both sides of the size boundary and the case of an entity that fits only in part.
+   - Hook lines: `grep -c` gives 8. Among upstream's files, only `HeishaMon.ino` (+2) and `htmlcode.h` (+1) changed, with nothing removed.
+   - The web server runs synchronously (`webserver_start(..., 0)`), so the MQTT and LittleFS calls in the save do not run in the system context.
+
+   Earlier tests: none changed. The only test file in the diff, `tests/control/test_html.c`, is new.
