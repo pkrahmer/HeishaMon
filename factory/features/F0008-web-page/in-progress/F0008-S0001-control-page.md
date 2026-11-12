@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 3
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 22
 comments_read: [6818002485]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T08:02:25.866986Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -117,6 +113,12 @@ journal:
   kind: started
   at: '2026-11-12T08:02:25.866986Z'
   stage: review
+- number: 20
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T08:04:01.637971Z'
+  stage: review
+  run: d31dae2f782549f7979a1c19657af28a
 ---
 
 # The control page
@@ -394,3 +396,32 @@ Expect: `2`
 
     `check`: check: green
 19. factory: started review as heishamon.
+20. reviewer: No findings.
+
+    What I checked:
+    - **Criteria 1 and 2.** `tests/control/test_html.c` checks the escape table: the special characters, plain text, the empty text, size 0, and the exact size against one byte short for both escaped and plain text. It also checks an entity that would fit only in part. For `ctl_html_row` and `ctl_html_input` it checks the exact forms, with name and value both escaped, and refuses a buffer one byte short and size 0.
+    - **The new criterion from the human's answer (entry 16).** `tests/control/test_form.c` covers every case the answer lists:
+      - **Browser order:** room fields and an unknown name arrive before `rooms`, `rooms` is raised to 2, and the new room fields are applied. The report lists names in `ctl_settings_name_at` order, with `hysteresis_wh` refused.
+      - **A value in pieces:** `house/` + `pv/` + an empty piece + `power` is joined, and a name that comes back after another field starts its value again.
+      - **Too long when joined:** 99 bytes in two pieces still fits, and one more byte is refused. A later piece cannot make it fit again, and a zero byte is refused too. The setter is never called for either.
+      - **Unknown names:** an unknown name, a NULL name and a name that is too long.
+      - **A full form.**
+      - **The report text:** nothing before a save, the empty-save line, an accepted row and a refused row, a buffer one byte too small, and an index out of range.
+      - **Nothing faked:** the setter is the real `ctl_settings_set`.
+      The factory's `make check` after the builder was green (entry 18).
+    - **Criterion 4.** Among upstream's files, the only changes are `HeishaMon.ino` (+2 lines, both ending in `// control loop hook`) and `htmlcode.h` (+1 line, after `/rules`). Nothing was removed.
+    - **Architecture.** `ctl_form.c` and `ctl_html.c` are pure C99 under `glue/`, and their public names are prefixed `ctl_`/`CTL_`. Their helpers are `static`, and every header opens with its purpose and documents what each function returns and refuses. `ctl_web.cpp` holds only upstream's steps. `CTL_FORM_FIELDS_MAX` comes from `CTL_SETTINGS_NAMES_MAX`, and the build checks that against `FIXED_NAMES`.
+    - **Embedded safety:**
+      - Every loop in `ctl_form.c` is bounded by `CTL_FORM_FIELDS_MAX`.
+      - Each `strcpy` source is length-checked against `CTL_SETTINGS_NAME_MAX` or comes from `ctl_settings_name_at` with its size.
+      - `append_value` checks the remaining room before it copies.
+      - The page chunk is 512 bytes on the stack.
+      - The only allocation is the malloc'd `ctl_form` that the Interface allows. It is freed at write step 0, after the form is applied, and the close step and the args step with no argument also free it if the connection drops.
+      - `args->len` is upstream's value length.
+    - **Behaviour against the Description.** The page saves only when a value changed, and MQTT still saves on every OK. A raised or lowered `rooms` works because the name count is read again after each field. The report lists every OK and every refusal. The chunked page ends correctly and sends `menuJS` and `webFooter` once.
+    - **Docs.** I checked the claims in `docs/control/firmware.md` (*The control page*: saving, adding rooms, memory, the hook lines) and in both new entries of `docs/control/decisions.md` against the code: when the buffer is freed, `CTL_SETTINGS_NAMES_MAX`, the 512-byte chunk, and where `ctl_form.c` and its test live. No added line is wider than 100 columns.
+    - **Earlier tests.** `git diff --name-status develop...HEAD -- tests` shows only `A tests/control/test_form.c` and `A tests/control/test_html.c`. No earlier test was changed.
+
+    Open for the human (not a finding against the build):
+    - **The Description is out of date.** The builder's edit to the Description was left out by the factory (entry 18: outside the write paths). So the `## Description` still does not list `ctl_form.h`, `ctl_form.c` or `test_form.c`, or the new criterion. Entry 16 says the human's answer is part of the Description, so the build matches it. Before the merge, the human may want to write the answer into the `## Description` itself.
+    - **What stays untested:** the rules left in `ctl_web.cpp` (other URIs pass through, the route claim, chunking, freeing the buffer) are checked only by `make firmware` compiling them, as option (a) of the answer accepts.
