@@ -42,16 +42,11 @@ static void check_row(const char *file, int line, const ctl_settings *settings,
 {
     int failures_before = check_failures();
     ctl_topic actual = ctl_dispatch_topic(settings, BASE, row->topic);
+    /* A field the kind does not use is checked too: it is zero, as the row's placeholder is. */
     check_uint(file, line, (uint32_t)actual.kind, (uint32_t)row->kind);
-    if (row->kind == CTL_TOPIC_INPUT) {
-        check_uint(file, line, (uint32_t)actual.input, (uint32_t)row->input);
-        if (row->input == CTL_INPUT_ROOM) {
-            check_uint(file, line, (uint32_t)actual.room, (uint32_t)row->room);
-        }
-    }
-    if (row->kind == CTL_TOPIC_SETTING) {
-        check_text(file, line, actual.name, row->name);
-    }
+    check_uint(file, line, (uint32_t)actual.input, (uint32_t)row->input);
+    check_uint(file, line, (uint32_t)actual.room, (uint32_t)row->room);
+    check_text(file, line, actual.name, row->name);
     if (check_failures() != failures_before) {
         printf("%s:%d: the row above is the topic \"%s\"\n", file, line, row->topic);
     }
@@ -131,6 +126,23 @@ static void test_empty_topics_match_nothing(void)
     check_row(__FILE__, __LINE__, &settings, &row);
 }
 
+static void check_none(const char *file, int line, ctl_topic actual)
+{
+    check_uint(file, line, (uint32_t)actual.kind, (uint32_t)CTL_TOPIC_NONE);
+    check_uint(file, line, (uint32_t)actual.input, (uint32_t)CTL_INPUT_ROOM);
+    check_uint(file, line, (uint32_t)actual.room, 0);
+    check_text(file, line, actual.name, "");
+}
+
+static void test_null_arguments_give_none(void)
+{
+    ctl_settings settings;
+    two_rooms(&settings);
+    check_none(__FILE__, __LINE__, ctl_dispatch_topic(NULL, BASE, "a/room1"));
+    check_none(__FILE__, __LINE__, ctl_dispatch_topic(&settings, NULL, SET_PREFIX "rooms"));
+    check_none(__FILE__, __LINE__, ctl_dispatch_topic(&settings, BASE, NULL));
+}
+
 static void test_thermostat_state(void)
 {
     static const struct {
@@ -150,6 +162,7 @@ int main(void)
     test_first_equal_room_wins();
     test_rooms_above_the_count_match_nothing();
     test_empty_topics_match_nothing();
+    test_null_arguments_give_none();
     test_thermostat_state();
     return check_result();
 }

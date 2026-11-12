@@ -25,7 +25,7 @@ static bool is_room(const ctl_settings *settings, const char *topic, size_t *roo
 {
     size_t i;
     for (i = 0; i < settings->room_count && i < CTL_ROOMS_MAX; i++) {
-        if (settings->room_topic[i][0] != '\0' && strcmp(settings->room_topic[i], topic) == 0) {
+        if (strcmp(settings->room_topic[i], topic) == 0) {
             *room = i;
             return true;
         }
@@ -35,7 +35,7 @@ static bool is_room(const ctl_settings *settings, const char *topic, size_t *roo
 
 static bool is_pv(const ctl_settings *settings, const char *topic)
 {
-    return settings->pv_topic[0] != '\0' && strcmp(settings->pv_topic, topic) == 0;
+    return strcmp(settings->pv_topic, topic) == 0;
 }
 
 /* Writes the name of a <base>/control/set/<name> topic, when the name is one the struct holds. */
@@ -62,6 +62,7 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
 {
     static const ctl_topic none;
     ctl_topic result = none;
+    /* Refusing the empty topic here is what keeps an empty room or PV topic from matching. */
     if (settings == NULL || base == NULL || topic == NULL || topic[0] == '\0') {
         return none;
     }

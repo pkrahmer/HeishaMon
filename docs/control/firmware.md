@@ -241,8 +241,13 @@ In every case the glue answers with the setting's current value, retained, on
 `<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
 logged with the setter's answer. A name the settings do not list (a room at or above `rooms`
 included) has no value to answer with: it is logged, and nothing is published. A payload that
-does not fit a value text, or holds a zero byte, is refused like a bad value. At every connect the
-glue publishes every setting there, so that the broker always holds what the board runs on.
+does not fit a value text, or holds a zero byte, is refused like a bad value.
+
+Only `config/<name>` of the message's own name is answered. Every other setting is published at
+the next connect, when the glue publishes every listed setting retained. So after `rooms` is
+raised, the new rooms' `config/room.<i>.*` appear only at the next connect, and after it is
+lowered, the retained `config/room.<i>.*` of the dropped rooms stay on the broker until they are
+cleared by hand.
 
 ## First start on a board
 

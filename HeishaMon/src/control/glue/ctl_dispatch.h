@@ -27,8 +27,8 @@ typedef struct {
  * a topic equal to a non-empty pv_topic; SETTING with the name for <base>/control/set/<name>,
  * when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
- * for a NULL argument; an empty room topic matches nothing. Every field the kind does not use is
- * zero. */
+ * for a NULL argument; an empty room or PV topic matches nothing, since an empty topic is NONE.
+ * Every field the kind does not use is zero. */
 ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, const char *topic);
 
 /* Returns the thermostat-1 state of byte 6 of the emulated optional PCB frame: its bits 2 and 3,

@@ -212,14 +212,25 @@ static void publish(const char *subtopic, const char *value, bool retained)
     mqtt_client->publish(topic_text, value, retained);
 }
 
+static void publish_setting_at(size_t index)
+{
+    if (ctl_telemetry_setting(&settings, index, subtopic_text, sizeof subtopic_text, value_text,
+                              sizeof value_text)) {
+        publish(subtopic_text, value_text, true);
+    }
+}
+
+// A name the settings do not list has no value to answer with, so nothing is published.
 static void publish_setting(const char *name)
 {
-    int length = snprintf(subtopic_text, sizeof subtopic_text, "config/%s", name);
-    if (length < 0 || (size_t)length >= sizeof subtopic_text) {
-        return;
-    }
-    if (ctl_settings_get(&settings, name, value_text, sizeof value_text)) {
-        publish(subtopic_text, value_text, true);
+    char listed[CTL_SETTINGS_NAME_MAX];
+    size_t count = ctl_settings_name_count(&settings);
+    for (size_t i = 0; i < count; i++) {
+        bool found = ctl_settings_name_at(&settings, i, listed, sizeof listed);
+        if (found && strcmp(listed, name) == 0) {
+            publish_setting_at(i);
+            return;
+        }
     }
 }
 
@@ -227,10 +238,7 @@ static void publish_settings()
 {
     size_t count = ctl_settings_name_count(&settings);
     for (size_t i = 0; i < count; i++) {
-        if (ctl_telemetry_setting(&settings, i, subtopic_text, sizeof subtopic_text, value_text,
-                                  sizeof value_text)) {
-            publish(subtopic_text, value_text, true);
-        }
+        publish_setting_at(i);
     }
 }
 
@@ -452,8 +460,8 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
     ctl_topic target = ctl_dispatch_topic(&settings, topic_base, topic);
     switch (target.kind) {
     case CTL_TOPIC_INPUT:
-        ctl_loop_input(&loop_state, &config, target.input, target.room, (const char *)payload, length,
-                       now_s());
+        ctl_loop_input(&loop_state, &config, target.input, target.room, (const char *)payload,
+                       length, now_s());
         return true;
     case CTL_TOPIC_SETTING:
         handle_setting(target.name, payload, length);
