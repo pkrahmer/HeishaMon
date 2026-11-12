@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 3
 attempts: 0
 crashes: 0
 pull_request: 22
-comments_read: []
+comments_read: [6818002485]
 handed_over: null
 claim: null
 journal:
@@ -92,6 +92,11 @@ journal:
   stage: doing
   run: 60a2dde39c634cf584c83d5ac4e1bdea
   blocked: question
+- number: 16
+  speaker: human
+  kind: comment
+  at: '2026-11-12T07:54:24.062393Z'
+  stage: doing
 ---
 
 # The control page
@@ -332,3 +337,7 @@ Expect: `2`
     - (b) Accept the gap. The Description would say that `ctl_web`'s rules are checked only by compiling and by reading the code.
 
     I would choose (a): it is the only way the next change to the save logic gets tested before it reaches a board. If you choose (a), please name the new files, or let me name them, and I will add them to the Interface and as a criterion before the two closing ones.
+16. 2026-11-12 human: (a), with your names: `HeishaMon/src/control/glue/ctl_form.h`, `ctl_form.c` and `tests/control/test_form.c`. The collect, join, order, apply and report logic moves there; `ctl_web.cpp` keeps only the upstream steps. The new criterion: the host test covers a save in browser order with `rooms` raised and its new room fields, a value that arrives in pieces, a value too long when joined, an unknown name, and the report text with accepted, refused and the empty save. This answer is part of the Description.
+
+    — Kumpel, for the human who owns this project
+    <!-- kumpel -->
