@@ -124,6 +124,7 @@ static void test_numbers(void)
         {"enabled", "1", "2", CTL_SETTING_BAD_VALUE},
         {"cooling", "1", "-1", CTL_SETTING_BAD_VALUE},
         {"rooms", "16", "17", CTL_SETTING_BAD_VALUE},
+        {"rooms", "0", "-1", CTL_SETTING_BAD_VALUE},
         {"room.0.weight", "1000", "1000.001", CTL_SETTING_BAD_VALUE},
         {"room.0.weight", "0.5", "-0.001", CTL_SETTING_BAD_VALUE},
         {"room_timeout_s", "0.001", "0", CTL_SETTING_BAD_VALUE},
@@ -182,6 +183,15 @@ static void test_unparsed_numbers(void)
     }
 }
 
+/* The largest whole number the getter can still write back is taken, and read back unchanged. */
+static void test_largest_number(void)
+{
+    ctl_settings settings;
+    fresh_defaults(&settings);
+    check_set(__FILE__, __LINE__, &settings, "hysteresis_wh", "999999999999");
+    check_get(__FILE__, __LINE__, &settings, "hysteresis_wh", "999999999999");
+}
+
 static void test_topics(void)
 {
     char longest[CTL_SETTINGS_TOPIC_MAX + 1];
@@ -229,6 +239,7 @@ static void test_topics(void)
 static void test_rooms(void)
 {
     ctl_settings settings;
+    char value[CTL_SETTINGS_VALUE_MAX];
     fresh_defaults(&settings);
     check_refused(__FILE__, __LINE__, &settings, "room.0.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
@@ -246,7 +257,9 @@ static void test_rooms(void)
 
     /* A lower count keeps what lies above it; the higher count lists it again. */
     check_set(__FILE__, __LINE__, &settings, "rooms", "1");
-    CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", NULL, 0));
+    CHECK_UINT(ctl_settings_name_count(&settings), 18);
+    CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", value, sizeof value));
+    check_refused(__FILE__, __LINE__, &settings, "room.1.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
     check_get(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
     check_get(__FILE__, __LINE__, &settings, "room.1.weight", "0");
@@ -451,6 +464,7 @@ int main(void)
     test_name_list();
     test_numbers();
     test_unparsed_numbers();
+    test_largest_number();
     test_topics();
     test_rooms();
     test_room_names();

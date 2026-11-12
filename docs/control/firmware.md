@@ -58,8 +58,10 @@ parse or breaks its own row's rule, and `INVALID_SET` when the value is fine alo
 configuration made from the whole set would fail `ctl_loop_config_valid`, such as every room
 weight at 0. The value is applied to a copy first, so every answer but `OK` leaves the settings as
 they were: valid means apply, invalid means reject and keep the old value
-(`firmware-design.md` §6). A rule the core, the rooms or the router check is checked only there;
-the setter adds only what those do not know, such as the topics.
+(`firmware-design.md` §6). The setter checks each row's own rule, as the table gives it: the flags,
+the ranges of `rooms` and `heat_cool_heat_value`, the room weight, `room_timeout_s` above 0,
+`trim_limit_k` above 0, and the topics. Some of these the rooms check again; every rule the table
+leaves to the core, the rooms or the router is checked only there.
 
 **`rooms` 0 is valid.** A board fresh from the flash has no room topics yet, and its settings must
 still be a valid set, or the owner could not save the first one. With no rooms, the loop gets one

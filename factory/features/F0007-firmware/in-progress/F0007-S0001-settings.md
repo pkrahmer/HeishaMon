@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T05:43:09.207820Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-12T05:43:09.207820Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-12T05:46:02.870766Z'
+  stage: doing
+  run: 8b80b0491b0d4a2e8b88bfb4f78ffd0e
 ---
 
 # The settings
@@ -228,3 +230,20 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
 
    Not raised: the setter's ~1.9 KB stack copy, which the story's copy-then-validate rule requires and which the builder flagged for the glue story. The const cast in `write_value`, which has a comment on it.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed all five of the reviewer's findings and nothing else.
+
+   1. `tests/control/test_settings.c` test_rooms: the lower-count check now passes a real buffer (`CTL_SETTINGS_VALUE_MAX`) to `ctl_settings_get("room.1.topic")` and expects false. After `rooms 1` it also checks that `ctl_settings_name_count` is 18 and that setting `room.1.topic` gives `UNKNOWN`.
+   2. test_numbers: added the row `{"rooms", "0", "-1", BAD_VALUE}`. The loop sets `rooms 1` before each row, so this row also shows that 0 is accepted from a non-zero count.
+   3. The work item's Description, *The values*: added the rule that a number must have a magnitude below 1e12 and at most 3 decimals, or it gives `BAD_VALUE`, so that the getter writes back exactly the value that was set.
+   4. New `test_largest_number`: `hysteresis_wh 999999999999` is accepted, and the getter writes it back unchanged. This is the accepted side of the `1e12` limit.
+   5. Reworded the claim that each rule lives in one place:
+      - In `docs/control/firmware.md` (the paragraph "A refused change keeps the old value"), it now says the setter checks each row's own rule as the table gives it: the flags, the ranges of `rooms` and `heat_cool_heat_value`, the room weight, `room_timeout_s` > 0, `trim_limit_k` > 0 and the topics. Some of these the rooms check again. Every rule the table leaves to the core, the rooms or the router is checked only there.
+      - The comment on `number_in_rule` in `HeishaMon/src/control/glue/ctl_settings.c` now says the same.
+
+   Smoke test: `make test | grep '^control:'` gives `control: 19 test programs passed` (18 before this story). `make check` is green.
+
+   Still open from round 0, not touched: the setter's stack copy of about 1.9 KB, which the glue story should call from a shallow stack.
+
+   The factory left out changes outside the write paths: factory/features/F0007-firmware/in-progress/F0007-S0001-settings.md.
+
+   `check`: check: green

@@ -342,8 +342,8 @@ static double *number_field(ctl_settings *settings, setting_key key)
     }
 }
 
-/* A number setting's own rule; the rules the core and the router check are left to them, so
- * that each rule lives in one place. */
+/* A number setting's own rule, as the settings table gives it; the rules it does not give are
+ * left to the core, the rooms and the router. */
 static bool number_in_rule(setting_id id, double value)
 {
     switch (id) {
