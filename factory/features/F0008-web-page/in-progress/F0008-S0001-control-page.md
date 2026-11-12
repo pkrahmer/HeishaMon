@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 22
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-12T07:48:02.654618Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -80,6 +84,11 @@ journal:
   at: '2026-11-12T07:47:57.159344Z'
   stage: review
   run: 7df0759986974f9c8995065b162b6b4d
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-12T07:48:02.654618Z'
+  stage: doing
 ---
 
 # The control page
@@ -299,3 +308,4 @@ Expect: `2`
     - Embedded safety: every `strcpy` source is length-checked against `CTL_SETTINGS_NAME_MAX`. The malloc'd save buffer is the one allocation the Interface allows.
 
     Earlier tests: none changed. `git diff --name-status develop...HEAD -- tests` shows only `A tests/control/test_html.c`.
+14. factory: started doing as heishamon.
