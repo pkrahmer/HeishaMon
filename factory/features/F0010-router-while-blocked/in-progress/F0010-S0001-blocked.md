@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 24
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-12T23:00:46.255339Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-12T23:00:46.255339Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-12T23:01:50.294048Z'
+  stage: review
+  run: 943484cd380c420e84a79aa1c9d50151
 ---
 
 # Assumed landing and the reason while blocked
@@ -130,3 +132,44 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: no findings
+
+   What I checked, from the code rather than the builder's account:
+
+   1. **Acceptance criteria.**
+      - Criterion 1: `tests/control/test_gate.c` `test_state` has all eight flag combinations, and their expected values follow the order DISABLED, LISTEN_ONLY, NO_OPTIONAL_PCB, OPEN.
+      - Criterion 2: `test_name` checks every member and `(ctl_gate)9`.
+      - Criterion 3: `test_telemetry.c` checks the count of 4, and `test_blocked` checks `-` for an open gate and `disabled` for a disabled one.
+      - Criterion 4: `faults_unconfirmed` runs 20 decision ticks with no `ctl_loop_confirm` and checks every record. With `assume_landed` true the router is never `FAULT`; with it false it reaches `FAULT`. The loop bound is fixed at 200 steps, and the test also checks that exactly 20 decisions ran.
+      - Criteria 5 and 6: the journal reports `check: green` and the smoke test printing `2`.
+      - The rule in `ctl_loop.c` `step_router` (with `assume_landed`, `known` is true and the state is the router's `sent_state`) matches the documented behaviour.
+   2. **Architecture.**
+      - `ctl_gate.c` is pure C99, includes only its own header and `stdbool.h`, and its public names use the `ctl_`/`CTL_` prefix.
+      - The Arduino code stays in `ctl_firmware.cpp`.
+      - No upstream file is changed.
+   3. **Embedded safety.**
+      - Nothing allocates memory or recurses.
+      - `outputs/blocked` is written through `ctl_text_put` with the existing fit check.
+      - The page (`ctl_web.cpp`) gets its source only through `ctl_firmware_last_decision`, which sets `gate`, so no source reaches the telemetry with that field unset.
+   4. **Quality.**
+      - The file's own gate enum and `gate_of` are replaced, not duplicated.
+      - `gate_known` keeps the log line on the first pass and the reopen only after the first pass, as before.
+      - `status/enabled` is now derived from the stored gate, so the two cannot disagree.
+   5. **Work item hygiene.**
+      - The docs in `docs/control/firmware.md` match the code:
+        - the order of the reasons;
+        - the names `-`, `disabled`, `listen_only`, `no_optional_pcb`;
+        - the log texts, which match `gate_text`;
+        - assumed landing while blocked;
+        - the 4-entry outputs table with `outputs/blocked`.
+      - The decision entry in `docs/control/decisions.md` names what was rejected.
+      - The journal states the main decision and the rejected options.
+   6. **Earlier tests.**
+      - `tests/control/test_telemetry.c` (M) was changed under the story's own leave in criterion 3, which lets the rows that state the outputs count change to 4:
+        - in `test_counts`, the outputs count goes from 3u to 4u;
+        - in `test_refusals`, the refused index past the end moves from 3 to 4. That row states the count.
+        - the `outputs[]` table in `test_entries` gains `{"outputs/blocked", "-"}`, because `CHECK_GROUP` checks the table's size against the count, so the table also states the count;
+        - `set_fixture` sets `gate = CTL_GATE_OPEN`. The fixture is a stack variable that is not zeroed, so the new field needs it; it is not a row;
+        - `test_blocked` is new, and adding a test is allowed.
+      
+      No other earlier row changed. I accept these as within the leave.
