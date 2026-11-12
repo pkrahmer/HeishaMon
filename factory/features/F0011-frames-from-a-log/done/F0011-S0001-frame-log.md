@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -97,6 +97,11 @@ journal:
   at: '2026-11-12T23:52:21.805056Z'
   stage: review
   run: 0b0b86ab177643a28841286b261f160c
+- number: 17
+  speaker: factory
+  kind: done
+  at: '2026-11-12T23:54:12.203179Z'
+  stage: approval
 ---
 
 # The frames from a log topic
@@ -352,3 +357,4 @@ Expect: `2`
     - tests/control/test_settings.c: the name-count and index rows changed under the story's leave. The defaults row and test_frame_log_topic are additions.
     - tests/control/test_dispatch.c: only adds test_frame_log_topic, and the earlier tests are unchanged.
     - tests/control/test_telemetry.c: changed under the leave of entry 10, now stated in the *Counters* bullet. The changes are the inputs-count rows (23, refused index 23, 11 + 3*rooms), the two counter rows in the inputs table and the two counters in set_fixture. Nothing else in the file changed.
+17. factory: done (pull request merged); cost: 7 runs, 26.2 min, 92 turns, 389923 tokens in (4994799 more from cache), 74046 out, $4.43
