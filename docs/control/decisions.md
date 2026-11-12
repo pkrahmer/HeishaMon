@@ -774,3 +774,21 @@ all four is simpler to reason about than four. The topic settings share one fiel
 two pumps on a board that has one; a separate on/off setting, which the story does not name and
 which the topics already imply; logging on every frame skipped, which floods the log.
 
+
+## 2026-11-12: A blocked board assumes its commands landed, and names why it is blocked
+
+**Decision.** The glue computes the command gate with the pure `ctl_gate_state`, which gives the
+first reason that holds in the order `enabled` 0, listen-only mode, no optional PCB emulation,
+and otherwise open. Before each tick it sets the loop's `assume_landed` to whether the gate is
+blocked, and the telemetry names the reason as `outputs/blocked`, `-` while open. The gate is
+kept in the telemetry source beside `enabled`, which stays as the open flag of `status/enabled`.
+**Reason.** A blocked board sends nothing, so nothing confirms its commands; its router repeated
+its first send and ended in `FAULT`, which is no fault of anything. The shadow's
+`assume_landed` already solves the same problem, so the glue uses it rather than a second rule.
+The reason checked first is the owner's own switch, so that a board with commands disabled reads
+`disabled` whatever its other flags. Reopening still resets the router with pacing, so the wanted
+state reaches the pump once the gate opens.
+**Rejected.** Not stepping the router while blocked, which would hide what the loop would send;
+a confirmation the glue fakes from the router's own sent state, the same rule as
+`assume_landed` in a second place; and dropping `status/enabled` for the new entry, which would
+change an entry other tools may read.

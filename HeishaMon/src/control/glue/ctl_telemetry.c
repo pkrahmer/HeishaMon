@@ -7,6 +7,7 @@
 #include "../loop/ctl_loop.h"
 #include "../loop/ctl_text.h"
 #include "../route/ctl_router.h"
+#include "ctl_gate.h"
 #include "ctl_settings.h"
 
 #include <stdbool.h>
@@ -17,7 +18,7 @@
 #define INPUTS_FIXED 9
 #define ENTRIES_PER_ROOM 3
 #define STATUS_COUNT 10
-#define OUTPUTS_COUNT 3
+#define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
  * signal names, with room to spare. */
 #define VALUE_MAX 128
@@ -186,8 +187,9 @@ static void put_status_entry(ctl_text *subtopic, ctl_text *value,
 }
 
 static void put_output_entry(ctl_text *subtopic, ctl_text *value,
-                             const ctl_loop_record *record, size_t index)
+                             const ctl_telemetry_source *source, size_t index)
 {
+    const ctl_loop_record *record = source->record;
     switch (index) {
     case 0:
         ctl_text_put(subtopic, "outputs/router");
@@ -201,9 +203,13 @@ static void put_output_entry(ctl_text *subtopic, ctl_text *value,
             put_count(value, (size_t)record->sent_state);
         }
         break;
-    default:
+    case 2:
         ctl_text_put(subtopic, "outputs/commands");
         ctl_text_put_commands(value, &record->commands);
+        break;
+    default:
+        ctl_text_put(subtopic, "outputs/blocked");
+        ctl_text_put(value, ctl_gate_name(source->gate));
         break;
     }
 }
@@ -258,7 +264,7 @@ bool ctl_telemetry_entry(const ctl_telemetry_source *source, ctl_group group, si
         put_status_entry(&subtopic_writer, &value_writer, source, index);
         break;
     default:
-        put_output_entry(&subtopic_writer, &value_writer, source->record, index);
+        put_output_entry(&subtopic_writer, &value_writer, source, index);
         break;
     }
     if (!subtopic_writer.fits || !value_writer.fits) {

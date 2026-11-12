@@ -9,6 +9,7 @@
 
 #include "../adapt/ctl_rooms.h"
 #include "../loop/ctl_loop.h"
+#include "ctl_gate.h"
 #include "ctl_settings.h"
 
 #include <stdbool.h>
@@ -24,10 +25,11 @@ typedef struct {
     const ctl_rooms_config *rooms_config;
     double uptime_s;
     bool enabled;
+    ctl_gate gate; /* why commands are blocked, or OPEN */
 } ctl_telemetry_source;
 
 /* Returns the number of entries of the group: 9 inputs and 3 more for each configured room (up to
- * CTL_ROOMS_MAX), 10 status entries and 3 outputs; 0 for a group that is no member. */
+ * CTL_ROOMS_MAX), 10 status entries and 4 outputs; 0 for a group that is no member. */
 size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group);
 
 /* Writes the subtopic and the value text of the group's entry at index and returns true.
