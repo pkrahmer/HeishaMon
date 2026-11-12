@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 18
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-12T05:46:08.404126Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-12T05:46:02.870766Z'
   stage: doing
   run: 8b80b0491b0d4a2e8b88bfb4f78ffd0e
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-12T05:46:08.404126Z'
+  stage: review
 ---
 
 # The settings
@@ -247,3 +256,4 @@ Expect: a line `control: N test programs passed`, where N is one more than befor
    The factory left out changes outside the write paths: factory/features/F0007-firmware/in-progress/F0007-S0001-settings.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
