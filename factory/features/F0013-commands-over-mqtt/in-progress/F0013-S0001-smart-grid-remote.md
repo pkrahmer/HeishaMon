@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T09:25:09.762367Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -74,6 +78,11 @@ journal:
   at: '2026-11-13T09:25:03.940655Z'
   stage: doing
   run: e1ec749a59254062baf7c485ce7af5d0
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-13T09:25:09.762367Z'
+  stage: review
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -295,3 +304,4 @@ Expect: `2`
     - `docs/control/router.md` still describes only the thermostat path. The docs criterion does not name it.
 
     `check`: check: green
+13. factory: started review as heishamon.
