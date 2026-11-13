@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T12:07:43.514349Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-13T12:07:37.781491Z'
   stage: review
   run: 9ddea4f012ff4bb4adb9159de74e87df
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:07:43.514349Z'
+  stage: doing
 ---
 
 # Remove the pump topics and dead code
@@ -157,3 +166,4 @@ Expect: `2`
    - The new `decisions.md` entry is at the end, and earlier entries are untouched.
    - Buffers in the new writer are bounded by their sizes.
    - The reader's loop is bounded by the file's length.
+6. factory: started doing as heishamon.
