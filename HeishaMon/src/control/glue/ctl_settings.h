@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 23 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 19 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -29,11 +29,6 @@ typedef struct {
     double room_weight[CTL_ROOMS_MAX];
     double room_timeout_s;
     char pv_topic[CTL_SETTINGS_TOPIC_MAX + 1]; /* empty: no PV */
-    /* The pump's values as another HeishaMon publishes them; empty: from this board's frames. */
-    char outdoor_topic[CTL_SETTINGS_TOPIC_MAX + 1];
-    char heat_topic[CTL_SETTINGS_TOPIC_MAX + 1];
-    char valve_topic[CTL_SETTINGS_TOPIC_MAX + 1];
-    char defrost_topic[CTL_SETTINGS_TOPIC_MAX + 1];
     /* Another HeishaMon's log, whose received frames this board decodes; empty: none. */
     char frame_log_topic[CTL_SETTINGS_TOPIC_MAX + 1];
     double desired_indoor_c;
@@ -62,7 +57,7 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, no PV, no pump topics, no frame log topic, no
+ * topic and weight 1), a room timeout of 1800 s, no PV, no frame log topic, no
  * command topic, and the core's and the router's defaults, the thermostat rather than Smart Grid
  * mode among them. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
@@ -86,10 +81,6 @@ size_t ctl_settings_name_count(const ctl_settings *settings);
 /* Writes the name at index of the list and returns true. Refuses, returning false, an index not
  * below ctl_settings_name_count and a size that cannot hold the name with its terminating zero. */
 bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name, size_t size);
-
-/* Returns true when any of the four pump topics is set, so that the pump's values come from MQTT
- * and not from this board's frames. Refuses nothing. */
-bool ctl_settings_pump_from_mqtt(const ctl_settings *settings);
 
 /* Returns true when the configuration ctl_settings_to_loop makes passes ctl_loop_config_valid. */
 bool ctl_settings_valid(const ctl_settings *settings);

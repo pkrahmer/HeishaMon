@@ -1,7 +1,6 @@
 #include "ctl_firmware.h"
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
 
@@ -18,6 +17,7 @@ extern "C" {
 #include "ctl_framelog.h"
 #include "ctl_gate.h"
 #include "ctl_settings.h"
+#include "ctl_settings_file.h"
 #include "ctl_telemetry.h"
 }
 
@@ -70,9 +70,6 @@ static ctl_loop_record record;
 // The gate of the last pass; none before the first, so that the first pass logs it.
 static bool gate_known;
 static ctl_gate last_gate;
-// Where the pump's values came from when last logged, so that only a change is logged again.
-static bool pump_source_logged;
-static bool pump_from_mqtt;
 // What the telemetry of the last decision was made from, for the page.
 static bool decided;
 static double decision_s;
@@ -126,6 +123,31 @@ static const char *setting_status_name(ctl_setting_status status)
 
 // --- The settings file ---------------------------------------------------------------------
 
+static void log_pair(const ctl_settings_file &reader, ctl_settings_file_event event)
+{
+    if (event == CTL_SETTINGS_FILE_NOT_TEXT) {
+        log_text("control: setting %s in %s is not a text, skipped", reader.name, SETTINGS_PATH);
+    } else if (event == CTL_SETTINGS_FILE_TEXT && reader.status != CTL_SETTING_OK) {
+        log_text("control: setting %s in %s refused (%s), skipped", reader.name, SETTINGS_PATH,
+                 setting_status_name(reader.status));
+    }
+}
+
+// The file is read a character at a time, so that it is never held whole in memory.
+static bool read_settings(File &file)
+{
+    ctl_settings_file reader;
+    ctl_settings_file_start(&reader);
+    while (!ctl_settings_file_complete(&reader)) {
+        int c = file.read();
+        if (c < 0) {
+            return false;
+        }
+        log_pair(reader, ctl_settings_file_feed(&reader, &settings, (char)c));
+    }
+    return true;
+}
+
 static void load_settings()
 {
     ctl_settings_defaults(&settings);
@@ -138,26 +160,12 @@ static void load_settings()
         log_text("control: cannot open %s, using the default settings", SETTINGS_PATH);
         return;
     }
-    JsonDocument document;
-    DeserializationError error = deserializeJson(document, file);
+    bool complete = read_settings(file);
     file.close();
-    if (error || !document.is<JsonObject>()) {
-        log_text("control: %s is not a JSON object (%s), using the default settings",
-                 SETTINGS_PATH, error ? error.c_str() : "not an object");
+    if (!complete) {
+        log_text("control: %s is not a JSON object, using the default settings", SETTINGS_PATH);
+        ctl_settings_defaults(&settings);
         return;
-    }
-    for (JsonPair pair : document.as<JsonObject>()) {
-        const char *name = pair.key().c_str();
-        if (!pair.value().is<const char *>()) {
-            log_text("control: setting %s in %s is not a text, skipped", name, SETTINGS_PATH);
-            continue;
-        }
-        ctl_setting_status status =
-            ctl_settings_set(&settings, name, pair.value().as<const char *>());
-        if (status != CTL_SETTING_OK) {
-            log_text("control: setting %s in %s refused (%s), skipped", name, SETTINGS_PATH,
-                     setting_status_name(status));
-        }
     }
     if (!ctl_settings_valid(&settings)) {
         log_text("control: the settings of %s are invalid, using the default settings",
@@ -166,37 +174,20 @@ static void load_settings()
     }
 }
 
-static bool put_text(File &file, const char *text)
-{
-    size_t length = strlen(text);
-    return file.write((const uint8_t *)text, length) == length;
-}
-
-// A value is printable ASCII, so a quote and a backslash are all that JSON needs escaped.
-static bool put_json_string(File &file, const char *text)
-{
-    bool ok = put_text(file, "\"");
-    for (const char *c = text; *c != '\0' && ok; c++) {
-        if (*c == '"' || *c == '\\') {
-            ok = put_text(file, "\\");
-        }
-        ok = ok && file.write((uint8_t)*c) == 1;
-    }
-    return ok && put_text(file, "\"");
-}
-
 static bool write_settings(File &file)
 {
-    char name[CTL_SETTINGS_NAME_MAX];
-    bool ok = put_text(file, "{");
-    size_t count = ctl_settings_name_count(&settings);
-    for (size_t i = 0; i < count && ok; i++) {
-        ok = ctl_settings_name_at(&settings, i, name, sizeof name)
-             && ctl_settings_get(&settings, name, setting_value, sizeof setting_value)
-             && (i == 0 || put_text(file, ",")) && put_json_string(file, name)
-             && put_text(file, ":") && put_json_string(file, setting_value);
+    char piece[CTL_SETTINGS_FILE_PIECE_MAX];
+    size_t count = ctl_settings_file_pieces(&settings);
+    for (size_t i = 0; i < count; i++) {
+        if (!ctl_settings_file_piece(&settings, i, piece, sizeof piece)) {
+            return false;
+        }
+        size_t length = strlen(piece);
+        if (file.write((const uint8_t *)piece, length) != length) {
+            return false;
+        }
     }
-    return ok && put_text(file, "}\n");
+    return true;
 }
 
 static void save_settings()
@@ -299,26 +290,12 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
-    const char *const named[] = {settings.pv_topic,      settings.outdoor_topic,
-                                 settings.heat_topic,    settings.valve_topic,
-                                 settings.defrost_topic, settings.frame_log_topic};
+    const char *const named[] = {settings.pv_topic, settings.frame_log_topic};
     for (const char *topic : named) {
         if (topic[0] != '\0') {
             subscribe_one(topic, subscribe);
         }
     }
-}
-
-static void log_pump_source()
-{
-    bool from_mqtt = ctl_settings_pump_from_mqtt(&settings);
-    if (pump_source_logged && from_mqtt == pump_from_mqtt) {
-        return;
-    }
-    pump_source_logged = true;
-    pump_from_mqtt = from_mqtt;
-    log_text(from_mqtt ? "control: the pump values come from MQTT, the frames hand none"
-                       : "control: the pump values come from this board's frames");
 }
 
 static bool ends_with(const char *text, const char *suffix)
@@ -395,7 +372,6 @@ void ctl_firmware_change_end()
         ctl_framelog_init(&frame_log);
         remote_pcb_seen = false;
     }
-    log_pump_source();
 }
 
 // The payload lives in the client's buffer, which the unsubscribe of a topic setting, a publish
@@ -554,7 +530,6 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     ctl_settings_to_loop(&settings, &config);
     ctl_loop_init(&loop_state, &config, now_s());
     started = true;
-    log_pump_source();
 }
 
 void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, bool listen_only)
@@ -594,9 +569,7 @@ static void hand_value(ctl_input input, char *data, unsigned int topic_number, d
 
 void ctl_firmware_frame(char *data)
 {
-    // A board that shadows another HeishaMon takes the pump's values from MQTT alone; a frame
-    // from a pump of its own would otherwise mix two pumps in one loop.
-    if (!started || ctl_settings_pump_from_mqtt(&settings)) {
+    if (!started) {
         return;
     }
     double now = now_s();

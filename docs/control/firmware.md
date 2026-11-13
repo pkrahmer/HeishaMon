@@ -27,10 +27,6 @@ below, with the rooms' names after `rooms`.
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
-| `outdoor_topic` | text | empty | the outdoor temperature from MQTT; see *Shadowing another HeishaMon* |
-| `heat_topic` | text | empty | the produced heat from MQTT; see *Shadowing another HeishaMon* |
-| `valve_topic` | text | empty | the three-way valve from MQTT; see *Shadowing another HeishaMon* |
-| `defrost_topic` | text | empty | the defrost flag from MQTT; see *Shadowing another HeishaMon* |
 | `frame_log_topic` | text | empty | another HeishaMon's log topic; see *Frames from another HeishaMon's log* |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
@@ -254,15 +250,18 @@ text values, the names and value texts of the settings' table above.
     {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
      "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
 
-At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
-the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
-the setter's answer and skipped; the rest of the file still applies. A missing file, one that
+At start the glue reads the file a character at a time through the pure reader
+`ctl_settings_file_feed` (`HeishaMon/src/control/glue/ctl_settings_file.c`), which applies the
+pairs in file order with `ctl_settings_set`, so `rooms` comes before the rooms' names. A value
+that is not a JSON string, or a pair the setter refuses, is logged with the setter's answer and
+skipped; the rest of the file still applies. A name the settings no longer list, such as one an
+older firmware wrote, is such a refused pair, and the next write leaves it out. A missing file, one that
 cannot be opened or does not hold a JSON object, and a set that ends invalid give the defaults
 for every setting, and the reason is logged.
 
 The glue writes the file on every accepted setting over MQTT, and on a save from the control
 page that changed a value, every setting in the order of
-`ctl_settings_name_at`. It writes `/control.json.new` first and renames it over `/control.json`,
+`ctl_settings_name_at`, in the pieces `ctl_settings_file_piece` gives. It writes `/control.json.new` first and renames it over `/control.json`,
 so that a reset while writing leaves the old file. A failed write is logged; the change then
 holds until the next start.
 
@@ -272,7 +271,7 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
-allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic`, a pump topic or
+allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic` or
 `frame_log_topic` unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
@@ -374,28 +373,11 @@ commands disabled, no rooms, no PV. It runs the loop and publishes, but sends no
 
 ## Shadowing another HeishaMon
 
-A board without a pump never decodes a frame, so its loop never gets the pump's values. Four
-settings name MQTT topics for them instead, as another HeishaMon publishes them under
-`<its base>/main/`:
-
-| Setting | Input | Topic of a HeishaMon with base `jeisha` |
-|---|---|---|
-| `outdoor_topic` | the outdoor temperature | `jeisha/main/Outside_Temp` |
-| `heat_topic` | the produced heat | `jeisha/main/Heat_Power_Production` |
-| `valve_topic` | the three-way valve | `jeisha/main/ThreeWay_Valve_State` |
-| `defrost_topic` | the defrost flag | `jeisha/main/Defrosting_State` |
-
-The glue subscribes to every one that is set and hands its messages to the loop as that input,
-through `ctl_loop_input`, as it does a room's or PV's message; `ctl_dispatch_topic` only picks the
-input by the topic. A topic equal to a room's topic is the room's; one equal to `pv_topic` is PV;
-one that two of the four share goes to the first of outdoor, heat, valve and defrost.
-
-**While any of the four is set, the frames hand nothing.** `ctl_settings_pump_from_mqtt` is then
-true, and `ctl_firmware_frame` hands no value to the loop, so that a board never mixes the values
-of two pumps; a value whose topic is left empty then never arrives, and the core treats it as
-missing. The glue logs where the pump's values come from at setup and whenever that source
-changes: `control: the pump values come from MQTT, the frames hand none` or `control: the pump
-values come from this board's frames`. A board on a pump leaves the four empty and behaves as before.
+A board without a pump never decodes a frame of its own, so its loop never gets the pump's
+values. It takes them from another HeishaMon's log instead: with `frame_log_topic` set, it
+rebuilds the other board's frames and decodes them as if it were wired to the pump (*Frames from
+another HeishaMon's log*). There is no other way to feed it the pump's values; a board on a pump
+reads its own frames.
 
 To run the firmware on a spare board beside a production HeishaMon, whose base is `jeisha` here:
 
@@ -405,11 +387,10 @@ To run the firmware on a spare board beside a production HeishaMon, whose base i
 2. Turn listen-only mode on in its HeishaMon settings: it has no pump to talk to, and it must send
    nothing.
 3. Leave `control/set/enabled` at `0`, the default, so that no command is ever queued for a pump.
-4. Set the four pump topics, each by `<its base>/control/set/<name>`: `outdoor_topic` to
-   `jeisha/main/Outside_Temp`, `heat_topic` to `jeisha/main/Heat_Power_Production`,
-   `valve_topic` to `jeisha/main/ThreeWay_Valve_State` and `defrost_topic` to
-   `jeisha/main/Defrosting_State`. Check the answers under `control/config/` and the log line that
-   the pump values come from MQTT.
+4. Turn on hex dumps and log to MQTT on the production board, and set `frame_log_topic` on the
+   spare board to the production board's log topic, such as `jeisha/log`, by
+   `<its base>/control/set/frame_log_topic` (*Frames from another HeishaMon's log*). Check the
+   answer under `control/config/` and that `control/inputs/frames_decoded` grows.
 5. Set `rooms`, each `room.<i>.topic` to the same room topics the house's sensors publish, and
    `pv_topic` if there is PV, as on a first start (*First start on a board*).
 6. Watch `control/inputs/` until every room and the pump's values arrive, and then compare the
@@ -417,20 +398,15 @@ To run the firmware on a spare board beside a production HeishaMon, whose base i
 
 ## Frames from another HeishaMon's log
 
-The four pump topics give the loop four values; a board that decodes the pump's frames itself
-publishes all of them under its own `main/`. With `frame_log_topic` set, a board without a pump
-rebuilds those frames from another HeishaMon's log and decodes them as if it were wired to the
-pump.
+A board that decodes the pump's frames itself publishes every value under its own `main/` and
+hands the loop the four it needs. With `frame_log_topic` set, a board without a pump rebuilds
+those frames from another HeishaMon's log and decodes them as if it were wired to the pump.
 
 **What the production board must have on.** In its HeishaMon settings: hex dumps (*Debug hexdump*,
 or its switch in the console) and log to MQTT (*Debug log to MQTT*). Its log then reaches
 `<its base>/log`, one message per line, and every frame it receives appears as a
 `Received <n> bytes data` line, the frame's `data:` lines of up to 32 hex bytes and a checksum line.
 Set `frame_log_topic` on the spare board to that topic, such as `jeisha/log`.
-
-**The four pump topics must be empty.** While any of them is set, `ctl_firmware_frame` hands
-nothing to the loop (*Shadowing another HeishaMon*), so the frames from the log would be
-published but never reach the loop. Use one source of the pump's values or the other.
 
 **What the spare board does.** It subscribes to `frame_log_topic` and feeds each message, in the
 order it arrives, to the pure parser `ctl_framelog_line`
