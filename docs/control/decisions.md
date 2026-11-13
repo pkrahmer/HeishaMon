@@ -817,3 +817,23 @@ leaving a frame in progress alive across an out-of-range `Received` line; readin
 its own checksum check and which the parser's own check makes redundant; keeping the main data
 frame test in the `.cpp`, where only `make firmware` compiles it and no test reaches it.
 
+
+## 2026-11-12: The payload first
+
+**Decision.** `handle_setting` copies the payload into its own buffer, or refuses it, before it
+begins the change; every handler of `ctl_firmware_mqtt` reads the topic and the payload before
+anything that can send. A host test, `tests/control/test_payload_first.c`, reads the glue's
+source and fails when a call that can send comes before a handler's last read of the payload.
+**Reason.** PubSubClient keeps the received topic and payload in the buffer it also sends from.
+`handle_setting` began the change first, and for a setting that moves topics the begin
+unsubscribes the old input topics, which overwrote the payload before it was copied: on the
+owner's dev board, `jeisha/log` sent to `frame_log_topic` was stored as `/1/ACTUAL_`, ten bytes of
+a room topic. The input path hands the payload to the loop and the frame log path to the parser,
+both before anything sends, and the dispatch copies the setting's name out of the topic, so only
+`handle_setting` needed the change. The `.cpp` compiles only in the firmware build, so the test
+holds the order in its text.
+**Rejected.** Copying the whole message at the top of `ctl_firmware_mqtt`, which costs a second
+buffer of the client's size for every message, upstream's included; moving the copy into a pure
+`.c` helper, which a test could call but which would not hold the order of the calls in the
+`.cpp`; leaving the change untested, since only the firmware build compiles the glue.
+

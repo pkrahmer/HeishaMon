@@ -265,6 +265,10 @@ logged with the setter's answer. A name the settings do not list (a room at or a
 included) has no value to answer with: it is logged, and nothing is published. A payload that
 does not fit a value text, or holds a zero byte, is refused like a bad value.
 
+The client has one buffer for what it receives and what it sends, so the glue reads or copies a
+message's topic and payload before it calls anything that can publish, subscribe, unsubscribe or
+log.
+
 Only `config/<name>` of the message's own name is answered. Every other setting is published at
 the next connect, when the glue publishes every listed setting retained. So after `rooms` is
 raised, the new rooms' `config/room.<i>.*` appear only at the next connect, and after it is

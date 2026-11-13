@@ -379,16 +379,20 @@ void ctl_firmware_change_end()
     log_pump_source();
 }
 
+// The payload lives in the client's buffer, which the unsubscribe of a topic setting, a publish
+// or a log line overwrites, so it is copied, or refused, before anything else runs.
 static void handle_setting(const char *name, const byte *payload, unsigned int length)
 {
     char value[CTL_SETTINGS_VALUE_MAX];
+    bool fits = length < sizeof value && memchr(payload, '\0', length) == NULL;
+    if (fits) {
+        memcpy(value, payload, length);
+        value[length] = '\0';
+    }
     bool changed;
     // A setting topic has always saved on every OK, the same value included.
     ctl_firmware_change_begin(moves_topics(name), true);
-    // The payload lives in the client's buffer, which the next subscribe or publish overwrites.
-    if (length < sizeof value && memchr(payload, '\0', length) == NULL) {
-        memcpy(value, payload, length);
-        value[length] = '\0';
+    if (fits) {
         ctl_firmware_change(name, value, &changed);
     } else {
         log_text("control: setting %s refused (%s)", name,
@@ -545,6 +549,9 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base)
 
 bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
 {
+    // The topic and the payload live in the client's single buffer, which every publish,
+    // subscribe, unsubscribe and MQTT log line overwrites: nothing that can send may run before
+    // they are read or copied. The dispatch copies the setting's name out of the topic.
     if (!started || control_client == NULL || topic_base == NULL) {
         return false;
     }
