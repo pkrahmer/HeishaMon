@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-13T12:55:14.062587Z'
   stage: review
   run: 5a88ef2a7bae4202bab6e1501c97619b
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-13T12:57:06.088672Z'
+  stage: approval
 ---
 
 # Descriptions and the save result per row
@@ -271,3 +276,4 @@ Expect: `2`
    Notes:
    - `tests/control/test_form_rows.c` `set_setting`: a second copy of a setter like the one in `test_form.c`. It is needed because that one is `static`.
    - `tests/control/test_form_rows.c` `test_no_last_save_table`: checks criterion 3 by scanning source files. It would miss a text split across string literals.
+10. factory: done (pull request merged); cost: 4 runs, 23.1 min, 71 turns, 229068 tokens in (3883297 more from cache), 71299 out, $3.35
