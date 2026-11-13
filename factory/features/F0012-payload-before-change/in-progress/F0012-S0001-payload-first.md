@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 26
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T00:05:29.757390Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-13T00:05:29.757390Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T00:06:15.072147Z'
+  stage: review
+  run: 008e912f3b0e4a5cbb8ab8b0df0fc07b
 ---
 
 # The payload first
@@ -103,3 +105,24 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: no findings
+
+   What I checked (round 0), in checklist order:
+
+   1. Acceptance criteria
+      - Criterion 1: in `HeishaMon/src/control/glue/ctl_firmware.cpp:384-403`, `handle_setting` now runs the `fits` test, the `memchr` and the `memcpy` before `ctl_firmware_change_begin`. The refusal decision is taken before the begin. The refusal log still runs after it, and it reads only `name`.
+      - I walked the paths of `ctl_firmware_mqtt` (`:550-574`) myself and they match the builder's walk:
+        - Topic: it is read only by `ctl_dispatch_topic`. That function returns `ctl_topic`, whose `name` is a char array (`ctl_dispatch.h:27`), so no pointer into the buffer survives the call.
+        - Input path: `ctl_loop_input` reads the payload. The only other call on that path is `now_s()`, which sends nothing.
+        - Frame log path: `ctl_framelog_line` copies the payload into `frame_log.frame` before `decode_heatpump_data` runs, and `ctl_firmware_frame` reads only that copy.
+      - Test: `tests/control/test_payload_first.c` holds the order in the source. The failing side holds: before the fix, `ctl_firmware_change_begin` came before the `memchr(payload…)`, so the test would fail.
+        - Whole-word matching keeps `ctl_firmware_change` apart from `_begin`/`_end`, and `publish` apart from `publish_setting`.
+        - The comment stripping is safe: the file has no string literal that holds `//` or `/*`.
+        - The file is 20717 bytes, well under the 131072-byte limit, and the test checks that limit.
+      - The comment rule from the Interface is present at the top of `ctl_firmware_mqtt`.
+      - The journal reports `make check` green after the builder.
+   2. Architecture: the diff changes only files in the fork's three folders. It touches no upstream file, no `.ino` or `htmlcode.h`, and adds no include.
+   3. Embedded safety: the board code changes only the order of calls. `memcpy` stays bounded by `length < sizeof value`. The large stack buffer is in a host-only test.
+   4. Quality: names are clear and there is no dead code. The test reuses `check.h`/`check_true` rather than copying a helper.
+   5. Work item hygiene: the journal names the main decision and what was rejected, and the Description matches what was built. The sentence in `docs/control/firmware.md` is accurate. The new `docs/control/decisions.md` entry has the date, decision, reason and rejected options, the dev board symptom (`/1/ACTUAL_`) and the fix, in the same format as the entries before it.
+   6. Earlier tests: none changed. In `git diff --name-status develop...HEAD`, the only test file is `tests/control/test_payload_first.c`, with status `A`.
