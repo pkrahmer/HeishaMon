@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 26
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T00:05:29.757390Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-13T00:05:24.703284Z'
   stage: doing
   run: 63c0d3b53c1640c1b6aa637f76bc32db
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-13T00:05:29.757390Z'
+  stage: review
 ---
 
 # The payload first
@@ -93,3 +102,4 @@ Expect: `2`
    Noticed, not touched: the source-order test matches by name, so a new call that can send would need adding to its `senders` list.
 
    `check`: check: green
+4. factory: started review as heishamon.
