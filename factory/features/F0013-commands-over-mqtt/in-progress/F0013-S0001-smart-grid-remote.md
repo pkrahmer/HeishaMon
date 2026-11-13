@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 27
-comments_read: [6848295711, 6848321203]
+comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
 claim: null
 journal:
@@ -57,6 +57,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-13T08:49:20.926096Z'
+  stage: doing
+- number: 10
+  speaker: human
+  kind: comment
+  at: '2026-11-13T09:11:28.435621Z'
   stage: doing
 ---
 
@@ -249,3 +254,4 @@ Expect: `2`
    - another pump needs the same installer setting before `smart_grid` is used, or value 1 only lowers its capacity;
    - value 2 is never sent because it stops hot water too.
    The code comment says the same in short. This replaces the reading "upstream writes the bits in the other order".
+10. 2026-11-13 human: The human answers the builder's three questions of round 1 (part of the Description): 1. (a), keep 1, as the correction above explains (Capacity 1, set on the owner's pump to a curve that never heats). 2. (a), the two rows of test_framelog.c may change. 3. (a), the one line in test_router.c may change. Everything else as in the two comments above.
