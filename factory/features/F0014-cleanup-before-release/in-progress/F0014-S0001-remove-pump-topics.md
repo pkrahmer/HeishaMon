@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T12:16:16.901502Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-13T12:16:16.901502Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T12:17:09.060232Z'
+  stage: review
+  run: 3f14070fd7854799bcc71aab25f87e64
 ---
 
 # Remove the pump topics and dead code
@@ -257,3 +259,40 @@ Expect: `2`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` against the work item and the human's answer in entry 8. I went through all six checklist groups.
+
+    Findings:
+    1. The work item's `## Description` (the *Interface* bullet "New test" and criterion 2) does not match what was built. It still says the test "loads a `control.json` text" and holds `"hysteresis_wh":1200` as a number. Entry 8 changed the task: the test feeds the pairs the loader would hand over, the values are text (`"1200"`), number values stay skipped, `heat_topic` and `outdoor_topic` are refused as unknown names and change nothing, and the board keeps its ArduinoJson loader. R5 says the Description must be rewritten when the journal changes it, and the builder did not do that. Fix: rewrite the "New test" bullet of `## Interface` (and criterion 2 if needed) to state the human's answer. Leave the front matter and the journal untouched.
+
+    Checked, no problem:
+    - **Acceptance criteria:**
+      - Criterion 1: the grep over `HeishaMon/src/control` and `tests/control` finds the names only in `tests/control/test_settings_legacy.c`.
+      - Criterion 3: the name count of 19 is checked in `tests/control/test_settings.c` (`test_defaults`).
+      - Criterion 2: `test_settings_legacy.c` checks that the two removed names are refused with `CTL_SETTING_UNKNOWN` and are not readable, that `hysteresis_wh` 1200 is accepted, that every other setting keeps its default, that the set stays valid, and that the written text holds neither removed name.
+      - Criterion 5: no upstream file and no hook line is in the diff.
+      - Criterion 4: the round 1 entry lists the removals (`log_pump_source`, `pump_source_logged`, `pump_from_mqtt` and `is_named_input`) and the doubts kept.
+      - The factory's `make check` after the builder was green.
+    - **Architecture:**
+      - `ctl_settings_file.*` and `test_settings_file.c` are gone from the diff.
+      - `ctl_firmware.cpp` changes only the pump-topic parts. Its ArduinoJson `load_settings` and writer are `develop`'s.
+      - Every name keeps the `ctl_` prefix, and no new include was added.
+    - **Embedded safety:** the change only removes code. The subscribe list is a fixed array of two.
+    - **Quality:**
+      - The dispatch matches `pv_topic` with a direct `strcmp`, the same behaviour as before for an empty topic.
+      - `log_text` is still used.
+      - The header comments in `ctl_dispatch.h`, `ctl_firmware.h` and `ctl_settings.h` match the code.
+      - `CTL_INPUT_OUTDOOR`, `CTL_INPUT_HEAT`, `CTL_INPUT_VALVE` and `CTL_INPUT_DEFROST` are still used by the frame hook, `ctl_loop.c` and `ctl_shadow.c`.
+    - **Docs:**
+      - `docs/control/firmware.md` no longer describes the four settings or values taken from MQTT.
+      - *Shadowing another HeishaMon* points to *Frames from another HeishaMon's log*, and step 4 sets `frame_log_topic`.
+      - The sentence in *The settings file* about a name the settings no longer list holds for the ArduinoJson loader: the setter returns `UNKNOWN`, the pair is logged and skipped, and the writer writes only listed names.
+      - `decisions.md` gets one new entry at the end, and the earlier entries are unchanged.
+      - No other document under `docs/control/` names the removed settings.
+
+    Earlier tests (status M):
+    - `tests/control/test_dispatch.c`: changed under the Interface's leave. Removed: `set_pump_topics`, `test_pump_topics` (every row is about the four topics) and the `defrost_topic` row of `test_frame_log_topic`.
+    - `tests/control/test_settings.c`: changed under the Interface's leave. Removed: the four default rows, `test_pump_topics`, `test_pump_from_mqtt` and the `pump_from_mqtt` check. Counts went from 23/27/25 to 19/23/21, and positions from 24/26/27 to 20/22/23.
+    - `tests/control/test_settings_legacy.c` is new (status A).
+
+    Notes:
+    - `tests/control/test_settings_legacy.c` covers only `heat_topic` and `outdoor_topic`, as the Interface names them. That `valve_topic` and `defrost_topic` are refused is covered only indirectly, by the 19-name list in `test_settings.c`.
