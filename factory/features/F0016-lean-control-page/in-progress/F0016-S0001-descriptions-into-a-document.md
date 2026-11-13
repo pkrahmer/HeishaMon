@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T17:37:50.235917Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-13T17:37:50.235917Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T17:39:11.287300Z'
+  stage: review
+  run: 236ac24990744fb8a6924157934677bc
 ---
 
 # Descriptions into a document
@@ -132,3 +134,27 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `docs/control/settings.md:7-8` (intro paragraph): two value rules do not match the code. (a) The paragraph says "a topic is empty or 1 to 96 printable ASCII characters without `+` and `#`". Printable ASCII includes the space (0x20), but `is_topic_character` in `glue/ctl_settings.c` accepts only 0x21 to 0x7e, so a topic with a space is refused. (b) It says "a bare number below 10¹²", but `parse_number` refuses `fabs(parsed) >= CTL_FORMAT_MAGNITUDE_LIMIT`, so -2e12 is refused even though it is below 10¹². Fix: say "1 to 96 printable ASCII characters other than space, `+` and `#`" (or give 0x21 to 0x7e, as `firmware.md` does), and "a bare number whose magnitude is below 10¹²".
+
+   Checked and found right:
+   - Criteria 1 and 2: `tests/control/test_lean_page.c` builds the rows with rooms 4 through `ctl_form_row` and checks exactly three cells and none of the three texts. It checks that the link appears once in open + rows + close, and these are the same macros `ctl_web.cpp:99-100` puts in flash.
+   - Criterion 3: I ran `git grep` and it prints nothing.
+   - Criterion 4: `tests/control/test_settings_doc.c` reads the document from the root of the checkout and checks one full four-cell row for each name with rooms 1.
+   - Criterion 5 is a build measurement and the journal records it.
+   - Criterion 6: I ran the diff stat and it is empty. The journal records `check: green`.
+   - Architecture and embedded safety: only files under `HeishaMon/src/control/glue/` changed. The code was only removed, apart from the header macros. No upstream file or hook line changed. `append_decimal` is still used by `write_room_name`, so no dead static is left.
+   - Every default and rule in the `settings.md` table matches `ctl_config_defaults` and `ctl_config_validate`, `ctl_rooms_config_*`, `ctl_router_config_*` and `apply_value`:
+     - desired 5 to 30;
+     - weights 0 to 1000, with their sum above 0;
+     - `max_retries` 0 to 10;
+     - `heat_cool_heat_value` -1 to 1;
+     - `trim_limit_k` above 0 or `none`;
+     - the defaults 22, 155, 805, 1500, 3, 0.02, 550, 1, 1800, 300, 120, 3 and -1.
+   - The section references in `settings.md` exist in `firmware.md`. The `firmware.md` and `decisions.md` edits match the code. No leftover reference to the descriptions remains, apart from the historical F0015 decision entry.
+
+   Earlier tests:
+   - `tests/control/test_descriptions.c` (D): the story's Interface allows deleting it.
+   - `tests/control/test_form_rows.c` (M): the Interface allows changes to the description column only. The change removes only the description cell from `expect_row` and `test_not_editable`.
+   - `tests/control/test_html.c` (M): the same leave. The change removes only the description cell from the two expected strings and the two initialisers.
