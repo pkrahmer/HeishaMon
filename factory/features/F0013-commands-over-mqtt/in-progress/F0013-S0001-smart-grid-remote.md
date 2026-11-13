@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T09:25:09.762367Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -83,6 +79,12 @@ journal:
   kind: started
   at: '2026-11-13T09:25:09.762367Z'
   stage: review
+- number: 14
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T09:26:33.469180Z'
+  stage: review
+  run: 9403aef1037042f7b47a2e0256ef8037
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -305,3 +307,29 @@ Expect: `2`
 
     `check`: check: green
 13. factory: started review as heishamon.
+14. reviewer: Findings:
+
+    1. `docs/control/firmware.md:488` (*Commands to another HeishaMon*, "How a command goes out"): the docs say "Each publish writes the log line `control: published <topic> <value>`". The code no longer does that in every case. `publish_command` in `HeishaMon/src/control/glue/ctl_firmware.cpp` writes `published` only when the publish succeeds. A failed publish logs `control: publish failed <topic> <value>`, and a topic that is too long logs `control: command topic too long for <name>, not published`. Fix: say that `published` is logged only on success, and name the two other log lines and when each one appears.
+    2. Work item `## Description`: the human's answers in journal entries 8–10 are marked "part of the Description", but the Description was not rewritten to include them (R5). As it stands, the Description says something other than what was built:
+       - The Interface's leave for `tests/control/test_framelog.c` still allows only "the sent-frame rows now expect `SENT`", and it still says "Nothing else in those files changes". It does not name the granted rows 295 ("a sent frame", last letter `D`) and 303 ("Received 256 and 257", `NDDN`), or the granted `config.smart_grid = false;` line in `config_with` of `tests/control/test_router.c`.
+       - Criterion 3 still says "Every received-frame row of F0011 still holds", but row 303 changed.
+       - Criterion 9 does not ask for the Capacity 1 explanation that the docs and the decision entry now give (value 1 is upstream's Capacity 1, another pump needs the same installer setting, and 2 is never sent).
+       - The Description does not say that a whole received frame that is not main data counts as neither decoded nor dropped.
+       Fix: fold these answers into the Interface, criterion 3 and criterion 9, keeping the two closing criteria last.
+
+    Checked and fine:
+    - Criteria 1 and 4: `tests/control/test_smart_grid.c` covers them. The table has `heat_cool_heat_value` -1 and 1, one `SetSmartGridMode` per send, landing, repeats up to `max_retries` and then the fault, and the five dispatch values.
+    - Criterion 3: `tests/control/test_framelog_sent.c` covers the sent frame then the answer, checksum 144 giving `DROPPED`, the 111-byte query over four lines, and `ctl_framelog_is_optional_pcb`. Each header limit is tested on both sides: count 1/2, 256/257, checksum 255/256.
+    - Criterion 5: the `test_gate.c` rows hold, including open while listen-only and without an optional PCB.
+    - Criterion 6: the `test_settings.c` rows hold: `smart_grid` 0/1 accepted and 2 refused; `command_topic` accepts `jeisha/commands` and empty text and refuses `a+b`; the name count is 23.
+    - The factory's `make check` after the builder was green (entry 12).
+    - Architecture: no upstream file or hook line is in the diff. The `.c` files stay pure, with no dynamic memory. The sent frame's index is bounded (`expected` ≤ 255 before the checksum byte is appended, frame size 256). Text buffers are written with their size (`snprintf` in `ctl_firmware_change_begin` and `publish_command`). `publish` is checked, and the gate order matches the Description.
+    - Answer 8 accepts that the firmware-only rules (60 s freshness, publish versus serial, forgetting the last frame) have no host test.
+    - The decision entry gives the main decision and what was rejected. The docs criterion's points are present, including *What reaches the pump* with both paths.
+
+    Earlier tests changed (status M):
+    - `tests/control/test_framelog.c`: the `SENT` letter and sample under the Interface's leave; rows 295 and 303 under the human's leave (entries 8 and 10).
+    - `tests/control/test_gate.c`: new arguments and remote rows, under the Interface's leave.
+    - `tests/control/test_router.c`: the `config_with` line, under the human's leave (entries 8 and 10).
+    - `tests/control/test_settings.c`: the name counts, and default, flag and topic rows for the two settings, under the Interface's leave.
+    - `tests/control/test_telemetry.c`: the last config entry is now `config/command_topic`, under the Interface's leave for config entries.
