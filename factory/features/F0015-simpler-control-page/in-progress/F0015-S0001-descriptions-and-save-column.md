@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T12:44:16.181269Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-13T12:44:16.181269Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T12:46:49.739926Z'
+  stage: review
+  run: 2de69796d51d41d3a1deaa21d53549c3
 ---
 
 # Descriptions and the save result per row
@@ -165,3 +167,24 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD`. Checked these against the code, and all hold:
+   - Every corrected description and range matches the code: `ctl_relay`, `ctl_config_validate` (5 to 30), `ctl_router_config_valid` (0 to 10, -1 to 1), the Smart Grid comment in `ctl_router.c`, `CTL_BOUND_WEIGHT` and `parse_whole(0, CTL_ROOMS_MAX)`.
+   - Criteria 1–3 each have a test that checks them. Row and description sizes are tested on both sides, and names the function refuses are tested too.
+   - `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+   - `<sys/pgmspace.h>` is the toolchain's libc header (`xtensa-lx106-elf/include/sys`), not Arduino's or upstream's, and the `.c` file still lints as strict C99.
+   - The page is served as UTF-8, so the `°` in a description shows correctly.
+   - `firmware.md` *The control page* matches the code: four columns, results emptied once the page has been written, too-long rows.
+   - The factory's `make check` after the builder was green.
+
+   Earlier tests:
+   - `tests/control/test_form.c` (M): only the report's checks changed, the data that built the "Last save" table. Allowed by the story's leave.
+   - `tests/control/test_html.c` (M): `check_input` was replaced by `check_setting` for the settings table's columns. Allowed by the story's leave.
+
+   Findings:
+   1. Story `## Description`, item 4 of "The new settings table": it names the column **Last save**, but the page's heading is "Save result" (`ctl_web.cpp` `FORM_OPEN`), renamed because criterion 3 forbids the text. Fix: rewrite the Description to name the column "Save result" and give the reason (R5).
+   2. `tests/control/test_form_rows.c` `set_setting`: the comment calls it "the real settings setter", but it sets `*changed = false` for a name that was not known before the set. `ctl_firmware_change` (`ctl_firmware.cpp:350`) counts that as changed (`!known || …`). Fix: use the firmware's rule, or say in the comment how it differs.
+   3. `docs/control/decisions.md`, entry "The save result in the settings table's rows":
+      - "The descriptions are about 1.8 kB" is wrong: the table takes 21 × 192 = 4032 bytes.
+      - "a text that outgrows it stops the build" is false for a text of exactly 192 characters, which C accepts without a closing zero. Only `test_descriptions.c` catches it.
+
+      Fix: correct both sentences.
