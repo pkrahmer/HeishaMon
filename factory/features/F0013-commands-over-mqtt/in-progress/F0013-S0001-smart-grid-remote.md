@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T09:33:14.344865Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -96,6 +100,11 @@ journal:
   at: '2026-11-13T09:33:08.938492Z'
   stage: doing
   run: 144af378b05643a8a3dd72206c31220a
+- number: 17
+  speaker: factory
+  kind: started
+  at: '2026-11-13T09:33:14.344865Z'
+  stage: review
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -372,3 +381,4 @@ Expect: `2`
     The factory left out changes outside the write paths: factory/features/F0013-commands-over-mqtt/in-progress/F0013-S0001-smart-grid-remote.md.
 
     `check`: check: green
+17. factory: started review as heishamon.
