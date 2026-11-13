@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T12:44:16.181269Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-13T12:44:10.719489Z'
   stage: doing
   run: ce87a44d92f246eabfe176d9e9ce63d7
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:44:16.181269Z'
+  stage: review
 ---
 
 # Descriptions and the save result per row
@@ -155,3 +164,4 @@ Expect: `2`
    - `test_form_rows.c` has its own short copy of `test_form.c`'s setter: that one is `static`, and `test_form.c` may change only where it tests the report.
 
    `check`: check: green
+4. factory: started review as heishamon.
