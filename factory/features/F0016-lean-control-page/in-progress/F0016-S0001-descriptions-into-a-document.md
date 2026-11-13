@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T17:37:50.235917Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-13T17:37:35.576887Z'
   stage: doing
   run: 8bc4543790fb4f38887d432dabb93017
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-13T17:37:50.235917Z'
+  stage: review
 ---
 
 # Descriptions into a document
@@ -122,3 +131,4 @@ Expect: `2`
    Noticed, not touched: the table in firmware.md's *The settings* still says "as the core validates it" for several rules; I left it, since the story keeps that section's rules.
 
    `check`: check: green
+4. factory: started review as heishamon.
