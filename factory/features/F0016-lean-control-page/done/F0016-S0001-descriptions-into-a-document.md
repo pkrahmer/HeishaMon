@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-13T17:45:57.829400Z'
   stage: review
   run: 8adde71d312947e5b41703fac7b64da6
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-13T17:47:50.940628Z'
+  stage: approval
 ---
 
 # Descriptions into a document
@@ -217,3 +222,4 @@ Expect: `2`
    - `tests/control/test_descriptions.c` (D): deleted under the story's Interface leave.
    - `tests/control/test_form_rows.c` (M): the Interface allows changes to the description column only, and only the description cell was removed.
    - `tests/control/test_html.c` (M): the same leave. Only the description cell and its initialiser field were removed.
+10. factory: done (pull request merged); cost: 4 runs, 18.4 min, 61 turns, 199553 tokens in (3012503 more from cache), 30187 out, $2.20
