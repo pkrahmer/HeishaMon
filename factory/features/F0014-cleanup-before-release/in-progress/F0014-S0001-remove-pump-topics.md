@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 28
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T12:06:02.081958Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-13T12:06:02.081958Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T12:07:37.781491Z'
+  stage: review
+  run: 9ddea4f012ff4bb4adb9159de74e87df
 ---
 
 # Remove the pump topics and dead code
@@ -135,3 +137,23 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD -- . ':!factory'` against the work item, going through all six checklist groups. Criterion 1's grep finds nothing outside `test_settings_legacy.c`, and the same search over `docs/control/` finds the names only in `decisions.md`. The name count of 19 is tested in `test_settings.c`. No upstream file or hook line changed. After the builder, the factory's `make check` was green.
+
+   Findings:
+   1. `HeishaMon/src/control/glue/ctl_settings_file.{c,h}` and `ctl_firmware.cpp` (`read_settings`, `write_settings`, `load_settings`): the story asks only for removals, but the builder replaced the production board's ArduinoJson loader and writer for `/control.json` with a new 300-line JSON reader and writer. The `## Description` says nothing about this, and the human never agreed to it (R13). The new reader also changes behaviour: for example, a value with a `\n` or `\uXXXX` escape is now refused. Fix: end with `question` and offer two options. (a) Keep the module, and have the human add it to the Description with its own criteria. (b) Restore the ArduinoJson loader and satisfy the Interface's test some other way.
+   2. `tests/control/test_settings_legacy.c:11`: the file holds `"hysteresis_wh":"1200"` as text, but the Interface says `"hysteresis_wh":1200`, a number. With this reader a number value is skipped; `test_settings_file.c` `test_values_that_are_no_text` shows `hysteresis_wh` staying at 1500. So the test as the Interface writes it would fail, and the journal does not record the change. Fix: ask the human which form is meant. If it is the number, the loader must accept number values and the test must use `1200` without quotes.
+   3. `HeishaMon/src/control/glue/ctl_settings_file.c` `start_value`, `skip_scalar` and `skip_nested`: any run of characters is accepted as a scalar, and bracket kinds are not matched. So `{"a":x}`, `{"a":1"b"}` and `{"a":[}` all read as complete objects. That contradicts two claims: the `ctl_settings_file_feed` and `ctl_settings_file_complete` comments in `ctl_settings_file.h` ("no JSON object of pairs ... reads nothing more"), and `docs/control/firmware.md` *The settings file* (a file that "does not hold a JSON object" gives the defaults). `test_not_an_object` has no such case, so the failing side of the claim is untested. Fix: either limit scalars to the characters of a number, `true`, `false` and `null`, match `{}` against `[]`, and add these rows to `test_not_an_object`; or reword the header comment and `firmware.md` to say that only the object's outer structure is checked.
+
+   Earlier tests (changed, status M):
+   - `tests/control/test_dispatch.c`: changed under the Interface's leave. It removes `set_pump_topics`, `test_pump_topics` and the `defrost_topic` row, and every removed check is about the four settings.
+   - `tests/control/test_settings.c`: changed under the Interface's leave. It removes the four default rows, `test_pump_topics`, `test_pump_from_mqtt` and the `pump_from_mqtt` check, and updates the counts (23/27/25 to 19/23/21) and the positions (24/26/27 to 20/22/23).
+   - `tests/control/test_settings_file.c` and `tests/control/test_settings_legacy.c` are new (status A).
+
+   Checked and found no problem:
+   - The dispatch now matches `pv_topic` directly.
+   - The frame hook no longer checks for pump topics.
+   - Subscriptions cover only `pv_topic` and `frame_log_topic`.
+   - The doc changes to *Shadowing another HeishaMon* and *Frames from another HeishaMon's log* match the code.
+   - The new `decisions.md` entry is at the end, and earlier entries are untouched.
+   - Buffers in the new writer are bounded by their sizes.
+   - The reader's loop is bounded by the file's length.
