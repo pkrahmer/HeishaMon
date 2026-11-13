@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 28
-comments_read: []
+comments_read: [6852423812]
 handed_over: null
 claim: null
 journal:
@@ -48,6 +48,11 @@ journal:
   stage: doing
   run: 213c86b1f35a4430b8078acb8d65667b
   blocked: question
+- number: 8
+  speaker: human
+  kind: comment
+  at: '2026-11-13T12:08:56.080409Z'
+  stage: doing
 ---
 
 # Remove the pump topics and dead code
@@ -192,3 +197,4 @@ Expect: `2`
    **My choice:** (a) with (i). It is the smallest change to how the board behaves, and the test checks the real loader.
 
    **Still open:** finding 3 under (a), or reverting the reader under (b), whichever the answer chooses. Everything else from round 0 stands. The factory's `make check` was green at the end of round 0.
+8. 2026-11-13 human: The human answers round 1 (part of the Description): Question 1: (b). The board keeps its ArduinoJson loader and writer exactly as on develop; delete ctl_settings_file.{c,h} and test_settings_file.c. A new parser does not go onto the production board in a cleanup story. test_settings_legacy.c instead feeds the pairs the loader would hand over: heat_topic a/b and outdoor_topic c/d are refused as unknown names and change nothing, hysteresis_wh 1200 is accepted, and a written settings text holds neither removed name. The Interface's 'loads a control.json text' reads as 'feeds the loader's pairs'. Question 2: (i), values stay text as the board writes them; number values stay skipped as before. Finding 3 falls away with (b).
