@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T17:39:17.626342Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-13T17:39:17.626342Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-13T17:45:22.842633Z'
+  stage: doing
+  run: a2f7acc7ccfa4722a90a5aab7b89349f
 ---
 
 # Descriptions into a document
@@ -168,3 +170,12 @@ Expect: `2`
    - `tests/control/test_form_rows.c` (M): the Interface allows changes to the description column only. The change removes only the description cell from `expect_row` and `test_not_editable`.
    - `tests/control/test_html.c` (M): the same leave. The change removes only the description cell from the two expected strings and the two initialisers.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's single finding. Only `docs/control/settings.md` changed, in the intro paragraph.
+
+   - (a) Topic rule: it now reads "1 to 96 printable ASCII characters (0x21 to 0x7e) other than space, `+` and `#`". This matches `is_topic_character` in `glue/ctl_settings.c` and the wording in `firmware.md`.
+   - (b) Number rule: it now reads "a bare number whose magnitude is below 10¹²". This matches the `fabs(parsed) >= CTL_FORMAT_MAGNITUDE_LIMIT` check in `parse_number`.
+   - I also re-wrapped the paragraph's last line. The text is otherwise the same.
+
+   No code or test changed. `make check` ran green after the content fix (`check: green`), with D1 mini code flash at 757288 B, the same as the last round. After that run I only re-wrapped one line of the paragraph, and `make test` was green again after it. Nothing else touched.
+
+   `check`: check: green

@@ -5,8 +5,9 @@ board. Each setting is set on the board's control page, `/control`, or over MQTT
 `<base>/control/set/<name>` whose payload is the value, such as
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`; the value in force comes back,
 retained, on `<base>/control/config/<name>`. A value that is refused keeps the old one. A number is
-a bare number below 10¹² with at most three decimals; a topic is empty or 1 to 96 printable ASCII
-characters without `+` and `#`. `firmware.md` (*The settings*) gives the rules in full.
+a bare number whose magnitude is below 10¹², with at most three decimals; a topic is empty or 1 to
+96 printable ASCII characters (0x21 to 0x7e) other than space, `+` and `#`.
+`firmware.md` (*The settings*) gives the rules in full.
 
 | Setting | Default | Allowed | What it does |
 |---|---|---|---|
