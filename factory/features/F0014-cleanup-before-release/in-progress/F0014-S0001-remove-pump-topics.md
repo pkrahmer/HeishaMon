@@ -5,7 +5,7 @@ round: 2
 attempts: 0
 crashes: 0
 pull_request: 28
-comments_read: [6852423812]
+comments_read: [6852423812, 6852701273]
 handed_over: approval
 claim: null
 journal:
@@ -97,6 +97,11 @@ journal:
   at: '2026-11-13T12:24:31.111779Z'
   stage: review
   run: e8a394a3a63242d7bfe6f505b492bba3
+- number: 17
+  speaker: human
+  kind: comment
+  at: '2026-11-13T12:24:50.096032Z'
+  stage: approval
 ---
 
 # Remove the pump topics and dead code
@@ -378,3 +383,4 @@ Expect: `2`
     Notes:
     - Work item `## Interface`, "New test" bullet, and criterion 2: the text still reads "loads a `control.json` text" with `1200` as a number. The builder's rewrite in entry 14 was dropped because the work item is outside its write paths. I take the human's answer in entry 8 as the binding Description: it says how the Interface reads and that values stay text. The human may want to bring the Interface wording into line with it when they merge.
     - `tests/control/test_settings_legacy.c` covers `heat_topic` and `outdoor_topic` only, as the Interface names them. `valve_topic` and `defrost_topic` are refused, but that is covered only by the 19-name list in `test_settings.c`.
+17. 2026-11-13 human: The human: the only open finding is that the Description's text still says 'loads a control.json text' with a number. The reviewer folds entry 8's answer into the Interface's 'New test' bullet and criterion 2 on its next run, and approves if nothing else is found. The builder changes no code for this finding.
