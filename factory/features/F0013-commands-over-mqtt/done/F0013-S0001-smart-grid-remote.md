@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -124,6 +124,11 @@ journal:
   at: '2026-11-13T09:35:39.271455Z'
   stage: review
   run: 0776143b1e0442e1b6b22a80ed7ca1d1
+- number: 22
+  speaker: factory
+  kind: done
+  at: '2026-11-13T09:37:30.131259Z'
+  stage: approval
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -498,3 +503,4 @@ Expect: `2`
     Still open, not findings:
     - The rules that live only in the firmware glue have no host test: the 60 s freshness, publish versus serial, and forgetting the last frame. The human accepted this in answer 8; they are checked on the dev board after the merge.
     - `docs/control/router.md` describes only the thermostat path. The docs criterion does not name it.
+22. factory: done (pull request merged); cost: 8 runs, 39.9 min, 110 turns, 469753 tokens in (5867004 more from cache), 91312 out, $5.35
