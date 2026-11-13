@@ -81,74 +81,6 @@ static const fixed_name FIXED_NAMES[] = {
 /* A caller sizes its lists by the header's count, so the build stops when the two part ways. */
 typedef char fixed_names_match_header[FIXED_NAME_COUNT == CTL_SETTINGS_FIXED_NAMES ? 1 : -1];
 
-/* ---- Descriptions -------------------------------------------------------------------------- */
-
-/* On the ESP8266 a constant stays in RAM unless it is put in flash, and flash is read a word at a
- * time; the toolchain's own C library header gives both. Elsewhere a constant is read as it is. */
-#if defined(ESP8266)
-#include <sys/pgmspace.h>
-#define IN_FLASH PROGMEM
-#else
-#define IN_FLASH
-#endif
-
-static char flash_char(const char *at)
-{
-#if defined(ESP8266)
-    return (char)pgm_read_byte(at);
-#else
-    return *at;
-#endif
-}
-
-/* Where a room's description names the room's number. */
-#define ROOM_NUMBER_MARK '#'
-
-static const char DESCRIPTIONS[][CTL_SETTINGS_DESCRIPTION_MAX] IN_FLASH = {
-    [SETTING_ENABLED] = "Send commands to the pump: 0 = only watch and decide, 1 = control the "
-                        "pump.",
-    [SETTING_COOLING] = "Allow cooling demand: 0 = heating only, 1 = heating and cooling.",
-    [SETTING_ROOMS] = "Number of room sensors in the indoor average, 0 to 16. Save first; the "
-                      "room fields then appear.",
-    [SETTING_ROOM_TOPIC] = "MQTT topic of room #'s temperature.",
-    [SETTING_ROOM_WEIGHT] = "Weight of room # in the indoor average, 0 to 1000.",
-    [SETTING_ROOM_TIMEOUT] = "Seconds after which a room's last value counts as too old; above "
-                             "0.",
-    [SETTING_PV_TOPIC] = "MQTT topic of the PV power in W, for the solar gains. Empty: no PV.",
-    [SETTING_FRAME_LOG_TOPIC] = "Another HeishaMon's log topic to read the pump's frames from. "
-                                "Empty: this board's own pump.",
-    [SETTING_DESIRED_INDOOR] = "Target for the indoor average, in \u00b0C, 5 to 30.",
-    [SETTING_TRANSMISSION] = "The house's heat loss per kelvin between inside and outside, in "
-                             "W/K; above 0.",
-    [SETTING_ADJUSTMENT] = "Extra power per kelvin the indoor average is off its target, in W/K; "
-                           "0 or more.",
-    [SETTING_HYSTERESIS] = "The energy balance, in Wh, at which the pump is switched on: heating "
-                           "at minus this, cooling at plus this; it is switched off when the "
-                           "balance is back at 0. Above 0.",
-    [SETTING_TRIM_LIMIT] = "The largest deviation from the target, in K, that the adjustment "
-                           "acts on; above 0. none: no limit.",
-    [SETTING_SOLAR_GAIN] = "Share of the PV power counted as solar heat entering the house; 0 or "
-                           "more.",
-    [SETTING_INTERNAL] = "Heat from people and devices inside, in W.",
-    [SETTING_HEAT_COOL] = "The SetHeatCoolMode value that means heat, 0 or 1; -1 never sends it. "
-                          "Used only without Smart Grid.",
-    [SETTING_MIN_CHANGE_INTERVAL] = "Shortest time between two switches of the pump, in "
-                                    "seconds; 0 or more.",
-    [SETTING_RETRY_INTERVAL] = "Seconds before a command that was not confirmed is sent again; 0 "
-                               "or more.",
-    [SETTING_MAX_RETRIES] = "Repeats of an unconfirmed command before the router reports a "
-                            "fault, 0 to 10.",
-    [SETTING_SMART_GRID] = "How the pump is switched: 1 = Smart Grid mode (0 for heating or "
-                           "cooling demand, 1 = Capacity 1 for no demand), 0 = the external "
-                           "thermostat input.",
-    [SETTING_COMMAND_TOPIC] = "Another HeishaMon's commands topic to send commands to. Empty: "
-                              "this board's own serial port.",
-};
-
-/* Every setting has its description, so the build stops when a setting is added without one. */
-typedef char descriptions_match_settings[
-    sizeof DESCRIPTIONS / sizeof DESCRIPTIONS[0] == SETTING_COMMAND_TOPIC + 1 ? 1 : -1];
-
 /* A name resolved: the setting and, for a room's setting, the room. */
 typedef struct {
     setting_id id;
@@ -633,40 +565,6 @@ bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name
         return write_room_name(index / 2u, suffix, name, size);
     }
     return copy_text(FIXED_NAMES[NAMES_BEFORE_ROOMS + index - room_names].name, name, size);
-}
-
-static bool append_char(char c, char *text, size_t size, size_t *length)
-{
-    if (*length + 1u >= size) {
-        return false;
-    }
-    text[(*length)++] = c;
-    text[*length] = '\0';
-    return true;
-}
-
-bool ctl_settings_describe(const ctl_settings *settings, const char *name, char *out,
-                           size_t size)
-{
-    setting_key key;
-    size_t length = 0;
-    if (out == NULL || size == 0 || !find_name(settings, name, &key)) {
-        return false;
-    }
-    out[0] = '\0';
-    const char *description = DESCRIPTIONS[key.id];
-    for (size_t i = 0; i < CTL_SETTINGS_DESCRIPTION_MAX; i++) {
-        const char c = flash_char(&description[i]);
-        if (c == '\0') {
-            return true;
-        }
-        const bool fits = c == ROOM_NUMBER_MARK ? append_decimal(key.room, out, size, &length)
-                                                : append_char(c, out, size, &length);
-        if (!fits) {
-            return false;
-        }
-    }
-    return true;
 }
 
 bool ctl_settings_valid(const ctl_settings *settings)

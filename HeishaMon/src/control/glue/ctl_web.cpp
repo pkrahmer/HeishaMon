@@ -96,12 +96,8 @@ static const char TABLE_CLOSE[] FLASHPROG = "</table></div>";
 static const char STATUS_OPEN[] FLASHPROG = "<h2>Status</h2><div class='panel'><table>";
 static const char NO_DECISION[] FLASHPROG = "<p>No decision has been made yet.</p>";
 static const char INPUTS_OPEN[] FLASHPROG = "<h2>Inputs</h2><div class='panel'><table>";
-static const char FORM_OPEN[] FLASHPROG =
-    "<h2>Settings</h2><form method='POST' action='/savecontrol'><div class='panel'><table>"
-    "<tr><th>Setting</th><th>Value</th><th>What it does</th><th>Save result</th></tr>";
-static const char FORM_CLOSE[] FLASHPROG =
-    "</table></div><p>To add rooms, save the new count of rooms first; their fields then appear "
-    "here.</p><input type='submit' value='Save'></form>";
+static const char FORM_OPEN[] FLASHPROG = CTL_HTML_SETTINGS_OPEN;
+static const char FORM_CLOSE[] FLASHPROG = CTL_HTML_SETTINGS_CLOSE;
 static const char NOT_STARTED[] FLASHPROG = "<p>The control loop has not started.</p>";
 static const char PAGE_END[] FLASHPROG = "</main>";
 static const char EMPTY[] FLASHPROG = "";
