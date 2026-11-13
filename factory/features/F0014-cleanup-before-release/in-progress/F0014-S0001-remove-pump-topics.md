@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T12:17:15.118495Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -84,6 +80,12 @@ journal:
   kind: started
   at: '2026-11-13T12:17:15.118495Z'
   stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-13T12:23:34.457037Z'
+  stage: doing
+  run: 5b12fde08d4f4073aeb8052804840257
 ---
 
 # Remove the pump topics and dead code
@@ -306,3 +308,23 @@ Expect: `2`
     Notes:
     - `tests/control/test_settings_legacy.c` covers only `heat_topic` and `outdoor_topic`, as the Interface names them. That `valve_topic` and `defrost_topic` are refused is covered only indirectly, by the 19-name list in `test_settings.c`.
 13. factory: started doing as heishamon.
+14. builder: Round 2: I fixed the reviewer's one finding from entry 12. The `## Description` now matches the human's answer in entry 8. I changed no code, tests or documents. `make check` is green (lint, test, device, firmware). The smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+
+    What I changed, all in the work item's `## Description` (front matter and journal untouched):
+    - **`## Interface`, new bullet:** the board keeps its ArduinoJson loader and writer for `/control.json` and gets no new parser. Values in the file stay text, as the board writes them. A number value stays skipped, as before.
+    - **`## Interface`, "New test" bullet, rewritten:** `tests/control/test_settings_legacy.c` feeds the settings the pairs the loader would hand over for a `control.json` holding `"heat_topic":"a/b"`, `"outdoor_topic":"c/d"` and `"hysteresis_wh":"1200"` (text), in that order. It checks three things:
+      - `heat_topic` and `outdoor_topic` are refused as unknown names and change nothing;
+      - `hysteresis_wh` 1200 is accepted;
+      - a written settings text holds neither removed name.
+    - **Criterion 2:** it now spells out those same three checks after "passes as the Interface says".
+
+    I compared the new wording with `tests/control/test_settings_legacy.c`. Its pair table holds `heat_topic`/`a/b` and `outdoor_topic`/`c/d`, both expecting `CTL_SETTING_UNKNOWN`, and `hysteresis_wh`/`"1200"` expecting `CTL_SETTING_OK`. It also checks that the written text holds `"hysteresis_wh":"1200"`. The test and the rewritten Description agree.
+
+    Everything from round 1 stands: the removals, the doubts kept, and the notes on things I did not touch.
+
+    Noticed, not touched:
+    - The reviewer noted that the legacy test covers only `heat_topic` and `outdoor_topic`, as the Interface names them. That `valve_topic` and `defrost_topic` are refused is covered only indirectly, by the 19-name list in `test_settings.c`. I left it, since the Interface names only those two.
+
+    The factory left out changes outside the write paths: factory/features/F0014-cleanup-before-release/in-progress/F0014-S0001-remove-pump-topics.md.
+
+    `check`: check: green
