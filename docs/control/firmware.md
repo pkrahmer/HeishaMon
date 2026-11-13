@@ -7,8 +7,9 @@ tested on the host.
 ## The settings
 
 Everything the owner can set is one flat set of names, each with a text value
-(`glue/ctl_settings.h`). The settings file, the MQTT setting topics and a later web page all go
-through the same three functions:
+(`glue/ctl_settings.h`). What each setting means, its default and its allowed values are in
+`settings.md`, written for the owner; this section gives the rules. The settings file, the MQTT
+setting topics and the control page all go through the same three functions:
 
 - `ctl_settings_set` parses and checks one value, then checks the whole set, and applies the value
   only when both pass.
@@ -296,16 +297,16 @@ the root page. From top to bottom it shows:
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
   carries them; before the first decision, a line saying that no decision has been made yet;
-- the form *Settings*, a table of one row per setting in the order of `ctl_settings_name_at`, and
-  a button *Save*.
+- the form *Settings*: one line linking to `settings.md` on GitHub, *What the settings mean*, then
+  a table of one row per setting in the order of `ctl_settings_name_at`, and a button *Save*.
 
-The settings table has four columns:
+The page writes no description of a setting; the link leads to them, so that the page stays as
+small as it can be: on the ESP8266 upstream's web server holds every piece of a page in RAM until
+the browser has fetched it. The settings table has three columns:
 
 1. **Setting**: the name.
 2. **Value**: a field prefilled with the value in force, as `ctl_settings_get` writes it.
-3. **What it does**: the description `ctl_settings_describe` writes, with the unit and the
-   allowed values; a room's names the room's number, the one in its setting's name.
-4. **Save result**: empty, except on the page that follows a save:
+3. **Save result**: empty, except on the page that follows a save:
    - `saved` when the save changed the setting's value;
    - `refused: <reason>` when the setter refused the value: `not a valid value` (`BAD_VALUE`, or
      a field too long for any setting), `conflicts with other settings` (`INVALID_SET`) or
@@ -314,10 +315,10 @@ The settings table has four columns:
    - empty when the value was sent unchanged.
 
 The results belong to that one page: once it has been written out, the glue empties them, so a
-reload shows the fourth column empty.
+reload shows the third column empty.
 
 A value whose escaped row does not fit the page's 512-byte chunk, such as a topic full of quotes,
-shows its name and *too long to show here* instead of a field, with the other two columns, so
+shows its name and *too long to show here* instead of a field, with the save result, so
 that a save leaves it as it is; it can still be set over MQTT.
 
 **Saving.** The form posts to `/savecontrol`. The page keeps every field until the whole form has
@@ -340,9 +341,10 @@ refused setting keeps its old value. A save that only repeats the current values
 The keeping, joining, ordering and applying of the fields, and the rows of the settings table,
 are the pure module `glue/ctl_form.c`, which `tests/control/test_form.c` and
 `tests/control/test_form_rows.c` cover on the host; it applies through a setter it is given, here
-the glue's `ctl_firmware_change`. The descriptions are `ctl_settings_describe` in
-`glue/ctl_settings.c`, covered by `tests/control/test_descriptions.c`. `glue/ctl_web.cpp` only
-hands the module the web server's steps.
+the glue's `ctl_firmware_change`. The settings part's opening text, with the link, and its
+closing text are `CTL_HTML_SETTINGS_OPEN` and `CTL_HTML_SETTINGS_CLOSE` in `glue/ctl_html.h`,
+covered by `tests/control/test_lean_page.c`. `glue/ctl_web.cpp` only hands the module the web
+server's steps.
 
 **Adding rooms.** The form shows the fields of the rooms below the current count only. To add
 rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
@@ -354,9 +356,7 @@ one buffer for the names and values of every setting at their maximum lengths wh
 for `/savecontrol` arrives and frees it right after applying it, before the answer goes out; a
 connection lost before that frees it at its close. What the last save did to each setting stays
 in a static list of every setting's name and one byte of result, `CTL_SETTINGS_NAMES_MAX` long,
-until the page that follows it has been written. The descriptions live in flash, as the page's
-other fixed texts do: on the ESP8266 the table is `PROGMEM` and read a byte at a time with
-`pgm_read_byte`, so it takes no RAM.
+until the page that follows it has been written.
 
 **The hook lines.** Two lines of `HeishaMon/HeishaMon.ino` and one of `HeishaMon/htmlcode.h`
 carry the page:

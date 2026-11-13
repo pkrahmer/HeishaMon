@@ -18,7 +18,6 @@
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
 #define CTL_SETTINGS_FIXED_NAMES 19 /* the names listed whatever the count of rooms */
-#define CTL_SETTINGS_DESCRIPTION_MAX 192 /* the longest description, with its zero */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -82,13 +81,6 @@ size_t ctl_settings_name_count(const ctl_settings *settings);
 /* Writes the name at index of the list and returns true. Refuses, returning false, an index not
  * below ctl_settings_name_count and a size that cannot hold the name with its terminating zero. */
 bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name, size_t size);
-
-/* Writes what the setting called name is for, in the owner's words, with its unit and its allowed
- * values, a room's with the room's number, and returns true. Refuses, returning false, a name
- * that is not listed (a room index not below room_count included), a NULL name and a size that
- * cannot hold the text with its terminating zero; the buffer then holds nothing to rely on. */
-bool ctl_settings_describe(const ctl_settings *settings, const char *name, char *out,
-                           size_t size);
 
 /* Returns true when the configuration ctl_settings_to_loop makes passes ctl_loop_config_valid. */
 bool ctl_settings_valid(const ctl_settings *settings);

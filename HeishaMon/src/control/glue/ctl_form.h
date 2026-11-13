@@ -80,10 +80,9 @@ ctl_save_result ctl_form_report_result(const ctl_form_report *report, const char
 
 /* Writes the settings table's row of the name at index of ctl_settings_name_at: the name, its
  * field holding the value in force (or, when editable is false, CTL_HTML_TOO_LONG and no field),
- * its description and what the report's save did to it, a refusal with its reason; and returns
- * true. An index not listed, or a name without a value or description, writes an empty text and
- * returns true. Refuses, returning false, a size that cannot hold the row with its terminating
- * zero. */
+ * and what the report's save did to it, a refusal with its reason; and returns true. An index
+ * not listed, or a name without a value, writes an empty text and returns true. Refuses,
+ * returning false, a size that cannot hold the row with its terminating zero. */
 bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, size_t index,
                   bool editable, char *out, size_t size);
 

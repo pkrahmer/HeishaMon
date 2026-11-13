@@ -66,17 +66,15 @@ static void row_of(const char *name, char *row)
     CHECK_TRUE(ctl_form_row(&settings, &report, index_of(&settings, name), true, row, ROW_MAX));
 }
 
-/* The row of a setting: its name, its field, its description and the last save's result. */
+/* The row of a setting: its name, its field and the last save's result. */
 static void expect_row(const char *name, const char *value, const char *start, const char *last)
 {
-    char description[CTL_SETTINGS_DESCRIPTION_MAX];
     char expected[ROW_MAX];
     char row[ROW_MAX];
-    CHECK_TRUE(ctl_settings_describe(&settings, name, description, sizeof description));
     snprintf(expected, sizeof expected,
              "%s<td><label for=\"%s\">%s</label></td><td><input id=\"%s\" name=\"%s\" "
-             "value=\"%s\"></td><td>%s</td><td>%s</td></tr>",
-             start, name, name, name, name, value, description, last);
+             "value=\"%s\"></td><td>%s</td></tr>",
+             start, name, name, name, name, value, last);
     row_of(name, row);
     CHECK_TEXT(row, expected);
 }
@@ -163,15 +161,10 @@ static void test_no_save(void)
 /* A row whose field does not fit shows the value as too long and keeps the other columns. */
 static void test_not_editable(void)
 {
-    char description[CTL_SETTINGS_DESCRIPTION_MAX];
-    char expected[ROW_MAX];
+    const char *expected = REFUSED_MARK "<td>rooms</td><td>" CTL_HTML_TOO_LONG
+                                        "</td><td>refused: not a valid value</td></tr>";
     char row[ROW_MAX];
     save_three();
-    CHECK_TRUE(ctl_settings_describe(&settings, "rooms", description, sizeof description));
-    snprintf(expected, sizeof expected,
-             REFUSED_MARK "<td>rooms</td><td>" CTL_HTML_TOO_LONG
-                          "</td><td>%s</td><td>refused: not a valid value</td></tr>",
-             description);
     CHECK_TRUE(ctl_form_row(&settings, &report, index_of(&settings, "rooms"), false, row,
                             sizeof row));
     CHECK_TEXT(row, expected);

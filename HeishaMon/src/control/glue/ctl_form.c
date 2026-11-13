@@ -163,21 +163,18 @@ bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, s
 {
     char name[CTL_SETTINGS_NAME_MAX];
     char value[CTL_SETTINGS_VALUE_MAX];
-    char description[CTL_SETTINGS_DESCRIPTION_MAX];
     if (size == 0) {
         return false;
     }
     out[0] = '\0';
     if (!ctl_settings_name_at(settings, index, name, sizeof name)
-        || !ctl_settings_get(settings, name, value, sizeof value)
-        || !ctl_settings_describe(settings, name, description, sizeof description)) {
+        || !ctl_settings_get(settings, name, value, sizeof value)) {
         return true;
     }
     ctl_save_result result = ctl_form_report_result(report, name);
     ctl_html_setting row;
     row.name = name;
     row.value = editable ? value : NULL;
-    row.description = description;
     row.last_save = last_save_text(result);
     row.refused = result != CTL_SAVE_UNCHANGED && result != CTL_SAVE_SAVED;
     return ctl_html_setting_row(&row, out, size);

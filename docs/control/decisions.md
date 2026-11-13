@@ -912,3 +912,23 @@ reading flash with hand-written aligned word loads, which is what `pgm_read_byte
 keeping the results until the next save, which shows a stale `saved` on every later visit; a CSS
 class for refused rows, which needs a change to upstream's `htmlcode.h`; numbering rooms from 1,
 which would differ from the names `room.0.topic` and so on beside them.
+
+## 2026-11-13: The descriptions of the settings move from the page into a document
+
+**Decision.** The settings table of `/control` has three columns again: the name, the field and
+the save result. What each setting means, its default and its allowed values are written in
+`docs/control/settings.md`, and the page links to it in one line above the table. The firmware
+holds no description: `ctl_settings_describe`, its table and its flash reading are gone. The
+settings part's opening and closing texts are the macros `CTL_HTML_SETTINGS_OPEN` and
+`CTL_HTML_SETTINGS_CLOSE` in `glue/ctl_html.h`, which `ctl_web.cpp` puts in flash with
+`FLASHPROG` as before, so that a host test reads the same text the page sends. The link points
+to the document on the fork's `develop` branch on GitHub.
+**Reason.** The descriptions made the page about twice as large, and on the ESP8266 upstream's web
+server copies every piece a page sends and holds it until the browser has fetched it: the owner's
+production board restarted twice with the page open while its MQTT log ran busy. The owner
+decided that the page goes back to the minimum. A document costs the board nothing and can say
+more than a table cell.
+**Rejected.** Keeping shorter descriptions on the page, which still costs RAM on every load;
+serving the document from the board, which costs flash and the same RAM; a function in a `.c`
+file that writes the opening text, whose string constant would sit in RAM on the ESP8266; leaving
+the texts in `ctl_web.cpp` alone, where no host test can check the link.

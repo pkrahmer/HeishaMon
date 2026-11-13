@@ -116,8 +116,6 @@ bool ctl_html_setting_row(const ctl_html_setting *setting, char *out, size_t siz
         put_setting_text(&w, setting->name);
     }
     put_raw(&w, "<td>");
-    put_escaped(&w, setting->description);
-    put_raw(&w, "</td><td>");
     put_escaped(&w, setting->last_save);
     put_raw(&w, "</td></tr>");
     return w.fits;
