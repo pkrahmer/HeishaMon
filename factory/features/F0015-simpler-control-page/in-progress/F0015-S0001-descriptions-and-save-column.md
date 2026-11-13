@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 29
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T12:27:04.339701Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-13T12:27:04.339701Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-13T12:44:10.719489Z'
+  stage: doing
+  run: ce87a44d92f246eabfe176d9e9ce63d7
 ---
 
 # Descriptions and the save result per row
@@ -101,3 +103,55 @@ Expect: `2`
 
 1. 2026-11-13 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the four-column settings table with descriptions and a save result in each row. The "Last save" table is gone.
+
+   **What I built**
+   - `HeishaMon/src/control/glue/ctl_settings.{h,c}`: new `ctl_settings_describe(settings, name, out, size)` and `CTL_SETTINGS_DESCRIPTION_MAX` (192). The descriptions are one table indexed by `setting_id`, with `#` where a room's number goes. A compile-time check stops the build when a setting has no slot. On the ESP8266 the table is `PROGMEM` and read with `pgm_read_byte` from the toolchain's newlib header `<sys/pgmspace.h>`, included only when `ESP8266` is defined. Everywhere else it is a plain constant, so lint and host tests run as strict C99.
+   - `glue/ctl_form.{h,c}`: the report keeps one `uint8_t` `ctl_save_result` per applied name: saved, unchanged, or refused with the setter's reason (BAD_VALUE, INVALID_SET or UNKNOWN). A field too long for any setting counts as a bad value. New functions: `ctl_form_report_result` and `ctl_form_row` (builds one settings row). Removed: `saved`, `accepted[]`, `ctl_form_report_items` and `ctl_form_report_item`, plus their HTML strings.
+   - `glue/ctl_html.{h,c}`: `ctl_html_input` is replaced by `ctl_html_setting_row` with a `ctl_html_setting` struct, and `CTL_HTML_TOO_LONG` is now shared. A refused row starts `<tr style='color:var(--orange)'>`.
+   - `glue/ctl_web.cpp`: `SECTION_SAVE` is removed, and `setting_row` now calls `ctl_form_row`. `FORM_OPEN` gains a header row. The report is emptied once the page after a save has been written in full.
+   - Tests:
+     - New `tests/control/test_descriptions.c` covers criterion 1, plus the refusals and buffer sizes.
+     - New `tests/control/test_form_rows.c` covers criterion 2 (full expected rows for `hysteresis_wh`, `enabled` and `rooms` 99), each refusal reason, an empty last column with no save, the row without an input, and criterion 3. For criterion 3 it scans the rows and the sources `ctl_web.cpp`, `ctl_form.c` and `ctl_html.c` for `Last save`.
+     - `tests/control/test_form.c`: only the report parts changed. `check_report_entry` now checks results, and `test_report_text` and the `report.saved` checks are gone.
+     - `tests/control/test_html.c`: `check_input` is replaced by `check_setting`.
+   - Docs: `docs/control/firmware.md`, section *The control page*, now covers the four columns, the save results and the memory paragraph. Added an entry to `docs/control/decisions.md`.
+
+   **Decisions** (recorded in decisions.md)
+   - **Column heading:** *Save result*. Criterion 3 forbids the text "Last save" anywhere on the page, so the story's own column name could not be used.
+   - **When results show:** only on the page that follows the save; a reload shows none ("right after a save").
+   - **Room numbers:** counted from 0, as in `room.0.topic`.
+   - **Refused-row colour:** an inline style with `var(--orange)`, because a CSS class would mean changing `htmlcode.h`.
+   - **Rejected:**
+     - Descriptions as `FLASHPROG` texts in the `.cpp`, which no host test can reach.
+     - A second table of names for the descriptions.
+     - Hand-written aligned word reads from flash.
+     - Keeping results until the next save.
+
+   **Wording corrections against the code**
+   - `hysteresis_wh`: the pump does not switch off at plus this. Heating starts at minus H and cooling at plus H, and both stop when the balance is back at 0 (`ctl_relay`). It must also be above 0.
+   - `smart_grid`: 0 is sent for heating *or cooling* demand, and 1 (Capacity 1) for no demand.
+   - Allowed values added where the code enforces them:
+     - `room_timeout_s`, `transmission_w_per_k`, `trim_limit_k`: above 0.
+     - `adjustment_w_per_k`, `solar_gain_factor`, `min_change_interval_s`, `retry_interval_s`: 0 or more.
+     - `desired_indoor_c`: 5 to 30.
+     - `heat_cool_heat_value`: 0 or 1, and -1 never sends it.
+     - `max_retries`: 0 to 10 (`ctl_router_config_valid`).
+   - No setting is missing from the owner's list, and none has been removed.
+
+   **Memory**
+   - D1 mini global RAM: 50564 bytes on develop, 50628 now (+64, under the 200 limit). Flash grew by 4480 bytes; the description table is 21 × 192 bytes in flash.
+   - Expected free heap change: −64 bytes, from the short result texts in `ctl_form.c` and `ctl_html.c`.
+   - Rendering one row now puts about 320 more bytes on the stack, briefly.
+
+   **Checks**
+   - `make check` is green (lint, test, device and firmware).
+   - Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+   - `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+
+   **Noticed, not touched**
+   - `FORM_CLOSE` still says to save the count of rooms first, which the `rooms` description now repeats.
+   - The comment on `command_topic` in `ctl_settings.h` says "the base … as `<base>/commands`", while firmware.md and the publishing code use the commands topic itself.
+   - `test_form_rows.c` has its own short copy of `test_form.c`'s setter: that one is `static`, and `test_form.c` may change only where it tests the report.
+
+   `check`: check: green

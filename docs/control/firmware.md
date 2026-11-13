@@ -293,16 +293,32 @@ cleared by hand.
 HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
 the root page. From top to bottom it shows:
 
-- what the last save from the page accepted and refused, by name, if the board saved since its
-  start (a save that held no setting says so);
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
   carries them; before the first decision, a line saying that no decision has been made yet;
-- a form with every setting, by name, prefilled with its current value as `ctl_settings_get`
-  writes it, and a button *Save*.
+- the form *Settings*, a table of one row per setting in the order of `ctl_settings_name_at`, and
+  a button *Save*.
+
+The settings table has four columns:
+
+1. **Setting**: the name.
+2. **Value**: a field prefilled with the value in force, as `ctl_settings_get` writes it.
+3. **What it does**: the description `ctl_settings_describe` writes, with the unit and the
+   allowed values; a room's names the room's number, the one in its setting's name.
+4. **Save result**: empty, except on the page that follows a save:
+   - `saved` when the save changed the setting's value;
+   - `refused: <reason>` when the setter refused the value: `not a valid value` (`BAD_VALUE`, or
+     a field too long for any setting), `conflicts with other settings` (`INVALID_SET`) or
+     `unknown setting` (`UNKNOWN`); the row is written in the page's warning colour, and the
+     field shows the value still in force;
+   - empty when the value was sent unchanged.
+
+The results belong to that one page: once it has been written out, the glue empties them, so a
+reload shows the fourth column empty.
 
 A value whose escaped row does not fit the page's 512-byte chunk, such as a topic full of quotes,
-shows its name and no field, so that a save leaves it as it is; it can still be set over MQTT.
+shows its name and *too long to show here* instead of a field, with the other two columns, so
+that a save leaves it as it is; it can still be set over MQTT.
 
 **Saving.** The form posts to `/savecontrol`. The page keeps every field until the whole form has
 arrived, then walks the names of `ctl_settings_name_at` in their order, reading the count of
@@ -317,15 +333,16 @@ writes `/control.json` as above, and applies the settings as a setting topic doe
 tick, without restarting the loop; a change of `cooling` sets the allowed demands at once with
 `ctl_set_allowed`. Since the form holds every topic, a save unsubscribes the input topics before
 it applies and subscribes the current ones after, and when anything changed it publishes every
-setting again under `control/config/`. The answer redirects to `/control`, which then lists every
-name the setter accepted as *accepted*, the value it already had included, and every name the
-setter refused as *refused*; a refusal is also logged with the setter's answer, and the refused
-setting keeps its old value. A save that only repeats the current values writes no file.
+setting again under `control/config/`. The answer redirects to `/control`, which shows the result
+of each setting in its row, as above; a refusal is also logged with the setter's answer, and the
+refused setting keeps its old value. A save that only repeats the current values writes no file.
 
-The keeping, joining, ordering and applying of the fields, and the HTML of the report, are the
-pure module `glue/ctl_form.c`, which `tests/control/test_form.c` covers on the host; it applies
-through a setter it is given, here the glue's `ctl_firmware_change`. `glue/ctl_web.cpp` only
-hands it the web server's steps.
+The keeping, joining, ordering and applying of the fields, and the rows of the settings table,
+are the pure module `glue/ctl_form.c`, which `tests/control/test_form.c` and
+`tests/control/test_form_rows.c` cover on the host; it applies through a setter it is given, here
+the glue's `ctl_firmware_change`. The descriptions are `ctl_settings_describe` in
+`glue/ctl_settings.c`, covered by `tests/control/test_descriptions.c`. `glue/ctl_web.cpp` only
+hands the module the web server's steps.
 
 **Adding rooms.** The form shows the fields of the rooms below the current count only. To add
 rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
@@ -335,8 +352,11 @@ weight fields, which a second save sets. Lowering the count and saving drops the
 the page goes out one content step at a time, as upstream's Modbus page does. A save allocates
 one buffer for the names and values of every setting at their maximum lengths when the request
 for `/savecontrol` arrives and frees it right after applying it, before the answer goes out; a
-connection lost before that frees it at its close. What the last save accepted and refused stays
-in a static list of every setting's name, `CTL_SETTINGS_NAMES_MAX` long.
+connection lost before that frees it at its close. What the last save did to each setting stays
+in a static list of every setting's name and one byte of result, `CTL_SETTINGS_NAMES_MAX` long,
+until the page that follows it has been written. The descriptions live in flash, as the page's
+other fixed texts do: on the ESP8266 the table is `PROGMEM` and read a byte at a time with
+`pgm_read_byte`, so it takes no RAM.
 
 **The hook lines.** Two lines of `HeishaMon/HeishaMon.ino` and one of `HeishaMon/htmlcode.h`
 carry the page:

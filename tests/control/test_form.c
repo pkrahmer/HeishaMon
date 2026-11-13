@@ -42,12 +42,13 @@ static void check_setting(const ctl_settings *settings, const char *name, const 
 }
 
 static void check_report_entry(const ctl_form_report *report, size_t index, const char *name,
-                               bool accepted)
+                               ctl_save_result result)
 {
     CHECK_TRUE(index < report->count);
     if (index < report->count) {
         CHECK_TEXT(report->name[index], name);
-        CHECK_UINT(report->accepted[index], accepted);
+        CHECK_UINT(report->result[index], result);
+        CHECK_UINT(ctl_form_report_result(report, name), result);
     }
 }
 
@@ -80,14 +81,13 @@ static void test_browser_order(void)
     check_setting(&target.settings, "room.1.topic", "house/b");
     check_setting(&target.settings, "room.0.weight", "0.5");
     check_setting(&target.settings, "desired_indoor_c", "21.5");
-    CHECK_TRUE(report.saved);
     CHECK_UINT(report.count, 6);
-    check_report_entry(&report, 0, "rooms", true);
-    check_report_entry(&report, 1, "room.0.topic", true);
-    check_report_entry(&report, 2, "room.0.weight", true);
-    check_report_entry(&report, 3, "room.1.topic", true);
-    check_report_entry(&report, 4, "desired_indoor_c", true);
-    check_report_entry(&report, 5, "hysteresis_wh", false);
+    check_report_entry(&report, 0, "rooms", CTL_SAVE_SAVED);
+    check_report_entry(&report, 1, "room.0.topic", CTL_SAVE_SAVED);
+    check_report_entry(&report, 2, "room.0.weight", CTL_SAVE_SAVED);
+    check_report_entry(&report, 3, "room.1.topic", CTL_SAVE_SAVED);
+    check_report_entry(&report, 4, "desired_indoor_c", CTL_SAVE_SAVED);
+    check_report_entry(&report, 5, "hysteresis_wh", CTL_SAVE_REFUSED_BAD_VALUE);
 }
 
 /* Posting the values a setting already holds is accepted, but changes nothing. */
@@ -98,8 +98,8 @@ static void test_unchanged(void)
     keep_text(&form, "enabled", "0");
     CHECK_TRUE(!ctl_form_apply(&form, &target.settings, set_setting, &target, &report));
     CHECK_UINT(report.count, 2);
-    check_report_entry(&report, 0, "enabled", true);
-    check_report_entry(&report, 1, "rooms", true);
+    check_report_entry(&report, 0, "enabled", CTL_SAVE_UNCHANGED);
+    check_report_entry(&report, 1, "rooms", CTL_SAVE_UNCHANGED);
 }
 
 static void test_pieces(void)
@@ -139,8 +139,8 @@ static void test_too_long(void)
     CHECK_UINT(target.calls, 0);
     check_setting(&target.settings, "pv_topic", "");
     CHECK_UINT(report.count, 2);
-    check_report_entry(&report, 0, "room_timeout_s", false);
-    check_report_entry(&report, 1, "pv_topic", false);
+    check_report_entry(&report, 0, "room_timeout_s", CTL_SAVE_REFUSED_BAD_VALUE);
+    check_report_entry(&report, 1, "pv_topic", CTL_SAVE_REFUSED_BAD_VALUE);
 }
 
 static void test_unknown_name(void)
@@ -157,7 +157,6 @@ static void test_unknown_name(void)
     CHECK_UINT(form.count, 2);
     CHECK_TRUE(!ctl_form_apply(&form, &target.settings, set_setting, &target, &report));
     CHECK_UINT(target.calls, 0);
-    CHECK_TRUE(report.saved);
     CHECK_UINT(report.count, 0);
 }
 
@@ -177,52 +176,6 @@ static void test_full_form(void)
     CHECK_UINT(form.count, CTL_FORM_FIELDS_MAX);
 }
 
-static void report_text(char *text, size_t size)
-{
-    char item[256];
-    text[0] = '\0';
-    for (size_t i = 0; i < ctl_form_report_items(&report); i++) {
-        CHECK_TRUE(ctl_form_report_item(&report, i, item, sizeof item));
-        CHECK_TRUE(strlen(text) + strlen(item) < size);
-        strcat(text, item);
-    }
-}
-
-#define REPORT_EXPECTED                                                                         \
-    "<h2>Last save</h2><div class='panel'><table>"                                              \
-    "<tr><td>rooms</td><td>accepted</td></tr>"                                                  \
-    "<tr><td>hysteresis_wh</td><td>refused</td></tr>"                                           \
-    "</table></div>"
-#define ROW_EXPECTED "<tr><td>rooms</td><td>accepted</td></tr>"
-#define EMPTY_EXPECTED "<p>The last save held no setting.</p>"
-
-static void test_report_text(void)
-{
-    char text[512];
-    char item[256];
-    start();
-    CHECK_UINT(ctl_form_report_items(&report), 0);
-    CHECK_TRUE(!ctl_form_report_item(&report, 0, item, sizeof item));
-    ctl_form_apply(&form, &target.settings, set_setting, &target, &report);
-    report_text(text, sizeof text);
-    CHECK_TEXT(text, EMPTY_EXPECTED);
-    CHECK_TRUE(!ctl_form_report_item(&report, 0, item, sizeof EMPTY_EXPECTED - 1));
-
-    keep_text(&form, "hysteresis_wh", "abc");
-    keep_text(&form, "rooms", "1");
-    ctl_form_apply(&form, &target.settings, set_setting, &target, &report);
-    CHECK_UINT(ctl_form_report_items(&report), 4);
-    report_text(text, sizeof text);
-    CHECK_TEXT(text, REPORT_EXPECTED);
-    CHECK_TRUE(ctl_form_report_item(&report, 1, item, sizeof ROW_EXPECTED));
-    CHECK_TEXT(item, ROW_EXPECTED);
-    CHECK_TRUE(!ctl_form_report_item(&report, 1, item, sizeof ROW_EXPECTED - 1));
-    CHECK_TRUE(!ctl_form_report_item(&report, 4, item, sizeof item));
-
-    ctl_form_report_start(&report);
-    CHECK_UINT(ctl_form_report_items(&report), 0);
-}
-
 int main(void)
 {
     test_browser_order();
@@ -231,6 +184,5 @@ int main(void)
     test_too_long();
     test_unknown_name();
     test_full_form();
-    test_report_text();
     return check_result();
 }
