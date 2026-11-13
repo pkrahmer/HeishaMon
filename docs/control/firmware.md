@@ -250,18 +250,16 @@ text values, the names and value texts of the settings' table above.
     {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
      "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
 
-At start the glue reads the file a character at a time through the pure reader
-`ctl_settings_file_feed` (`HeishaMon/src/control/glue/ctl_settings_file.c`), which applies the
-pairs in file order with `ctl_settings_set`, so `rooms` comes before the rooms' names. A value
-that is not a JSON string, or a pair the setter refuses, is logged with the setter's answer and
-skipped; the rest of the file still applies. A name the settings no longer list, such as one an
-older firmware wrote, is such a refused pair, and the next write leaves it out. A missing file, one that
-cannot be opened or does not hold a JSON object, and a set that ends invalid give the defaults
-for every setting, and the reason is logged.
+At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
+the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
+the setter's answer and skipped; the rest of the file still applies. A name the settings no longer
+list, such as one an older firmware wrote, is such a refused pair, and the next write leaves it
+out. A missing file, one that cannot be opened or does not hold a JSON object, and a set that ends
+invalid give the defaults for every setting, and the reason is logged.
 
 The glue writes the file on every accepted setting over MQTT, and on a save from the control
 page that changed a value, every setting in the order of
-`ctl_settings_name_at`, in the pieces `ctl_settings_file_piece` gives. It writes `/control.json.new` first and renames it over `/control.json`,
+`ctl_settings_name_at`. It writes `/control.json.new` first and renames it over `/control.json`,
 so that a reset while writing leaves the old file. A failed write is logged; the change then
 holds until the next start.
 

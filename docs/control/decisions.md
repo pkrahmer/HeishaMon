@@ -874,17 +874,12 @@ where the pump's values come from. `ctl_firmware_frame` always hands the pump's 
 data frame to the loop, whether the frame came from the board's own pump or from another
 HeishaMon's log. A `/control.json` that still names one of them loads as before: the name is
 unknown to the setter, so its pair is logged as refused and skipped, and the next write leaves it
-out. The file is now read and written by the pure `ctl_settings_file.c`: a reader fed one
-character at a time that hands each text pair to the setter, and a writer that gives the file in
-pieces. The glue no longer uses ArduinoJson.
+out.
 **Reason.** The topics were a bridge for a board without a pump. Since the frame log, such a board
 decodes the other board's frames itself, and a board on a pump reads its own; nothing needs them,
-and a value left in a production board's file would cut its loop off from the pump. A file the
-older firmware wrote must still load on the production board, and only a reader the host tests
-can run can show that it does; feeding it a character at a time keeps the whole file out of the
-board's memory, as the JSON document did not.
+and a value left in a production board's file would cut its loop off from the pump.
 **Rejected.** Keeping the topics and ignoring them, which leaves settings that do nothing on the
 page and in the telemetry; refusing a file that names them, which would reset a production board
-to its defaults; a test helper that parses the file the way the glue does, which would test a copy
-of the glue instead of the glue; reading the whole file into a buffer for the reader, up to some
-7 KB with sixteen rooms, too much for the ESP8266's stack and a waste as a static.
+to its defaults; a new JSON reader and writer for the file in place of ArduinoJson, so that a
+host test could load the text itself, which a cleanup does not put onto the production board; the
+host test feeds the setter the pairs the loader hands over instead.

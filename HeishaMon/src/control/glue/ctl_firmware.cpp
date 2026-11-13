@@ -1,6 +1,7 @@
 #include "ctl_firmware.h"
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
 
@@ -17,7 +18,6 @@ extern "C" {
 #include "ctl_framelog.h"
 #include "ctl_gate.h"
 #include "ctl_settings.h"
-#include "ctl_settings_file.h"
 #include "ctl_telemetry.h"
 }
 
@@ -123,31 +123,6 @@ static const char *setting_status_name(ctl_setting_status status)
 
 // --- The settings file ---------------------------------------------------------------------
 
-static void log_pair(const ctl_settings_file &reader, ctl_settings_file_event event)
-{
-    if (event == CTL_SETTINGS_FILE_NOT_TEXT) {
-        log_text("control: setting %s in %s is not a text, skipped", reader.name, SETTINGS_PATH);
-    } else if (event == CTL_SETTINGS_FILE_TEXT && reader.status != CTL_SETTING_OK) {
-        log_text("control: setting %s in %s refused (%s), skipped", reader.name, SETTINGS_PATH,
-                 setting_status_name(reader.status));
-    }
-}
-
-// The file is read a character at a time, so that it is never held whole in memory.
-static bool read_settings(File &file)
-{
-    ctl_settings_file reader;
-    ctl_settings_file_start(&reader);
-    while (!ctl_settings_file_complete(&reader)) {
-        int c = file.read();
-        if (c < 0) {
-            return false;
-        }
-        log_pair(reader, ctl_settings_file_feed(&reader, &settings, (char)c));
-    }
-    return true;
-}
-
 static void load_settings()
 {
     ctl_settings_defaults(&settings);
@@ -160,12 +135,26 @@ static void load_settings()
         log_text("control: cannot open %s, using the default settings", SETTINGS_PATH);
         return;
     }
-    bool complete = read_settings(file);
+    JsonDocument document;
+    DeserializationError error = deserializeJson(document, file);
     file.close();
-    if (!complete) {
-        log_text("control: %s is not a JSON object, using the default settings", SETTINGS_PATH);
-        ctl_settings_defaults(&settings);
+    if (error || !document.is<JsonObject>()) {
+        log_text("control: %s is not a JSON object (%s), using the default settings",
+                 SETTINGS_PATH, error ? error.c_str() : "not an object");
         return;
+    }
+    for (JsonPair pair : document.as<JsonObject>()) {
+        const char *name = pair.key().c_str();
+        if (!pair.value().is<const char *>()) {
+            log_text("control: setting %s in %s is not a text, skipped", name, SETTINGS_PATH);
+            continue;
+        }
+        ctl_setting_status status =
+            ctl_settings_set(&settings, name, pair.value().as<const char *>());
+        if (status != CTL_SETTING_OK) {
+            log_text("control: setting %s in %s refused (%s), skipped", name, SETTINGS_PATH,
+                     setting_status_name(status));
+        }
     }
     if (!ctl_settings_valid(&settings)) {
         log_text("control: the settings of %s are invalid, using the default settings",
@@ -174,20 +163,37 @@ static void load_settings()
     }
 }
 
+static bool put_text(File &file, const char *text)
+{
+    size_t length = strlen(text);
+    return file.write((const uint8_t *)text, length) == length;
+}
+
+// A value is printable ASCII, so a quote and a backslash are all that JSON needs escaped.
+static bool put_json_string(File &file, const char *text)
+{
+    bool ok = put_text(file, "\"");
+    for (const char *c = text; *c != '\0' && ok; c++) {
+        if (*c == '"' || *c == '\\') {
+            ok = put_text(file, "\\");
+        }
+        ok = ok && file.write((uint8_t)*c) == 1;
+    }
+    return ok && put_text(file, "\"");
+}
+
 static bool write_settings(File &file)
 {
-    char piece[CTL_SETTINGS_FILE_PIECE_MAX];
-    size_t count = ctl_settings_file_pieces(&settings);
-    for (size_t i = 0; i < count; i++) {
-        if (!ctl_settings_file_piece(&settings, i, piece, sizeof piece)) {
-            return false;
-        }
-        size_t length = strlen(piece);
-        if (file.write((const uint8_t *)piece, length) != length) {
-            return false;
-        }
+    char name[CTL_SETTINGS_NAME_MAX];
+    bool ok = put_text(file, "{");
+    size_t count = ctl_settings_name_count(&settings);
+    for (size_t i = 0; i < count && ok; i++) {
+        ok = ctl_settings_name_at(&settings, i, name, sizeof name)
+             && ctl_settings_get(&settings, name, setting_value, sizeof setting_value)
+             && (i == 0 || put_text(file, ",")) && put_json_string(file, name)
+             && put_text(file, ":") && put_json_string(file, setting_value);
     }
-    return true;
+    return ok && put_text(file, "}\n");
 }
 
 static void save_settings()

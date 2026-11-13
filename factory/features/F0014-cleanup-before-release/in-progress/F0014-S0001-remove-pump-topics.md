@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T12:08:58.645851Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,12 @@ journal:
   kind: started
   at: '2026-11-13T12:08:58.645851Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-13T12:16:11.298885Z'
+  stage: doing
+  run: 9771a35067d74452b492667b33210dcb
 ---
 
 # Remove the pump topics and dead code
@@ -208,3 +210,40 @@ Expect: `2`
    **Still open:** finding 3 under (a), or reverting the reader under (b), whichever the answer chooses. Everything else from round 0 stands. The factory's `make check` was green at the end of round 0.
 8. 2026-11-13 human: The human answers round 1 (part of the Description): Question 1: (b). The board keeps its ArduinoJson loader and writer exactly as on develop; delete ctl_settings_file.{c,h} and test_settings_file.c. A new parser does not go onto the production board in a cleanup story. test_settings_legacy.c instead feeds the pairs the loader would hand over: heat_topic a/b and outdoor_topic c/d are refused as unknown names and change nothing, hysteresis_wh 1200 is accepted, and a written settings text holds neither removed name. The Interface's 'loads a control.json text' reads as 'feeds the loader's pairs'. Question 2: (i), values stay text as the board writes them; number values stay skipped as before. Finding 3 falls away with (b).
 9. factory: started doing as heishamon.
+10. builder: Round 1: I followed the human's answer: Question 1 (b) and Question 2 (i). The board loads and writes `/control.json` with ArduinoJson exactly as on `develop`, and the new parser is gone. `make check` is green (lint, test, device, firmware). The smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+
+    What I built:
+    - **`HeishaMon/src/control/glue/ctl_firmware.cpp`:** I restored `develop`'s version and then made only the pump-topic removals again:
+      - `pump_source_logged`, `pump_from_mqtt` and `log_pump_source` (with its two calls) are gone;
+      - the subscribe list holds only `pv_topic` and `frame_log_topic`;
+      - `ctl_firmware_frame` returns only when `!started`.
+
+      The settings-file section (`load_settings`, `put_text`, `put_json_string`, `write_settings`, the `ArduinoJson.h` include) is byte for byte `develop`'s again.
+    - **Deleted:** `HeishaMon/src/control/glue/ctl_settings_file.c`, `HeishaMon/src/control/glue/ctl_settings_file.h` and `tests/control/test_settings_file.c`. Finding 3 falls away with them.
+    - **`tests/control/test_settings_legacy.c`:** rewritten as the human's answer says. It feeds `ctl_settings_set` the pairs the loader would hand over, in file order, with text values:
+      - `heat_topic` a/b and `outdoor_topic` c/d each return `CTL_SETTING_UNKNOWN`;
+      - `hysteresis_wh` 1200 returns `CTL_SETTING_OK`;
+      - every other listed setting still equals its default, and the name count is unchanged;
+      - neither removed name is readable through `ctl_settings_get`;
+      - a written settings text holds `"hysteresis_wh":"1200"` and neither removed name. It is built from `ctl_settings_name_at` and `ctl_settings_get`, the same calls the glue's writer makes.
+    - **`docs/control/firmware.md`, *The settings file*:** `develop`'s text again, plus one sentence: a name the settings no longer list, such as one an older firmware wrote, is a refused pair, and the next write leaves it out. That is true of the ArduinoJson loader. The other doc changes from round 0 (the table rows, *Shadowing another HeishaMon* pointing to *Frames from another HeishaMon's log*) stand.
+    - **`docs/control/decisions.md`:** the new entry no longer mentions the reader or writer. Its Rejected part now lists a new JSON reader and writer in place of ArduinoJson, why it was rejected, and that the host test feeds the setter the loader's pairs instead. Earlier entries are unchanged.
+
+    Criteria checked:
+    - Criterion 1: `git grep --untracked` finds the names only in `test_settings_legacy.c`.
+    - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` prints nothing.
+    - No other mentions remain: outside `decisions.md`, nothing in `docs/control`, `HeishaMon/src/control` or `tests/control` names `settings_file` any more.
+
+    Removals outside the pump topics, now that the reader is reverted:
+    - `log_pump_source`, `pump_source_logged` and `pump_from_mqtt` in `ctl_firmware.cpp`: they only logged whether the pump values came from MQTT or from frames, and that choice no longer exists.
+    - `is_named_input` in `ctl_dispatch.c`: with only `pv_topic` left, its table had one row.
+
+    `put_text` and `put_json_string` are back, since the writer uses them. The doubts kept in round 0 still stand: the `default:` branches in `ctl_settings.c`, and `CTL_INPUT_OUTDOOR`, `CTL_INPUT_HEAT`, `CTL_INPUT_VALVE` and `CTL_INPUT_DEFROST`, which the frame hook and `ctl_shadow.c` still use.
+
+    Noticed, not touched:
+    - Index: I ran `git rm --cached` on `ctl_settings_file.c` while checking whether it was tracked, so its deletion is staged and the other two deletions are not. The working tree is what counts.
+    - The unused `#include <stdbool.h>` in `test_dispatch.c` stays, because the Interface's leave covers only rows and counts there.
+
+    `check`: check: green
+
+    `check`: check: green
