@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T12:06:02.081958Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-13T11:35:43.703636Z'
   stage: doing
   run: 3673bee1fac64d0a9135694c03802e97
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:06:02.081958Z'
+  stage: review
 ---
 
 # Remove the pump topics and dead code
@@ -125,3 +134,4 @@ Expect: `2`
    Skill set aside: none was loaded. One `git add -N` I tried, to make new files visible to `git grep`, was denied; I used `git grep --untracked` instead. Criterion 1's grep finds only lines in `test_settings_legacy.c`, and criterion 5's `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` prints nothing.
 
    `check`: check: green
+4. factory: started review as heishamon.
