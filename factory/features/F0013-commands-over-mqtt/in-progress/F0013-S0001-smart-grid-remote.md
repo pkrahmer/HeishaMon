@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T08:25:04.038644Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-13T08:25:04.032964Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-13T08:25:04.038644Z'
+  stage: doing
+---
+
 # Smart Grid commands to another HeishaMon
 
 ## Description
@@ -55,3 +82,8 @@ make firmware | grep -c -E '^(esp8266|esp32):'
 ```
 
 Expect: `2`
+
+## Journal
+
+1. 2026-11-13 human: created.
+2. factory: started doing as heishamon.
