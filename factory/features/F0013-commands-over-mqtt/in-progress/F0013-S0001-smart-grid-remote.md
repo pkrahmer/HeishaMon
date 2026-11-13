@@ -1,11 +1,11 @@
 ---
 stage: review
-blocked: question
+blocked: null
 round: 2
 attempts: 0
 crashes: 0
 pull_request: 27
-comments_read: [6848295711, 6848321203, 6848802245]
+comments_read: [6848295711, 6848321203, 6848802245, 6849317032]
 handed_over: null
 claim: null
 journal:
@@ -108,6 +108,11 @@ journal:
   stage: review
   run: d91b59816b8b447994a3baf6a4a31d47
   blocked: question
+- number: 19
+  speaker: human
+  kind: comment
+  at: '2026-11-13T09:34:47.172018Z'
+  stage: review
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -441,3 +446,4 @@ Expect: `2`
     - `tests/control/test_router.c`: the `config_with` line falls under your leave in entries 8 and 10.
     - `tests/control/test_settings.c`: the name counts and the default, flag and topic rows fall under the Interface's leave.
     - `tests/control/test_telemetry.c`: the last config entry, now `config/command_topic`, falls under the Interface's leave.
+19. 2026-11-13 human: The human chooses (b): the reviewer folds the answers into the Description on its next run, as entry 16 lists them, with the two closing criteria kept last, and approves if nothing else is found.
