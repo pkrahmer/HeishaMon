@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 26
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-12T23:57:49.741149Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-12T23:57:49.741149Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-13T00:05:24.703284Z'
+  stage: doing
+  run: 63c0d3b53c1640c1b6aa637f76bc32db
 ---
 
 # The payload first
@@ -68,3 +70,26 @@ Expect: `2`
 
 1. 2026-11-12 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built:
+   - `HeishaMon/src/control/glue/ctl_firmware.cpp`: `handle_setting` now copies the payload into its local `value`, or marks it as refused (`fits` is false when it is too long or holds a zero byte), as its first statement. Only then does it call `ctl_firmware_change_begin`. The refusal log and what it publishes are unchanged and still run after the begin. A comment at the top of `ctl_firmware_mqtt` states the rule: topic and payload live in the client's single buffer, so nothing that can send may run before they are read or copied.
+   - `tests/control/test_payload_first.c` (new): a host test that reads `ctl_firmware.cpp` from the root of the checkout with its comments stripped. It finds the bodies of `handle_setting` and `handle_frame_log` and fails when a call that can send comes before the handler's last whole-word read of `payload`. The calls it counts are change_begin/change/change_end, publish, publish_setting, subscribe_inputs, log_text, log_message, decode_heatpump_data, ctl_firmware_frame and save_settings. Before the fix it failed on `handle_setting` (change_begin before the copy); after the fix it passes.
+   - `docs/control/firmware.md`: in *Changing a setting over MQTT*, one sentence on the client's single buffer.
+   - `docs/control/decisions.md`: a new entry, "The payload first", with the fault, the dev board symptom (`jeisha/log` stored as `/1/ACTUAL_`), the fix and the rejected options.
+
+   Walk of every path of `ctl_firmware_mqtt` (criterion 1):
+   - Topic: its only read is `ctl_dispatch_topic(&settings, topic_base, topic)` at the top, which is pure. It copies the setting's name into `target.name`, a char array in `ctl_topic`. No path reads `topic` after that.
+   - Input path: the last read of the payload is `ctl_loop_input(...)`, which is pure loop C. Nothing sends in this path, and `now_s()` only reads `millis()`.
+   - Frame log path: the last read of the payload is `ctl_framelog_line(&frame_log, payload, length)`, which copies the bytes into `frame_log.frame`. The first call that can send is `decode_heatpump_data` (upstream publishes); `ctl_firmware_frame` then reads only the parser's copy. This path already held.
+   - Setting path: the last read of the payload is the `memchr`/`memcpy` at the top of `handle_setting`. The first call that can send is `ctl_firmware_change_begin` (unsubscribes for a setting that moves topics). The others that can send come later: `log_text` on a refusal, then `ctl_firmware_change` (logs), `ctl_firmware_change_end` (subscribes, logs) and `publish_setting`. This was the one path that did not hold, and it is fixed.
+
+   Decisions and rejected options:
+   - A test that reads the source text, because the `.cpp` compiles only in `make firmware` and no host test can call it.
+   - Rejected: copying the whole message at the top of `ctl_firmware_mqtt`, which needs a second buffer of the client's size for every message.
+   - Rejected: a pure `.c` copy helper, which a test could call but which would not pin the order of the calls in the `.cpp`.
+   - I kept the refusal log after the begin so that what a refused message produces stays the same.
+
+   Checks: `make check` is green (lint, test, device, firmware for both boards). Smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+
+   Noticed, not touched: the source-order test matches by name, so a new call that can send would need adding to its `senders` list.
+
+   `check`: check: green
