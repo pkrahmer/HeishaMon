@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 27
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T08:25:04.038644Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-13T08:25:04.038644Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-13T08:41:33.832777Z'
+  stage: doing
+  run: 96313cfedca843bdbc9d9ae9846e0524
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -87,3 +89,46 @@ Expect: `2`
 
 1. 2026-11-13 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the Smart Grid path and commands over MQTT to another HeishaMon. `make check` is green (lint, test, device, firmware). The smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` prints `2`, as expected. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty: no upstream file and no hook line changed.
+
+   **Code**
+   - `HeishaMon/src/control/route/ctl_router.{h,c}`: `ctl_router_config.smart_grid` (default false). With it set, `write_state` sends only `SetSmartGridMode`. The router's own state is the Smart Grid mode (0 for heating or cooling demand, 1 for no demand), so landing compares the reported mode with the value sent, and the loop's `assume_landed` works unchanged. `ctl_router_config_valid` accepts either value of the bool. A bool has no invalid value to refuse, and the header says so.
+   - `glue/ctl_dispatch.{h,c}`: `ctl_dispatch_smart_grid_mode`.
+   - `glue/ctl_gate.{h,c}`: `CTL_GATE_NO_FRAME_LOG` (`no_frame_log`). `ctl_gate_state(enabled, listen_only, optional_pcb, command_topic, frame_log_topic)`.
+   - `glue/ctl_framelog.{h,c}`:
+     - New result `CTL_FRAMELOG_SENT`, new fields `sent` and `checksum` in the struct, and `ctl_framelog_is_optional_pcb`.
+     - A line starting exactly `sent bytes: <n> including checksum value: <c>`, with or without the trailing space, starts a sent frame. Its data lines give `n - 1` bytes, then `c` is appended.
+     - Count below 2 or above 256, or a checksum above 255: the line starts nothing.
+     - Any other line with `sent bytes: ` (for example `optional PCB datagram sent bytes: 20`) still ends a frame in progress and starts none.
+     - The number reading of `read_received` is now a shared `read_number`.
+   - `glue/ctl_settings.{h,c}`: `smart_grid` (flag) and `command_topic` (topic rule), right after `max_retries`. `CTL_SETTINGS_FIXED_NAMES` is 23. The control page and the `config/` telemetry list them through the name list without further change.
+   - `glue/ctl_firmware.cpp`:
+     - A `SENT` optional PCB frame keeps its byte 6 and `now_s()`. A `SENT` frame counts as neither decoded nor dropped.
+     - `confirm()` picks the other board's frame, known while at most 60 s old, or this board's `optionalPCBQuery` as before. It reads the Smart Grid bits or the thermostat bits by `smart_grid`.
+     - With `command_topic` set, `send_commands` publishes `<command_topic>/<name>` with the value, not retained, and logs `control: published <topic> <value>`.
+     - There is a new gate log text for `no_frame_log`.
+
+   **Tests**
+   - New: `tests/control/test_smart_grid.c` (criteria 1 and 4: the router table with `heat_cool_heat_value` -1 and 1, landing, repeats to the fault, heating→cooling sending nothing; dispatch). `tests/control/test_framelog_sent.c` (criterion 3, plus rows for broken or ill-formed sent headers and `ctl_framelog_is_optional_pcb`).
+   - Leaves in tests another story wrote, as the Interface allows:
+     - `test_gate.c`: new arguments and remote rows.
+     - `test_settings.c`: counts 21→23, 25→27 and 23→25; default rows; `smart_grid` rows; `command_topic` in the topic rows; a `jeisha/commands` row.
+     - `test_telemetry.c`: the last config entry is now `config/command_topic`.
+     - `test_router.c`: `config_with` sets `smart_grid = false`; without it the field would be uninitialised.
+     - `test_framelog.c`: `result_letter` gets a `SENT` case (needed for `-Werror`). The sample expects `S` on its sent data line (`NNNNNNNFNNSNFN`), and the sent-frame row becomes `NSNDD`. The row "Received 256 and 257" becomes `NDDN`: a sent frame now in progress is cut by the `Received 257` line and counts as dropped, as the Description says a broken sent frame does.
+
+   **Decisions** (recorded in `docs/control/decisions.md`, entry "Smart Grid as the house's switch")
+   - In Smart Grid mode the router's state is the mode itself, so heating→cooling sends nothing and costs no EEPROM write. I rejected mapping the thermostat state to Smart Grid only on the way out, which would resend `0`.
+   - A change of `smart_grid` or `command_topic` reopens the router (still paced), and a change of any topic setting forgets the other board's last frame.
+   - "Seen in the last 60 s" is implemented as at most 60 s old.
+   - **Open, for the reviewer:** I kept a received whole frame that is not main data (such as the pump's optional PCB answer) counted as dropped, as F0011 documented. The Description's phrase "`frames_dropped` counts only frames that broke" could also be read as dropping that too. I read it as following from not counting sent frames, and recorded the reading in the decision entry.
+
+   **Docs**
+   - `docs/control/firmware.md`: the two rows in the settings table, and the new section *Commands to another HeishaMon* (needs, confirmation, `no_frame_log`, Smart Grid modes, switching back).
+   - *What reaches the pump* names the thermostat path and the Smart Grid path. Small updates for consistency: `outputs/thermostat_state`, `outputs/blocked`, the `config/` order, and the frame-log paragraph and counters.
+
+   **Noticed, not touched**
+   - `docs/control/router.md` still describes only the thermostat path. The docs criterion does not name it.
+   - The first `make firmware` run hit an ESP32 compiler crash (`internal compiler error: Illegal instruction` in `stl_function.h`). The next runs, including the one inside `make check`, were green, so it looks like a fault of the toolchain or the machine.
+
+   `check`: check: green

@@ -14,9 +14,13 @@
 #define STATE_COOLING 1
 #define STATE_HEATING 2
 #define NOTHING_SENT (-1)
+/* Smart Grid mode 0 lets the pump run as it is set; 1 holds it off. */
+#define SMART_GRID_DEMAND 0
+#define SMART_GRID_NO_DEMAND 1
 
 static const char THERMOSTAT_COMMAND[] = "SetExternalThermostat1State";
 static const char HEAT_COOL_COMMAND[] = "SetHeatCoolMode";
+static const char SMART_GRID_COMMAND[] = "SetSmartGridMode";
 
 void ctl_router_config_defaults(ctl_router_config *config)
 {
@@ -24,6 +28,7 @@ void ctl_router_config_defaults(ctl_router_config *config)
     config->retry_interval_s = DEFAULT_RETRY_INTERVAL_S;
     config->max_retries = DEFAULT_MAX_RETRIES;
     config->heat_cool_heat_value = HEAT_COOL_UNSET;
+    config->smart_grid = false;
 }
 
 static bool interval_valid(double seconds)
@@ -107,11 +112,26 @@ static void add_command(ctl_commands *commands, const char *name, int digit)
     commands->count++;
 }
 
+/* Smart Grid mode cannot tell heating from cooling: the pump keeps the mode it is set to, so a
+ * change between the two is no new state and costs no write. */
+static int wanted_for(const ctl_router_config *config, ctl_demand demand)
+{
+    const int state = ctl_router_state_for(demand);
+    if (!config->smart_grid) {
+        return state;
+    }
+    return state == STATE_NONE ? SMART_GRID_NO_DEMAND : SMART_GRID_DEMAND;
+}
+
 /* Heat/cool mode only rides along with a demand: no demand leaves the mode as the pump has it,
  * and an unset polarity sends no mode at all rather than a guess. */
 static void write_state(ctl_commands *commands, const ctl_router_config *config, int state)
 {
     const int heat = config->heat_cool_heat_value;
+    if (config->smart_grid) {
+        add_command(commands, SMART_GRID_COMMAND, state);
+        return;
+    }
     add_command(commands, THERMOSTAT_COMMAND, state);
     if (heat == HEAT_COOL_UNSET) {
         return;
@@ -173,7 +193,7 @@ void ctl_router_step(ctl_router *router, const ctl_router_config *config, ctl_de
     if (!isfinite(now) || !ctl_router_config_valid(config)) {
         return;
     }
-    router->wanted_state = ctl_router_state_for(demand);
+    router->wanted_state = wanted_for(config, demand);
     landed = has_landed(router, state_known, reported_state);
     if (landed && router->wanted_state == router->sent_state) {
         router->retries = 0;

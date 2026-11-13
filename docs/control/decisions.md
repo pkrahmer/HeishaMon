@@ -837,3 +837,24 @@ buffer of the client's size for every message, upstream's included; moving the c
 `.c` helper, which a test could call but which would not hold the order of the calls in the
 `.cpp`; leaving the change untested, since only the firmware build compiles the glue.
 
+## 2026-11-13: Smart Grid as the house's switch
+
+**Decision.** The router gets a `smart_grid` mode in which it sends `SetSmartGridMode` alone, `0`
+for heating or cooling demand and `1` for no demand, and confirms it from bits 4 and 5 of byte 6
+of the optional PCB frame. In that mode the router's state is the Smart Grid mode itself, so a
+change between heating and cooling is no new state and sends nothing. A dev board can send its
+commands over MQTT to another HeishaMon (`command_topic`) and confirm them from the optional PCB
+frames that board logs as sent; the state counts as known while such a frame is at most 60 s old.
+A change of `smart_grid` or `command_topic` reopens the router, and a change of any topic setting
+forgets the other board's last frame. A sent frame that breaks counts as dropped, as a received
+one does; a received frame that is whole but no main data frame still counts as dropped.
+**Reason.** The owner's pump ignores the external thermostat input of the optional PCB and obeys
+Smart Grid mode, which the owner's Node-RED uses today. Smart Grid mode carries no heating or
+cooling, so resending it on that change would only wear the pump's EEPROM. What the router sent
+before a change of route or kind says nothing of what the pump now holds, and a frame of an old log
+topic may come from another board.
+**Rejected.** Keeping the thermostat state inside the router and mapping it to Smart Grid mode
+only on the way out, which sends `0` again when heating turns to cooling; sending both the
+thermostat state and Smart Grid mode, which the story forbids; a retained command message, which
+the other board would run again at every reconnect; counting no whole received frame that is no
+main data frame as dropped, which changes a counter the story leaves as it is for received frames.

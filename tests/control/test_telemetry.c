@@ -301,8 +301,8 @@ static void test_settings(void)
 
     CHECK_TRUE(
         ctl_telemetry_setting(&settings, last, subtopic, sizeof subtopic, value, sizeof value));
-    CHECK_TEXT(subtopic, "config/max_retries");
-    CHECK_TEXT(value, "3");
+    CHECK_TEXT(subtopic, "config/command_topic");
+    CHECK_TEXT(value, "");
 
     strcpy(subtopic, UNTOUCHED);
     strcpy(value, UNTOUCHED);

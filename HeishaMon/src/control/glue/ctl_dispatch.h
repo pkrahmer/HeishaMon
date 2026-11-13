@@ -1,6 +1,6 @@
 /*
  * The dispatch: which of the loop's inputs or which setting an MQTT topic is, by the settings,
- * and the thermostat state the emulated optional PCB frame carries. The firmware glue asks it for
+ * and the thermostat state and Smart Grid mode the optional PCB frame carries. The firmware glue asks it for
  * every message, so that a topic that is not the loop's goes on to upstream untouched. It is pure:
  * it subscribes to nothing and reads no frame of its own.
  */
@@ -42,5 +42,9 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
 /* Returns the thermostat-1 state of byte 6 of the emulated optional PCB frame: its bits 2 and 3,
  * 0 to 3. Refuses nothing. */
 int ctl_dispatch_thermostat_state(uint8_t pcb_byte_6);
+
+/* Returns the Smart Grid mode of byte 6 of the optional PCB frame: its bits 4 and 5, 0 to 3, as
+ * upstream's SetSmartGridMode writes them. Refuses nothing. */
+int ctl_dispatch_smart_grid_mode(uint8_t pcb_byte_6);
 
 #endif

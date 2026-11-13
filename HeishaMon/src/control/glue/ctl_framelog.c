@@ -10,10 +10,15 @@
 #define RECEIVED_SUFFIX " bytes data"
 #define DATA_PREFIX "data: "
 #define SENT_MARK "sent bytes: "
-/* A main data frame starts with this byte and has this type in byte 3, as upstream checks. */
+#define SENT_CHECKSUM " including checksum value: "
+#define CHECKSUM_MAX 255u
+/* A frame's kind is its first byte and its type in byte 3: a main data frame as upstream checks
+ * it, an optional PCB frame as upstream builds it. */
+#define TYPE_BYTE 3u
 #define MAIN_HEADER 0x71u
-#define MAIN_TYPE_BYTE 3u
 #define MAIN_TYPE 0x10u
+#define PCB_HEADER 0xF1u
+#define PCB_TYPE 0x50u
 /* More digits than this cannot be a count up to CTL_FRAMELOG_MAX, and keep the sum from
  * overflowing. */
 #define COUNT_DIGITS_MAX 4
@@ -65,30 +70,53 @@ static int hex_digit(char c)
     return -1;
 }
 
+/* Reads the decimal number at the start of *text and moves *text past it; false when there is
+ * none. A number of more digits than COUNT_DIGITS_MAX reads as CTL_FRAMELOG_MAX + 1, too large for
+ * any count or checksum. */
+static bool read_number(span *text, size_t *value)
+{
+    size_t digits = 0;
+    *value = 0;
+    while (digits < text->length && text->text[digits] >= '0' && text->text[digits] <= '9') {
+        if (digits < COUNT_DIGITS_MAX) {
+            *value = *value * 10u + (size_t)(text->text[digits] - '0');
+        } else {
+            *value = CTL_FRAMELOG_MAX + 1u;
+        }
+        digits++;
+    }
+    *text = after(*text, digits);
+    return digits > 0;
+}
+
+static bool equals(span text, const char *expected)
+{
+    return text.length == strlen(expected) && memcmp(text.text, expected, text.length) == 0;
+}
+
 /* Reads "Received <n> bytes data" exactly; any other text is not such a line. */
 static bool read_received(span message, size_t *count)
 {
-    size_t digits = 0;
-    size_t value = 0;
     if (!starts_with(message, RECEIVED_PREFIX)) {
         return false;
     }
     message = after(message, strlen(RECEIVED_PREFIX));
-    while (digits < message.length && message.text[digits] >= '0' && message.text[digits] <= '9') {
-        if (digits < COUNT_DIGITS_MAX) {
-            value = value * 10u + (size_t)(message.text[digits] - '0');
-        } else {
-            value = CTL_FRAMELOG_MAX + 1u;
-        }
-        digits++;
-    }
-    message = after(message, digits);
-    if (digits == 0 || message.length != strlen(RECEIVED_SUFFIX) ||
-        memcmp(message.text, RECEIVED_SUFFIX, message.length) != 0) {
+    return read_number(&message, count) && equals(message, RECEIVED_SUFFIX);
+}
+
+/* Reads "sent bytes: <n> including checksum value: <c>", with or without the trailing space
+ * upstream writes; any other text is not such a line. */
+static bool read_sent(span message, size_t *count, size_t *checksum)
+{
+    if (!starts_with(message, SENT_MARK)) {
         return false;
     }
-    *count = value;
-    return true;
+    message = after(message, strlen(SENT_MARK));
+    if (!read_number(&message, count) || !starts_with(message, SENT_CHECKSUM)) {
+        return false;
+    }
+    message = after(message, strlen(SENT_CHECKSUM));
+    return read_number(&message, checksum) && (equals(message, "") || equals(message, " "));
 }
 
 /* Ends the frame in progress, if there is one: DROPPED when one was cut short. */
@@ -104,10 +132,38 @@ static ctl_framelog_result start_frame(ctl_framelog *log, size_t count)
     const ctl_framelog_result ended = end_frame(log);
     if (count >= 1u && count <= CTL_FRAMELOG_MAX) {
         log->collecting = true;
+        log->sent = false;
         log->expected = count;
         log->length = 0;
     }
     return ended;
+}
+
+/* The data lines of a sent frame leave out its checksum, so they give one byte less than the
+ * count, and at least one. */
+static ctl_framelog_result start_sent_frame(ctl_framelog *log, size_t count, size_t checksum)
+{
+    const ctl_framelog_result ended = end_frame(log);
+    if (count >= 2u && count <= CTL_FRAMELOG_MAX && checksum <= CHECKSUM_MAX) {
+        log->collecting = true;
+        log->sent = true;
+        log->expected = count - 1u;
+        log->checksum = (uint8_t)checksum;
+        log->length = 0;
+    }
+    return ended;
+}
+
+static ctl_framelog_result finish_frame(ctl_framelog *log)
+{
+    log->collecting = false;
+    if (log->sent) {
+        log->frame[log->length++] = log->checksum;
+    }
+    if (!ctl_framelog_checksum_ok(log->frame, log->length)) {
+        return CTL_FRAMELOG_DROPPED;
+    }
+    return log->sent ? CTL_FRAMELOG_SENT : CTL_FRAMELOG_FRAME;
 }
 
 /* Appends the bytes of a data line: each two hex digits followed by a space or the line's end. */
@@ -131,15 +187,15 @@ static ctl_framelog_result append_bytes(ctl_framelog *log, span bytes)
     if (log->length < log->expected) {
         return CTL_FRAMELOG_NOTHING;
     }
-    log->collecting = false;
-    return ctl_framelog_checksum_ok(log->frame, log->length) ? CTL_FRAMELOG_FRAME
-                                                              : CTL_FRAMELOG_DROPPED;
+    return finish_frame(log);
 }
 
 void ctl_framelog_init(ctl_framelog *log)
 {
     log->collecting = false;
+    log->sent = false;
     log->expected = 0;
+    log->checksum = 0;
     log->length = 0;
 }
 
@@ -148,6 +204,7 @@ ctl_framelog_result ctl_framelog_line(ctl_framelog *log, const char *line, size_
     span message;
     size_t stamp_end;
     size_t count = 0;
+    size_t checksum = 0;
     if (line == NULL) {
         return CTL_FRAMELOG_NOTHING;
     }
@@ -161,12 +218,15 @@ ctl_framelog_result ctl_framelog_line(ctl_framelog *log, const char *line, size_
     if (read_received(message, &count)) {
         return start_frame(log, count);
     }
+    if (read_sent(message, &count, &checksum)) {
+        return start_sent_frame(log, count, checksum);
+    }
     if (starts_with(message, DATA_PREFIX)) {
         return log->collecting ? append_bytes(log, after(message, strlen(DATA_PREFIX)))
                                : CTL_FRAMELOG_NOTHING;
     }
-    /* The board logs its own frames after this mark, and on some boards after a few words that
-     * name the frame; their data lines are never the pump's. */
+    /* Some boards name the frame they send before this mark, without its checksum; such a line
+     * starts no frame, and its data lines are never the pump's. */
     if (find(message, SENT_MARK) < message.length) {
         return end_frame(log);
     }
@@ -189,5 +249,11 @@ bool ctl_framelog_checksum_ok(const uint8_t *frame, size_t length)
 bool ctl_framelog_is_main_data(const uint8_t *frame, size_t length)
 {
     return frame != NULL && length == CTL_FRAMELOG_MAIN_LENGTH && frame[0] == MAIN_HEADER
-           && frame[MAIN_TYPE_BYTE] == MAIN_TYPE;
+           && frame[TYPE_BYTE] == MAIN_TYPE;
+}
+
+bool ctl_framelog_is_optional_pcb(const uint8_t *frame, size_t length)
+{
+    return frame != NULL && length == CTL_FRAMELOG_PCB_LENGTH && frame[0] == PCB_HEADER
+           && frame[TYPE_BYTE] == PCB_TYPE;
 }

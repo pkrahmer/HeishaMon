@@ -101,3 +101,8 @@ int ctl_dispatch_thermostat_state(uint8_t pcb_byte_6)
 {
     return (pcb_byte_6 >> 2) & 3;
 }
+
+int ctl_dispatch_smart_grid_mode(uint8_t pcb_byte_6)
+{
+    return (pcb_byte_6 >> 4) & 3;
+}
