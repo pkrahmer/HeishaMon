@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T09:26:39.970030Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -85,6 +89,11 @@ journal:
   at: '2026-11-13T09:26:33.469180Z'
   stage: review
   run: 9403aef1037042f7b47a2e0256ef8037
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-13T09:26:39.970030Z'
+  stage: doing
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -333,3 +342,4 @@ Expect: `2`
     - `tests/control/test_router.c`: the `config_with` line, under the human's leave (entries 8 and 10).
     - `tests/control/test_settings.c`: the name counts, and default, flag and topic rows for the two settings, under the Interface's leave.
     - `tests/control/test_telemetry.c`: the last config entry is now `config/command_topic`, under the Interface's leave for config entries.
+15. factory: started doing as heishamon.
