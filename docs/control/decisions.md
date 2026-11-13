@@ -899,11 +899,13 @@ The descriptions are `ctl_settings_describe`, one table indexed by the setting, 
 room's number goes. On the ESP8266 the table is `PROGMEM` and read with `pgm_read_byte`, from the
 toolchain's own C library header `<sys/pgmspace.h>`, included only when `ESP8266` is defined;
 elsewhere, the host included, it is a plain constant. Each text has a fixed slot of
-`CTL_SETTINGS_DESCRIPTION_MAX` bytes, so a text that outgrows it stops the build.
+`CTL_SETTINGS_DESCRIPTION_MAX` bytes. A text longer than its slot stops the build, but C accepts
+a text of exactly the slot's length without its closing zero; `ctl_settings_describe` then refuses
+it for a buffer of the slot's size, and `test_descriptions.c` fails.
 **Reason.** The result belongs beside the field it is about, and a setting sent unchanged has
-nothing to report. The descriptions are about 1.8 kB, which would take that much RAM on the
-ESP8266 as plain constants. The setting's own module resolves the names already, so the table sits
-beside it and a host test reaches it through the same names.
+nothing to report. The description table is 21 × 192 = 4032 bytes, all of it RAM on the ESP8266
+as plain constants. The setting's own module resolves the names already, so the table sits beside
+it and a host test reaches it through the same names.
 **Rejected.** The descriptions in `ctl_web.cpp` as `FLASHPROG` texts, which no host test can
 reach; a second table of names for the descriptions, which could part ways with the setter's;
 reading flash with hand-written aligned word loads, which is what `pgm_read_byte` already does;

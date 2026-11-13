@@ -12,7 +12,8 @@
 #define ROW_MAX 512 /* the page's chunk */
 #define REFUSED_MARK "<tr style='color:var(--orange)'>"
 
-/* The real settings setter, with the value text compared before and after. */
+/* The real settings setter, with the firmware's rule for a change: a name that had no value
+   before, or whose value text differs afterwards, has changed. */
 static ctl_setting_status set_setting(void *context, const char *name, const char *value,
                                       bool *changed)
 {
@@ -21,9 +22,9 @@ static ctl_setting_status set_setting(void *context, const char *name, const cha
     char after[CTL_SETTINGS_VALUE_MAX];
     bool known = ctl_settings_get(settings, name, before, sizeof before);
     ctl_setting_status status = ctl_settings_set(settings, name, value);
-    *changed = status == CTL_SETTING_OK && known
-               && ctl_settings_get(settings, name, after, sizeof after)
-               && strcmp(before, after) != 0;
+    *changed = status == CTL_SETTING_OK
+               && (!known || !ctl_settings_get(settings, name, after, sizeof after)
+                   || strcmp(before, after) != 0);
     return status;
 }
 

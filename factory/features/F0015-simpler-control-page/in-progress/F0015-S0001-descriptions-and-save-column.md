@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T12:46:55.434344Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-13T12:46:55.434344Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-13T12:53:31.373300Z'
+  stage: doing
+  run: dbe22c4bd548479486cadf06017c5a8a
 ---
 
 # Descriptions and the save result per row
@@ -198,3 +200,25 @@ Expect: `2`
 
       Fix: correct both sentences.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the three review findings and nothing else.
+
+   **What changed**
+   1. **Story Description, item 4 of "The new settings table":** the column is now named **Save result**, with the reason: criterion 3 forbids the text "Last save" anywhere on the page. This matches the heading in `ctl_web.cpp` `FORM_OPEN`.
+   2. **`tests/control/test_form_rows.c` `set_setting`:** it now uses the same rule as `ctl_firmware_change`. After a successful set, a value counts as changed when the name was not known before, its value cannot be read back, or its text differs. The comment now states that rule instead of only "the real settings setter". The test's own expected rows did not change.
+   3. **`docs/control/decisions.md`, entry "The save result in the settings table's rows":**
+      - The size is now given as 21 × 192 = 4032 bytes. "About 1.8 kB" is gone.
+      - The slot sentence now says the build stops only for a text longer than its slot. C accepts a text of exactly the slot's length with no closing zero. In that case `ctl_settings_describe` refuses it for a buffer of the slot's size, so `test_descriptions.c` fails.
+
+   **Rejected:** a compile-time check for a text of exactly 192 characters. The finding asked only for the sentences to be corrected, and the host test already catches that case.
+
+   **Checks**
+   - `make check`: green (`check: green`). D1 mini global RAM is still 50628 bytes.
+   - Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+
+   **Noticed, not touched:** the same items as in round 0:
+   - `FORM_CLOSE` repeats the hint about saving the room count first.
+   - The comment on `command_topic` in `ctl_settings.h` describes the topic as a base, which is wrong.
+
+   The factory left out changes outside the write paths: factory/features/F0015-simpler-control-page/in-progress/F0015-S0001-descriptions-and-save-column.md.
+
+   `check`: check: green
