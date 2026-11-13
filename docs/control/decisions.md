@@ -883,3 +883,32 @@ page and in the telemetry; refusing a file that names them, which would reset a 
 to its defaults; a new JSON reader and writer for the file in place of ArduinoJson, so that a
 host test could load the text itself, which a cleanup does not put onto the production board; the
 host test feeds the setter the pairs the loader hands over instead.
+
+## 2026-11-13: The save result in the settings table's rows
+
+**Decision.** The settings table of `/control` has four columns: the name, the field, a
+description and the save result, and the separate table of the last save is gone. The report keeps
+one byte of result per applied name (`ctl_save_result`): saved, unchanged, or refused with the
+setter's reason; a field too long for any setting counts as `not a valid value`. A refused row is
+written in the page's orange (`var(--orange)`) by an inline style, since upstream's CSS has no
+class for a table row and its file stays as it is. The fourth column's heading is *Save result*,
+since no text of the page may name the removed table. The results show on the page that follows
+the save only: the glue empties them once that page is written, so a reload shows none. A room's
+description names the room by the number in its setting's name, counted from 0.
+The descriptions are `ctl_settings_describe`, one table indexed by the setting, with `#` where a
+room's number goes. On the ESP8266 the table is `PROGMEM` and read with `pgm_read_byte`, from the
+toolchain's own C library header `<sys/pgmspace.h>`, included only when `ESP8266` is defined;
+elsewhere, the host included, it is a plain constant. Each text has a fixed slot of
+`CTL_SETTINGS_DESCRIPTION_MAX` bytes. A text longer than its slot stops the build, but C accepts
+a text of exactly the slot's length without its closing zero; `ctl_settings_describe` then refuses
+it for a buffer of the slot's size, and `test_descriptions.c` fails.
+**Reason.** The result belongs beside the field it is about, and a setting sent unchanged has
+nothing to report. The description table is 21 × 192 = 4032 bytes, all of it RAM on the ESP8266
+as plain constants. The setting's own module resolves the names already, so the table sits beside
+it and a host test reaches it through the same names.
+**Rejected.** The descriptions in `ctl_web.cpp` as `FLASHPROG` texts, which no host test can
+reach; a second table of names for the descriptions, which could part ways with the setter's;
+reading flash with hand-written aligned word loads, which is what `pgm_read_byte` already does;
+keeping the results until the next save, which shows a stale `saved` on every later visit; a CSS
+class for refused rows, which needs a change to upstream's `htmlcode.h`; numbering rooms from 1,
+which would differ from the names `room.0.topic` and so on beside them.

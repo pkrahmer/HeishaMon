@@ -83,19 +83,42 @@ bool ctl_html_row(const char *name, const char *value, char *out, size_t size)
     return w.fits;
 }
 
-bool ctl_html_input(const char *name, const char *value, char *out, size_t size)
+static void put_setting_input(writer *w, const char *name, const char *value)
+{
+    put_raw(w, "<td><label for=\"");
+    put_escaped(w, name);
+    put_raw(w, "\">");
+    put_escaped(w, name);
+    put_raw(w, "</label></td><td><input id=\"");
+    put_escaped(w, name);
+    put_raw(w, "\" name=\"");
+    put_escaped(w, name);
+    put_raw(w, "\" value=\"");
+    put_escaped(w, value);
+    put_raw(w, "\"></td>");
+}
+
+/* Without an input, a save leaves the value as it is. */
+static void put_setting_text(writer *w, const char *name)
+{
+    put_raw(w, "<td>");
+    put_escaped(w, name);
+    put_raw(w, "</td><td>" CTL_HTML_TOO_LONG "</td>");
+}
+
+bool ctl_html_setting_row(const ctl_html_setting *setting, char *out, size_t size)
 {
     writer w = writer_start(out, size);
-    put_raw(&w, "<tr><td><label for=\"");
-    put_escaped(&w, name);
-    put_raw(&w, "\">");
-    put_escaped(&w, name);
-    put_raw(&w, "</label></td><td><input id=\"");
-    put_escaped(&w, name);
-    put_raw(&w, "\" name=\"");
-    put_escaped(&w, name);
-    put_raw(&w, "\" value=\"");
-    put_escaped(&w, value);
-    put_raw(&w, "\"></td></tr>");
+    put_raw(&w, setting->refused ? "<tr style='color:var(--orange)'>" : "<tr>");
+    if (setting->value != NULL) {
+        put_setting_input(&w, setting->name, setting->value);
+    } else {
+        put_setting_text(&w, setting->name);
+    }
+    put_raw(&w, "<td>");
+    put_escaped(&w, setting->description);
+    put_raw(&w, "</td><td>");
+    put_escaped(&w, setting->last_save);
+    put_raw(&w, "</td></tr>");
     return w.fits;
 }

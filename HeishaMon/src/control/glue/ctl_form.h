@@ -1,9 +1,10 @@
 /*
  * The save of the control page: the fields of one posted form, kept until the whole body has
  * arrived, then applied in the order of the settings list, so that `rooms` comes before the
- * fields of its rooms whatever order the browser sends; and the report of what the last save
- * accepted and refused, as the page shows it. It is pure: the caller hands it each piece the web
- * server parsed and a setter that changes the settings, and it touches nothing else.
+ * fields of its rooms whatever order the browser sends; and the rows of the settings table, each
+ * with what the last save did to its setting, beside the field it is about. It is pure: the
+ * caller hands it each piece the web server parsed and a setter that changes the settings, and it
+ * touches nothing else.
  */
 #ifndef CTL_FORM_H
 #define CTL_FORM_H
@@ -12,6 +13,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define CTL_FORM_FIELDS_MAX CTL_SETTINGS_NAMES_MAX /* a form holds no more fields than names */
 
@@ -28,11 +30,19 @@ typedef struct {
     ctl_form_field field[CTL_FORM_FIELDS_MAX];
 } ctl_form;
 
+/* What a save did to one setting. */
+typedef enum {
+    CTL_SAVE_UNCHANGED, /* sent with the value it had, or not sent */
+    CTL_SAVE_SAVED,     /* the value changed */
+    CTL_SAVE_REFUSED_BAD_VALUE,
+    CTL_SAVE_REFUSED_INVALID_SET,
+    CTL_SAVE_REFUSED_UNKNOWN
+} ctl_save_result;
+
 typedef struct {
-    bool saved; /* a save has been applied since start */
     size_t count;
     char name[CTL_FORM_FIELDS_MAX][CTL_SETTINGS_NAME_MAX];
-    bool accepted[CTL_FORM_FIELDS_MAX];
+    uint8_t result[CTL_FORM_FIELDS_MAX]; /* a ctl_save_result, a byte each to spare RAM */
 } ctl_form_report;
 
 /* Changes the setting called name to value and returns the setter's answer; sets *changed when
@@ -53,23 +63,28 @@ void ctl_form_keep(ctl_form *form, const char *name, const char *value, size_t l
 
 /* Applies every field whose name is listed in settings with set, in the order of
  * ctl_settings_name_at, reading the count of names again after each, so that a raised `rooms`
- * lists its rooms' fields before they are reached. A field that does not fit is refused without
- * calling set; a field whose name is not listed is ignored. Writes every applied name to the
- * report, accepted when set answered OK, and marks it saved. Returns true when any setting
- * changed. Refuses nothing. */
+ * lists its rooms' fields before they are reached. A field that does not fit is refused as a bad
+ * value without calling set; a field whose name is not listed is ignored. Writes every applied
+ * name to the report with its result: saved when set answered OK and the value changed, unchanged
+ * when it answered OK alone, and otherwise refused with set's reason. Returns true when any
+ * setting changed. Refuses nothing. */
 bool ctl_form_apply(const ctl_form *form, const ctl_settings *settings, ctl_form_setter set,
                     void *context, ctl_form_report *report);
 
-/* Empties the report: no save yet. Refuses nothing. */
+/* Empties the report: no save to show. Refuses nothing. */
 void ctl_form_report_start(ctl_form_report *report);
 
-/* Returns the number of pieces of HTML the report shows: none before a save, one line after a
- * save that held no setting, and otherwise an opening, one row per name and a closing. */
-size_t ctl_form_report_items(const ctl_form_report *report);
+/* Returns what the report's save did to the setting called name: unchanged for a name it does
+ * not hold. Refuses nothing. */
+ctl_save_result ctl_form_report_result(const ctl_form_report *report, const char *name);
 
-/* Writes the report's piece at index, rows as <tr><td>NAME</td><td>accepted</td></tr> or
- * refused, and returns true. Refuses, returning false, an index not below
- * ctl_form_report_items and a size that cannot hold the piece with its terminating zero. */
-bool ctl_form_report_item(const ctl_form_report *report, size_t index, char *out, size_t size);
+/* Writes the settings table's row of the name at index of ctl_settings_name_at: the name, its
+ * field holding the value in force (or, when editable is false, CTL_HTML_TOO_LONG and no field),
+ * its description and what the report's save did to it, a refusal with its reason; and returns
+ * true. An index not listed, or a name without a value or description, writes an empty text and
+ * returns true. Refuses, returning false, a size that cannot hold the row with its terminating
+ * zero. */
+bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, size_t index,
+                  bool editable, char *out, size_t size);
 
 #endif

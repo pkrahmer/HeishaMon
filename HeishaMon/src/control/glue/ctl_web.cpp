@@ -31,11 +31,9 @@ static const uint8_t ROUTE_SAVE = 241;
 // The largest piece of the page held at once; webserver_send_content copies it.
 static const size_t CHUNK_SIZE = 512;
 
-static const char TOO_LONG[] = "too long to show here";
-
 // --- The save ------------------------------------------------------------------------------
 
-// What the last save accepted and refused, by name, for the page.
+// What the last save did to each setting it held, for the page that follows it.
 static ctl_form_report last_report;
 
 static ctl_setting_status change_setting(void *context, const char *name, const char *value,
@@ -49,8 +47,7 @@ static void apply_form(const ctl_form *form)
 {
     const ctl_settings *settings = ctl_firmware_settings();
     if (settings == NULL) {
-        last_report.saved = true;
-        last_report.count = 0;
+        ctl_form_report_start(&last_report);
         return;
     }
     // The form holds every topic, so any save may move one; a field posted with the value it
@@ -82,7 +79,6 @@ Control loop</h1>
 )====";
 
 typedef enum {
-    SECTION_SAVE,
     SECTION_STATUS,
     SECTION_INPUTS,
     SECTION_FORM,
@@ -101,7 +97,8 @@ static const char STATUS_OPEN[] FLASHPROG = "<h2>Status</h2><div class='panel'><
 static const char NO_DECISION[] FLASHPROG = "<p>No decision has been made yet.</p>";
 static const char INPUTS_OPEN[] FLASHPROG = "<h2>Inputs</h2><div class='panel'><table>";
 static const char FORM_OPEN[] FLASHPROG =
-    "<h2>Settings</h2><form method='POST' action='/savecontrol'><div class='panel'><table>";
+    "<h2>Settings</h2><form method='POST' action='/savecontrol'><div class='panel'><table>"
+    "<tr><th>Setting</th><th>Value</th><th>What it does</th><th>Save result</th></tr>";
 static const char FORM_CLOSE[] FLASHPROG =
     "</table></div><p>To add rooms, save the new count of rooms first; their fields then appear "
     "here.</p><input type='submit' value='Save'></form>";
@@ -110,9 +107,9 @@ static const char PAGE_END[] FLASHPROG = "</main>";
 static const char EMPTY[] FLASHPROG = "";
 
 static const section_text SECTION_TEXT[SECTION_COUNT] = {
-    // The report writes its own opening and closing, as its first and last rows.
-    {EMPTY, EMPTY, EMPTY},             {STATUS_OPEN, TABLE_CLOSE, NO_DECISION},
-    {INPUTS_OPEN, TABLE_CLOSE, EMPTY}, {FORM_OPEN, FORM_CLOSE, NOT_STARTED},
+    {STATUS_OPEN, TABLE_CLOSE, NO_DECISION},
+    {INPUTS_OPEN, TABLE_CLOSE, EMPTY},
+    {FORM_OPEN, FORM_CLOSE, NOT_STARTED},
     {EMPTY, EMPTY, PAGE_END},
 };
 
@@ -139,10 +136,6 @@ static section_shape shape_of(const page_view *view, section part)
 {
     section_shape shape = {false, 0};
     switch (part) {
-    case SECTION_SAVE:
-        shape.rows = ctl_form_report_items(&last_report);
-        shape.shown = shape.rows > 0;
-        break;
     case SECTION_STATUS:
         shape.shown = view->decided;
         if (shape.shown) {
@@ -191,7 +184,7 @@ static bool telemetry_row(const ctl_telemetry_source *source, ctl_group group, s
         return true;
     }
     return ctl_html_row(subtopic, value, out, size)
-           || (alone && ctl_html_row(subtopic, TOO_LONG, out, size));
+           || (alone && ctl_html_row(subtopic, CTL_HTML_TOO_LONG, out, size));
 }
 
 static bool status_row(const ctl_telemetry_source *source, size_t index, char *out, size_t size,
@@ -208,23 +201,14 @@ static bool status_row(const ctl_telemetry_source *source, size_t index, char *o
 static bool setting_row(const ctl_settings *settings, size_t index, char *out, size_t size,
                         bool alone)
 {
-    char name[CTL_SETTINGS_NAME_MAX];
-    char value[CTL_SETTINGS_VALUE_MAX];
-    out[0] = '\0';
-    if (!ctl_settings_name_at(settings, index, name, sizeof name)
-        || !ctl_settings_get(settings, name, value, sizeof value)) {
-        return true;
-    }
-    return ctl_html_input(name, value, out, size)
-           || (alone && ctl_html_row(name, TOO_LONG, out, size));
+    return ctl_form_row(settings, &last_report, index, true, out, size)
+           || (alone && ctl_form_row(settings, &last_report, index, false, out, size));
 }
 
 static bool render_row(const page_view *view, section part, size_t index, char *out, size_t size,
                        bool alone)
 {
     switch (part) {
-    case SECTION_SAVE:
-        return ctl_form_report_item(&last_report, index, out, size);
     case SECTION_STATUS:
         return status_row(&view->source, index, out, size, alone);
     case SECTION_INPUTS:
@@ -308,6 +292,8 @@ static void write_page_part(struct webserver_t *client)
     if (state >= FINISHED && (uintptr_t)client->userdata < FINISHED) {
         webserver_send_content_P(client, menuJS, strlen_P(menuJS));
         webserver_send_content_P(client, webFooter, strlen_P(webFooter));
+        // The results belong to the page that follows the save; a reload shows none.
+        ctl_form_report_start(&last_report);
     }
     client->userdata = (void *)state;
 }

@@ -42,9 +42,13 @@ static void check_escape(void)
 }
 
 #define ROW_EXPECTED "<tr><td>a&lt;b</td><td>1 &amp; &quot;2&quot;</td></tr>"
-#define INPUT_EXPECTED                                                                          \
+#define SETTING_EXPECTED                                                                        \
     "<tr><td><label for=\"x&#39;y\">x&#39;y</label></td>"                                       \
-    "<td><input id=\"x&#39;y\" name=\"x&#39;y\" value=\"&lt;v&gt;\"></td></tr>"
+    "<td><input id=\"x&#39;y\" name=\"x&#39;y\" value=\"&lt;v&gt;\"></td>"                       \
+    "<td>a &amp; b</td><td>saved</td></tr>"
+#define REFUSED_EXPECTED                                                                        \
+    "<tr style='color:var(--orange)'><td>pv_topic</td><td>" CTL_HTML_TOO_LONG "</td>"           \
+    "<td>PV</td><td>refused: &lt;why&gt;</td></tr>"
 
 static void check_row(void)
 {
@@ -58,24 +62,26 @@ static void check_row(void)
     CHECK_TEXT(out, "<tr><td>rooms</td><td>2</td></tr>");
 }
 
-static void check_input(void)
+static void check_setting(void)
 {
     char out[256];
-    CHECK_TRUE(ctl_html_input("x'y", "<v>", out, sizeof out));
-    CHECK_TEXT(out, INPUT_EXPECTED);
-    CHECK_TRUE(ctl_html_input("x'y", "<v>", out, sizeof INPUT_EXPECTED));
-    CHECK_TEXT(out, INPUT_EXPECTED);
-    CHECK_TRUE(!ctl_html_input("x'y", "<v>", out, sizeof INPUT_EXPECTED - 1));
-    CHECK_TRUE(!ctl_html_input("x'y", "<v>", out, 0));
-    CHECK_TRUE(ctl_html_input("pv_topic", "", out, sizeof out));
-    CHECK_TEXT(out, "<tr><td><label for=\"pv_topic\">pv_topic</label></td>"
-                    "<td><input id=\"pv_topic\" name=\"pv_topic\" value=\"\"></td></tr>");
+    ctl_html_setting setting = {"x'y", "<v>", "a & b", "saved", false};
+    ctl_html_setting refused = {"pv_topic", NULL, "PV", "refused: <why>", true};
+    CHECK_TRUE(ctl_html_setting_row(&setting, out, sizeof out));
+    CHECK_TEXT(out, SETTING_EXPECTED);
+    CHECK_TRUE(ctl_html_setting_row(&setting, out, sizeof SETTING_EXPECTED));
+    CHECK_TEXT(out, SETTING_EXPECTED);
+    CHECK_TRUE(!ctl_html_setting_row(&setting, out, sizeof SETTING_EXPECTED - 1));
+    CHECK_TRUE(!ctl_html_setting_row(&setting, out, 0));
+    CHECK_TRUE(ctl_html_setting_row(&refused, out, sizeof out));
+    CHECK_TEXT(out, REFUSED_EXPECTED);
+    CHECK_TRUE(!ctl_html_setting_row(&refused, out, sizeof REFUSED_EXPECTED - 1));
 }
 
 int main(void)
 {
     check_escape();
     check_row();
-    check_input();
+    check_setting();
     return check_result();
 }
