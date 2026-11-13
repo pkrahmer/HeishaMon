@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T17:45:31.873465Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-13T17:45:22.842633Z'
   stage: doing
   run: a2f7acc7ccfa4722a90a5aab7b89349f
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-13T17:45:31.873465Z'
+  stage: review
 ---
 
 # Descriptions into a document
@@ -179,3 +188,4 @@ Expect: `2`
    No code or test changed. `make check` ran green after the content fix (`check: green`), with D1 mini code flash at 757288 B, the same as the last round. After that run I only re-wrapped one line of the paragraph, and `make test` was green again after it. Nothing else touched.
 
    `check`: check: green
+8. factory: started review as heishamon.
