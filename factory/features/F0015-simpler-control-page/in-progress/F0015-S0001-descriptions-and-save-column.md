@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T12:53:38.528687Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-13T12:53:31.373300Z'
   stage: doing
   run: dbe22c4bd548479486cadf06017c5a8a
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:53:38.528687Z'
+  stage: review
 ---
 
 # Descriptions and the save result per row
@@ -222,3 +231,4 @@ Expect: `2`
    The factory left out changes outside the write paths: factory/features/F0015-simpler-control-page/in-progress/F0015-S0001-descriptions-and-save-column.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
