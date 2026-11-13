@@ -14,7 +14,9 @@
 #define STATE_COOLING 1
 #define STATE_HEATING 2
 #define NOTHING_SENT (-1)
-/* Smart Grid mode 0 is normal operation, for heating and cooling demand alike. */
+/* Smart Grid mode 0 is normal operation, for heating and cooling demand alike. Mode 1 is
+ * upstream's Capacity 1, which stops room heating only where the installer set Capacity 1 to a
+ * curve that never heats; mode 2 is never sent because it stops hot water too. */
 #define SMART_GRID_DEMAND 0
 #define SMART_GRID_NO_DEMAND 1
 

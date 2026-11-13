@@ -218,7 +218,8 @@ pump through byte 6 of the optional PCB frame, which HeishaMon sends to the pump
   1 cool, 0 no demand) into bits 2 and 3, and `SetHeatCoolMode` rides along when
   `heat_cool_heat_value` is set.
 - **The Smart Grid path** (`smart_grid` 1): `SetSmartGridMode` alone writes the mode into bits 4
-  and 5: `0` for heating or cooling demand, `1` for no demand. Heating and cooling are the same
+  and 5: `0` for heating or cooling demand, `1` (Capacity 1, set on the owner's pump to a curve
+  that never heats) for no demand. Heating and cooling are the same
   mode, so a change between them sends nothing. Pacing, repeats, the fault and the reopening are
   those of the thermostat path.
 
@@ -510,8 +511,15 @@ sends only `SetSmartGridMode`: `0` (normal operation) for heating or cooling dem
 demand; never `SetExternalThermostat1State` or `SetHeatCoolMode`. Whether the pump heats or
 cools stays as the pump is set.
 
+Value `1` is upstream's "Capacity 1" (`OptionalPCB.md`). It stops room heating on the owner's
+pump only because the owner set Capacity 1 on the pump itself to a heating curve that never
+heats, so hot water goes on; the owner's Node-RED history shows the pump stopping on it every
+time. Another pump needs the same installer setting before `smart_grid` is used, or value `1`
+only lowers its capacity. Value `2`, "heat pump and hot water off", is never sent, because it
+stops hot water too.
+
 **How to switch back.** `enabled` 0 on the dev board stops its commands at once. The production
-board keeps the last Smart Grid mode it received: if that was `1`, the pump stays in that mode
+board keeps the last Smart Grid mode it received: if that was `1`, the pump stays in Capacity 1
 until the owner sends `SetSmartGridMode` `0` to the production board, by its web page or its `commands/`
 topic, or Node-RED takes over again. Empty `command_topic` sends the dev board's commands to its
 own serial port again.

@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T09:11:32.178877Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -72,6 +68,12 @@ journal:
   kind: started
   at: '2026-11-13T09:11:32.178877Z'
   stage: doing
+- number: 12
+  speaker: builder
+  kind: result
+  at: '2026-11-13T09:25:03.940655Z'
+  stage: doing
+  run: e1ec749a59254062baf7c485ce7af5d0
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -265,3 +267,31 @@ Expect: `2`
    The code comment says the same in short. This replaces the reading "upstream writes the bits in the other order".
 10. 2026-11-13 human: The human answers the builder's three questions of round 1 (part of the Description): 1. (a), keep 1, as the correction above explains (Capacity 1, set on the owner's pump to a curve that never heats). 2. (a), the two rows of test_framelog.c may change. 3. (a), the one line in test_router.c may change. Everything else as in the two comments above.
 11. factory: started doing as heishamon.
+12. builder: Round 1, after the human's answers (entries 8–10). The fixes for findings 2, 5, 6 and 7 were already in place from my previous entry. The leaves for `test_framelog.c` rows 295 and 303 and for the `config_with` line in `test_router.c` are now granted, so those changes stay as they were. This round adds only the Smart Grid wording that the owner's correction asks for. The code still sends 0 for demand and 1 for no demand.
+
+    **Changed**
+    - `HeishaMon/src/control/route/ctl_router.c` (the comment above `SMART_GRID_DEMAND`): mode 1 is upstream's Capacity 1, and it stops room heating only where the installer set Capacity 1 to a curve that never heats. Mode 2 is never sent because it also stops hot water.
+    - `docs/control/firmware.md`, section *Commands to another HeishaMon*, "The pump must obey Smart Grid mode": a new paragraph that says:
+      - value `1` is upstream's "Capacity 1";
+      - it stops room heating on the owner's pump only because Capacity 1 is set there to a curve that never heats, and hot water goes on;
+      - another pump needs the same installer setting first, or value `1` only lowers its capacity;
+      - value `2` ("heat pump and hot water off") is never sent because it stops hot water too.
+    - `docs/control/firmware.md`, "How to switch back": now says "stays in Capacity 1".
+    - `docs/control/firmware.md`, *What reaches the pump*: the Smart Grid path names `1` as Capacity 1, set on the owner's pump to a curve that never heats.
+    - `docs/control/decisions.md`, entry "Smart Grid as the house's switch": the Decision gets the Capacity 1 explanation and the note about another pump. Sending `2` for no demand is added under Rejected.
+    - Nothing calls `1` "off", and nothing says upstream writes the bits in the other order.
+
+    **Answer 2 (`frames_dropped`)** was already done last round: the code counts only `CTL_FRAMELOG_DROPPED`, and *The counters* in `firmware.md` says a whole frame that is not main data counts as neither decoded nor dropped. No change this round.
+
+    **Answer 8:** I added no host test for the rules that live only in `ctl_firmware.cpp`. The answer says the owner checks them on the dev board after the merge, and it does not require one.
+
+    **Checks**
+    - `make check` is green: lint, test, device, firmware, then `check: green`.
+    - The smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2` on two runs in a row, as expected. One earlier run printed `1`: the ESP32 build crashed there.
+    - `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+
+    **Noticed, not touched**
+    - The ESP32 build sometimes crashes with an internal compiler error. This round it happened three times, in upstream and library files (`NetworkClient.cpp`, `OneWire.cpp`), with 14 GB of memory free, and the next run passed each time. A run that crashes reports `firmware` red, so the factory's own `make check` may also be red for this reason alone. The machine or toolchain is worth a look.
+    - `docs/control/router.md` still describes only the thermostat path. The docs criterion does not name it.
+
+    `check`: check: green

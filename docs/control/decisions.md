@@ -845,6 +845,10 @@ of the optional PCB frame. In that mode the router's state is the Smart Grid mod
 change between heating and cooling is no new state and sends nothing. A dev board can send its
 commands over MQTT to another HeishaMon (`command_topic`) and confirm them from the optional PCB
 frames that board logs as sent; the state counts as known while such a frame is at most 60 s old.
+Value `1` is upstream's "Capacity 1"; it stops room heating on the owner's pump only because the
+owner set Capacity 1 on the pump to a heating curve that never heats, and hot water goes on.
+Another pump needs the same installer setting before `smart_grid` is used, or value `1` only
+lowers its capacity.
 A change of `smart_grid` or `command_topic` reopens the router, and a change of any topic setting
 forgets the other board's last frame. `frames_dropped` counts only frames that broke, sent or
 received: a whole frame that is no main data frame no longer counts as dropped, which replaces
@@ -859,4 +863,5 @@ only on the way out, which sends `0` again when heating turns to cooling; sendin
 thermostat state and Smart Grid mode, which the story forbids; a retained command message, which
 the other board would run again at every reconnect; still counting a whole received frame that is
 no main data frame as dropped, which the other board's optional PCB answers would raise every
-second, so that the dropped count would no longer show a log that loses lines.
+second, so that the dropped count would no longer show a log that loses lines; sending `2` for
+no demand, upstream's "heat pump and hot water off", which stops hot water too.
