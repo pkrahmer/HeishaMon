@@ -485,7 +485,10 @@ the dev board play no part; they concern its own serial port.
 retained, topic `<command_topic>/<name>` and payload the value, such as
 `jeisha/commands/SetSmartGridMode` with `1`, instead of calling `send_heatpump_command`.
 Upstream HeishaMon subscribes to `<base>/commands/#` and executes such a message as if it came
-from its own web page. Each publish writes the log line `control: published <topic> <value>`.
+from its own web page. A publish that succeeds writes the log line
+`control: published <topic> <value>`. A publish that the MQTT client refuses writes
+`control: publish failed <topic> <value>` instead, and a topic that does not fit the topic buffer
+is not published and writes `control: command topic too long for <name>, not published`.
 
 **How a command is confirmed.** The production board logs every optional PCB frame it sends; the
 dev board rebuilds it from the log (`CTL_FRAMELOG_SENT`, `ctl_framelog_is_optional_pcb`: 20

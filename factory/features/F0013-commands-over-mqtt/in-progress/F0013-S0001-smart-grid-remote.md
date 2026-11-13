@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T09:26:39.970030Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -94,6 +90,12 @@ journal:
   kind: started
   at: '2026-11-13T09:26:39.970030Z'
   stage: doing
+- number: 16
+  speaker: builder
+  kind: result
+  at: '2026-11-13T09:33:08.938492Z'
+  stage: doing
+  run: 144af378b05643a8a3dd72206c31220a
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -343,3 +345,30 @@ Expect: `2`
     - `tests/control/test_settings.c`: the name counts, and default, flag and topic rows for the two settings, under the Interface's leave.
     - `tests/control/test_telemetry.c`: the last config entry is now `config/command_topic`, under the Interface's leave for config entries.
 15. factory: started doing as heishamon.
+16. builder: Round 2. I fixed the reviewer's two findings from entry 14 and nothing else. No code changed this round.
+
+    **Changed**
+    - Finding 1: `docs/control/firmware.md`, *Commands to another HeishaMon*, "How a command goes out", now says `control: published <topic> <value>` is logged only when a publish succeeds. It also names the other two lines and when each appears: `control: publish failed <topic> <value>` when the MQTT client refuses the publish, and `control: command topic too long for <name>, not published` when the topic does not fit its buffer. This matches `publish_command` in `HeishaMon/src/control/glue/ctl_firmware.cpp`.
+    - Finding 2: I rewrote the work item's `## Description` to include the human's answers from entries 8–10 (R5). Front matter and journal are untouched.
+      - Description, *Smart Grid mode in the router*: value `1` is upstream's "Capacity 1". It stops room heating only because the owner set Capacity 1 on the pump to a curve that never heats. Another pump needs the same installer setting first. Value `2` is never sent because it stops hot water too.
+      - Description, *The counters*: `inputs/frames_dropped` counts only `DROPPED`. A `SENT` frame, and a whole received frame that is not main data, count as neither decoded nor dropped.
+      - Interface, the leave for `test_framelog.c`: adds the two granted rows, "a sent frame" (ends in `D`) and "Received 256 and 257" (`NDDN`), and why each changes.
+      - Interface, the leave for `test_router.c`: adds the `config.smart_grid = false;` line in `config_with`.
+      - Criterion 3: names "Received 256 and 257" as the one F0011 row that changes.
+      - Criterion 9 asks for three more things, all already in the docs:
+        - the Capacity 1 explanation;
+        - the three publish log lines;
+        - that `frames_dropped` counts only frames that broke.
+        The decision entry it asks for now includes the Capacity 1 explanation and `2` rejected for no demand. Criteria 8 (`make check`) and 9 (`docs:`) are still last.
+
+    **Checks**
+    - `make check` is green: lint, test, device, firmware, then `check: green`.
+    - Smoke test: `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`, as expected.
+
+    **Noticed, not touched**
+    - `docs/control/router.md` still describes only the thermostat path. The docs criterion does not name it.
+    - The ESP32 build sometimes crashes with an internal compiler error, as reported in entries 3 and 12. It did not happen this round.
+
+    The factory left out changes outside the write paths: factory/features/F0013-commands-over-mqtt/in-progress/F0013-S0001-smart-grid-remote.md.
+
+    `check`: check: green
