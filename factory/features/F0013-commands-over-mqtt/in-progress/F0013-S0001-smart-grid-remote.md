@@ -5,7 +5,7 @@ round: 1
 attempts: 0
 crashes: 0
 pull_request: 27
-comments_read: []
+comments_read: [6848295711, 6848321203]
 handed_over: null
 claim: null
 journal:
@@ -48,6 +48,16 @@ journal:
   stage: doing
   run: 727762ad47ad48d4a31361a3ca8ebc3a
   blocked: question
+- number: 8
+  speaker: human
+  kind: comment
+  at: '2026-11-13T08:49:20.925960Z'
+  stage: doing
+- number: 9
+  speaker: human
+  kind: comment
+  at: '2026-11-13T08:49:20.926096Z'
+  stage: doing
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -221,3 +231,21 @@ Expect: `2`
       - (b) make `config_with` start from `ctl_router_config_defaults`, a bigger change to the same test.
 
       I would choose (a).
+8. 2026-11-13 human: The human's answers to the review findings (part of the Description):
+
+   1. **Smart Grid values stay as the story says: 0 for demand, 1 for no demand.** This is verified on the owner's pump, not taken from a table: the owner's Node-RED sends `SetSmartGridMode` `1` to stop heating (its node "SG Mode 1 (No Heat/Cool, 100% DHW)"), and the pump stopped every time in the recorded history. Upstream's `OptionalPCB.md` most likely writes the two bits in the other order. The docs and the decision entry say: value 1 stops heating and cooling and keeps hot water, verified on the owner's pump by its Node-RED history; upstream's table reads differently, so another pump should be checked first. The code comment says the same in short.
+   2. `inputs/frames_dropped` counts only frames that broke. A received frame that is whole and not main data counts as neither decoded nor dropped, like a `SENT` frame. The docs say so.
+   3. Leave granted: `tests/control/test_framelog.c` rows 295 and 303 may change as the new behaviour forces.
+   4. Leave granted: the line `config.smart_grid = false;` in `config_with` of `tests/control/test_router.c`.
+   5. and 6. Fix as the reviewer says.
+   7. Add the accepting rows as the reviewer says.
+   8. The rules that live only in `ctl_firmware.cpp` need no host test in this story: they are checked on the owner's dev board after the merge. Where such a rule can be a pure function without a new file, the builder may make it one and test it; it is not required.
+9. 2026-11-13 human: Correction to answer 1, from the owner (part of the Description):
+
+   Upstream's `OptionalPCB.md` is right: Smart Grid value 1 is "Capacity 1", value 2 is "heat pump and hot water off". The owner configured Capacity 1 on the pump itself to a heating curve that never starts heating, so on this pump value 1 stops room heating and keeps hot water. Value 2 would stop hot water too, which is why it is never sent.
+
+   The code stays as the story says (0 for demand, 1 for no demand). The docs and the decision entry say:
+   - value 1 is upstream's "Capacity 1"; it stops room heating only because the owner set Capacity 1 on the pump to a curve that never heats;
+   - another pump needs the same installer setting before `smart_grid` is used, or value 1 only lowers its capacity;
+   - value 2 is never sent because it stops hot water too.
+   The code comment says the same in short. This replaces the reading "upstream writes the bits in the other order".
