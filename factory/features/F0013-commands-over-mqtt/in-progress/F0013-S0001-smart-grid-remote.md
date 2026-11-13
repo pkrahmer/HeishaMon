@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 27
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T08:41:38.959420Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-13T08:41:38.959420Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T08:44:14.862925Z'
+  stage: review
+  run: caffcb092ff447dcaa8f5b358803b9d7
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -142,3 +144,29 @@ Expect: `2`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `docs/control/firmware.md` (*Commands to another HeishaMon*, "`1` (off)"), `HeishaMon/src/control/route/ctl_router.c:17-19` (comment "1 holds it off") and `docs/control/decisions.md`: these contradict upstream's `OptionalPCB.md:31`. That table gives the Smart Grid bits as "00 = normal, 10 = HP/DHW off, 01 = Capacity 1, 11 = Capacity 2". It uses the same notation as the thermostat bits, where 10 = 2 = heat demand, which is what the router already sends. By that reading, `SetSmartGridMode` `1` is Capacity 1 and `2` is off. So the Description's "`1` for no demand" may run the pump harder when there is no demand. This is a finding against the story. Fix: the builder ends with `question` and asks the human whether no demand is `1` (as the Description says, perhaps as the owner's Node-RED sends it) or `2` (as upstream documents it). Until the human answers, the docs and comments must not call `1` "off".
+   2. `HeishaMon/src/control/glue/ctl_firmware.cpp` (`handle_frame_log`, the `!ctl_framelog_is_main_data` branch) and `docs/control/firmware.md` (*The counters*): the Description says "`inputs/frames_dropped` counts only frames that broke". The code still counts received frames that are whole but not main data. The builder chose a reading of an ambiguous sentence instead of asking (R8). The story requires the other board's optional PCB emulation, and the pump answers it every second, so the count now grows faster than `frames_decoded` all the time. That makes the docs' diagnostic sentence ("A dropped count that grows as fast as the decoded one means the log loses lines") always fire. Fix: count only `CTL_FRAMELOG_DROPPED` and update the docs and the decision entry, or ask the human which reading holds.
+   3. `tests/control/test_framelog.c:303` ("Received 256 and 257", `NDNN`→`NDDN`) and `:295` (the last letter of "a sent frame", `N`→`D`): these changes are not covered by the Interface's leave, which allows only "the sent-frame rows now expect `SENT`". Row 303 also breaks criterion 3's "Every received-frame row of F0011 still holds". The new behaviour forces both changes, so this is a gap in the story. Fix: the builder asks the human to extend the leave to these two rows.
+   4. `tests/control/test_router.c:93` (`config.smart_grid = false;` in `config_with`): this change is not under the leave for `test_router.c` ("rows that count the settings or the config entries"). Criterion 2 says the existing router tests pass unchanged. The line is needed because `config_with` does not start from the defaults. Fix: the builder asks for the human's word on this line, together with finding 3.
+   5. `HeishaMon/src/control/glue/ctl_firmware.cpp:350` (`strcpy(change_command_topic, settings.command_topic)`): a text buffer is written without its size. Fix: `snprintf(change_command_topic, sizeof change_command_topic, "%s", settings.command_topic)`.
+   6. `HeishaMon/src/control/glue/ctl_firmware.cpp:497-506` (`publish_command`): the result of `control_client->publish` is ignored, and the log says `control: published <topic> <value>` even when the publish failed. A too-long topic returns silently. This breaks *Errors are values*. Fix: check the result of `publish`, log a failed publish (and the refused topic) with its own text, and write `published` only on success.
+   7. `tests/control/test_framelog_sent.c:130-141` (`test_breaks`): the limits that `ctl_framelog.h` states for a sent header are tested only on the refusing side: count 1 and 257, checksum 399. The accepting side of each boundary has no test. Fix: add rows where a count of 2, a count of 256 and a checksum of 255 each start a frame (and give `SENT` when their sum holds), and a row where a checksum of 256 is refused.
+   8. This is a finding against the story. Rules in the Description that live only in `ctl_firmware.cpp` have no criterion and no test for their failing side: the 60 s freshness of the other board's frame (a frame older than 60 s, or none, gives unknown); the choice between publishing and `send_heatpump_command` by `command_topic`; a `SENT` frame counting as neither decoded nor dropped; and a topic change forgetting the last frame. The human should know that only `make firmware` compiles this path and nothing exercises it.
+
+   Earlier tests changed (status M):
+   - `tests/control/test_framelog.c`: leave "the sent-frame rows now expect `SENT`". `result_letter`'s `SENT` case, the sample's `S` and the `S` in row 295 fall under it. Row 295's last `D` and row 303 do not (finding 3).
+   - `tests/control/test_gate.c`: leave "the new arguments, and rows for the remote reasons". The changes stay within it.
+   - `tests/control/test_router.c`: leave "rows that count the settings or the config entries". The `config_with` line is outside it (finding 4).
+   - `tests/control/test_settings.c`: leave "the name count, and rows for the two settings". The counts 21/25/23→23/27/25, the `name_at` 26/27 checks, and the default, flag and topic rows all stay within it.
+   - `tests/control/test_telemetry.c`: leave "rows that count … the config entries". The last entry becomes `config/command_topic`, which is within it.
+
+   Checked and fine:
+   - Criteria 1, 4, 5 and 6 have table tests that test what they claim.
+   - Criterion 3's SENT, `DROPPED` (144) and 111-byte rows are covered.
+   - No upstream file is in the diff.
+   - The `.c` files stay pure, with no dynamic memory, and the frame index is bounded (`expected` ≤ 255 before the checksum is appended).
+   - The gate order matches the Description.
+   - The docs criterion's points are all present.
+   - The factory's `make check` after the builder was green.
