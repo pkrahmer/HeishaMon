@@ -1,17 +1,13 @@
 ---
 stage: review
-blocked: null
+blocked: question
 round: 2
 attempts: 0
 crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T09:33:14.344865Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -105,6 +101,13 @@ journal:
   kind: started
   at: '2026-11-13T09:33:14.344865Z'
   stage: review
+- number: 18
+  speaker: reviewer
+  kind: question
+  at: '2026-11-13T09:34:00.276501Z'
+  stage: review
+  run: d91b59816b8b447994a3baf6a4a31d47
+  blocked: question
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -382,3 +385,59 @@ Expect: `2`
 
     `check`: check: green
 17. factory: started review as heishamon.
+18. reviewer: Round 2 review. The code, tests and docs have no findings. One item stays open, and nobody in the pipeline as configured can close it, so I'm asking you rather than sending the work item back.
+
+    **Question: who folds your answers (entries 8–10) into the work item's `## Description`?**
+
+    Finding 2 of entry 14 still holds. The Description does not match what was built (R5):
+    - The Interface's leave for `tests/control/test_framelog.c` still allows only "the sent-frame rows now expect `SENT`" and says "Nothing else in those files changes". It does not name the rows you allowed: "a sent frame" (now `NSNDD`) and "Received 256 and 257" (now `NDDN`).
+    - The leave for `tests/control/test_router.c` does not name the line `config.smart_grid = false;` in `config_with`.
+    - Criterion 3 still says "Every received-frame row of F0011 still holds", but the row "Received 256 and 257" changed.
+    - Criterion 9 does not ask for:
+      - the Capacity 1 explanation (`2` is never sent, and another pump needs the same installer setting);
+      - the three publish log lines;
+      - the rule that `frames_dropped` counts only frames that broke.
+    - The *counters* paragraph does not say that a whole received frame that is not main data counts as neither decoded nor dropped.
+
+    The builder rewrote the Description in round 2 (entry 16), but the factory dropped that change. The builder's `write_paths` in `factory/pipeline.yml` do not include `{work_item}`; only the reviewer's do. Sending the work item back to `doing` would repeat this until the round cap.
+
+    Options:
+    - (a) You fold the answers into the Description in your own commit. Entry 16 lists the changes.
+    - (b) You tell the reviewer to fold them in on the next review run, as entry 16 lists them, with the two closing criteria kept last. Then the reviewer approves if nothing else is found.
+    - (c) You declare that entries 8–10, which you marked "part of the Description", are enough as they stand. The reviewer then approves without rewriting.
+
+    I would choose (b). The text is already drafted, and the reviewer is the only role that can write the work item. You may also want to give the builder `{work_item}` in `factory/pipeline.yml` for future stories; that file is yours.
+
+    **Checked and fine in this round**
+    - **Entry 14, finding 1 is fixed.** `docs/control/firmware.md`, "How a command goes out", now says `control: published <topic> <value>` is logged only when the publish succeeds. It names `control: publish failed <topic> <value>` and `control: command topic too long for <name>, not published`. Both match `publish_command` in `HeishaMon/src/control/glue/ctl_firmware.cpp`.
+    - **Criteria 1 and 4:** `tests/control/test_smart_grid.c` covers them:
+      - rows with `heat_cool_heat_value` -1 and 1;
+      - exactly one `SetSmartGridMode` per send: `0` for heating or cooling demand, `1` for no demand;
+      - landing on the reported value;
+      - a repeat every retry interval up to `max_retries`, then `FAULT`;
+      - the five dispatch values.
+    - **Criterion 2:** `make check` is green. The `test_router.c` leave was granted in entries 8 and 10.
+    - **Criterion 3:** `tests/control/test_framelog_sent.c` covers:
+      - the sent frame (`S`) and then the answer (`F`);
+      - checksum 144 giving `D`;
+      - the 111-byte query over four lines (`NNNS`);
+      - `ctl_framelog_is_optional_pcb` true for the 20-byte frame and false otherwise;
+      - each header limit on both sides: count 1 and 2, count 256 and 257, checksum 255 and 256.
+    - **Criterion 5:** `tests/control/test_gate.c` keeps every existing row and adds the remote rows, including open while listen-only and without an optional PCB.
+    - **Criterion 6:** `tests/control/test_settings.c`: `smart_grid` accepts 0 and 1 and refuses 2; `command_topic` accepts `jeisha/commands` and the empty text and refuses `a+b`; the name count is 23.
+    - **Criterion 7:** no upstream file and no hook line is in the diff.
+    - **Criterion 8:** the factory's `make check` after the builder was green (entry 16).
+    - **Criterion 9:** the docs and the decision entry say all the points it asks for.
+    - **Architecture and embedded safety:**
+      - the `.c` files are pure, with no dynamic memory and no recursion;
+      - a sent frame's index stays within bounds (`expected` is at most 255 before the checksum byte is appended);
+      - text buffers are written with their size;
+      - the result of `publish` is checked.
+    - **Answer 8:** you accepted that the rules only in the firmware glue have no host test.
+
+    **Earlier tests changed (status M)**
+    - `tests/control/test_framelog.c`: the `SENT` letter and the sample fall under the Interface's leave; rows 295 and 303 under your leave in entries 8 and 10.
+    - `tests/control/test_gate.c`: the new arguments and the remote rows fall under the Interface's leave.
+    - `tests/control/test_router.c`: the `config_with` line falls under your leave in entries 8 and 10.
+    - `tests/control/test_settings.c`: the name counts and the default, flag and topic rows fall under the Interface's leave.
+    - `tests/control/test_telemetry.c`: the last config entry, now `config/command_topic`, falls under the Interface's leave.
