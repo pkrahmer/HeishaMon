@@ -70,9 +70,6 @@ static ctl_loop_record record;
 // The gate of the last pass; none before the first, so that the first pass logs it.
 static bool gate_known;
 static ctl_gate last_gate;
-// Where the pump's values came from when last logged, so that only a change is logged again.
-static bool pump_source_logged;
-static bool pump_from_mqtt;
 // What the telemetry of the last decision was made from, for the page.
 static bool decided;
 static double decision_s;
@@ -299,26 +296,12 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
-    const char *const named[] = {settings.pv_topic,      settings.outdoor_topic,
-                                 settings.heat_topic,    settings.valve_topic,
-                                 settings.defrost_topic, settings.frame_log_topic};
+    const char *const named[] = {settings.pv_topic, settings.frame_log_topic};
     for (const char *topic : named) {
         if (topic[0] != '\0') {
             subscribe_one(topic, subscribe);
         }
     }
-}
-
-static void log_pump_source()
-{
-    bool from_mqtt = ctl_settings_pump_from_mqtt(&settings);
-    if (pump_source_logged && from_mqtt == pump_from_mqtt) {
-        return;
-    }
-    pump_source_logged = true;
-    pump_from_mqtt = from_mqtt;
-    log_text(from_mqtt ? "control: the pump values come from MQTT, the frames hand none"
-                       : "control: the pump values come from this board's frames");
 }
 
 static bool ends_with(const char *text, const char *suffix)
@@ -395,7 +378,6 @@ void ctl_firmware_change_end()
         ctl_framelog_init(&frame_log);
         remote_pcb_seen = false;
     }
-    log_pump_source();
 }
 
 // The payload lives in the client's buffer, which the unsubscribe of a topic setting, a publish
@@ -554,7 +536,6 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     ctl_settings_to_loop(&settings, &config);
     ctl_loop_init(&loop_state, &config, now_s());
     started = true;
-    log_pump_source();
 }
 
 void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, bool listen_only)
@@ -594,9 +575,7 @@ static void hand_value(ctl_input input, char *data, unsigned int topic_number, d
 
 void ctl_firmware_frame(char *data)
 {
-    // A board that shadows another HeishaMon takes the pump's values from MQTT alone; a frame
-    // from a pump of its own would otherwise mix two pumps in one loop.
-    if (!started || ctl_settings_pump_from_mqtt(&settings)) {
+    if (!started) {
         return;
     }
     double now = now_s();

@@ -32,10 +32,6 @@ typedef enum {
     SETTING_ROOM_WEIGHT,
     SETTING_ROOM_TIMEOUT,
     SETTING_PV_TOPIC,
-    SETTING_OUTDOOR_TOPIC,
-    SETTING_HEAT_TOPIC,
-    SETTING_VALVE_TOPIC,
-    SETTING_DEFROST_TOPIC,
     SETTING_FRAME_LOG_TOPIC,
     SETTING_DESIRED_INDOOR,
     SETTING_TRANSMISSION,
@@ -64,10 +60,6 @@ static const fixed_name FIXED_NAMES[] = {
     {"rooms", SETTING_ROOMS},
     {"room_timeout_s", SETTING_ROOM_TIMEOUT},
     {"pv_topic", SETTING_PV_TOPIC},
-    {"outdoor_topic", SETTING_OUTDOOR_TOPIC},
-    {"heat_topic", SETTING_HEAT_TOPIC},
-    {"valve_topic", SETTING_VALVE_TOPIC},
-    {"defrost_topic", SETTING_DEFROST_TOPIC},
     {"frame_log_topic", SETTING_FRAME_LOG_TOPIC},
     {"desired_indoor_c", SETTING_DESIRED_INDOOR},
     {"transmission_w_per_k", SETTING_TRANSMISSION},
@@ -338,14 +330,6 @@ static char *topic_field(ctl_settings *settings, setting_key key)
         return settings->room_topic[key.room];
     case SETTING_PV_TOPIC:
         return settings->pv_topic;
-    case SETTING_OUTDOOR_TOPIC:
-        return settings->outdoor_topic;
-    case SETTING_HEAT_TOPIC:
-        return settings->heat_topic;
-    case SETTING_VALVE_TOPIC:
-        return settings->valve_topic;
-    case SETTING_DEFROST_TOPIC:
-        return settings->defrost_topic;
     case SETTING_FRAME_LOG_TOPIC:
         return settings->frame_log_topic;
     case SETTING_COMMAND_TOPIC:
@@ -512,10 +496,6 @@ void ctl_settings_defaults(ctl_settings *settings)
     }
     settings->room_timeout_s = rooms.room_timeout_s;
     settings->pv_topic[0] = '\0';
-    settings->outdoor_topic[0] = '\0';
-    settings->heat_topic[0] = '\0';
-    settings->valve_topic[0] = '\0';
-    settings->defrost_topic[0] = '\0';
     settings->frame_log_topic[0] = '\0';
     settings->desired_indoor_c = core.desired_indoor_c;
     settings->transmission_w_per_k = core.transmission_w_per_k;
@@ -585,12 +565,6 @@ bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name
         return write_room_name(index / 2u, suffix, name, size);
     }
     return copy_text(FIXED_NAMES[NAMES_BEFORE_ROOMS + index - room_names].name, name, size);
-}
-
-bool ctl_settings_pump_from_mqtt(const ctl_settings *settings)
-{
-    return settings->outdoor_topic[0] != '\0' || settings->heat_topic[0] != '\0' ||
-           settings->valve_topic[0] != '\0' || settings->defrost_topic[0] != '\0';
 }
 
 bool ctl_settings_valid(const ctl_settings *settings)
