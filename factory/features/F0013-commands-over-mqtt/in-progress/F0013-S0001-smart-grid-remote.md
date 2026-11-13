@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245, 6849317032]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T09:34:49.817570Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -122,6 +118,12 @@ journal:
   kind: started
   at: '2026-11-13T09:34:49.817570Z'
   stage: review
+- number: 21
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T09:35:39.271455Z'
+  stage: review
+  run: 0776143b1e0442e1b6b22a80ed7ca1d1
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -130,7 +132,7 @@ journal:
 
 **Why.** The owner's pump ignores the external thermostat input of the optional PCB; it obeys Smart Grid mode, which the owner's Node-RED uses today. The owner's dev board has no pump of its own: it decodes the production board's frames from that board's MQTT log (`frame_log_topic`, F0011). This story lets the dev board run the house's pump through the production board.
 
-**Smart Grid mode in the router.** A new setting `smart_grid` (0 or 1, default 0). With 0, the router behaves exactly as today. With 1, a state change sends one command, `SetSmartGridMode`, with `0` for heating or cooling demand and `1` for no demand, and never `SetExternalThermostat1State` or `SetHeatCoolMode`. Pacing, retries, the fault and the reopen work as today. A command has landed when the reported value equals the Smart Grid value sent. In upstream's optional PCB byte 6, Smart Grid mode is bits 4 and 5 (`(byte >> 4) & 3`), as `set_smart_grid_mode` in `HeishaMon/commands.cpp` writes it.
+**Smart Grid mode in the router.** A new setting `smart_grid` (0 or 1, default 0). With 0, the router behaves exactly as today. With 1, a state change sends one command, `SetSmartGridMode`, with `0` for heating or cooling demand and `1` for no demand, and never `SetExternalThermostat1State` or `SetHeatCoolMode`. Pacing, retries, the fault and the reopen work as today. A command has landed when the reported value equals the Smart Grid value sent. In upstream's optional PCB byte 6, Smart Grid mode is bits 4 and 5 (`(byte >> 4) & 3`), as `set_smart_grid_mode` in `HeishaMon/commands.cpp` writes it. Value `1` is upstream's "Capacity 1" (`OptionalPCB.md`): it stops room heating on the owner's pump only because the owner set Capacity 1 on the pump to a heating curve that never heats, so hot water goes on (verified by the owner's Node-RED history). Another pump needs the same installer setting before `smart_grid` is used, or value `1` only lowers its capacity. Value `2`, "heat pump and hot water off", is never sent, because it stops hot water too.
 
 **Commands over MQTT.** A new setting `command_topic` (the topic rule, empty by default). When it is set, the glue publishes each command of the router as one MQTT message, topic `<command_topic>/<name>` and payload the value, not retained, instead of calling `send_heatpump_command`. Upstream HeishaMon subscribes to `<base>/commands/#` and executes such a message as if it came from its own web page. When it is empty, commands go to the serial port as today.
 
@@ -141,7 +143,7 @@ Fri Nov 13 09:22:04 2026 (125253578): sent bytes: 20 including checksum value: 1
 Fri Nov 13 09:22:04 2026 (125253579): data: F1 11 01 50 00 00 40 FF FF E5 FF FF 00 FF 00 FF FF 00 00 
 ```
 
-The parser now completes such a frame too: `sent bytes: <n> including checksum value: <c>` starts a sent frame of `n` bytes; the data lines give the first `n - 1` bytes, and the parser appends `c` as the last byte. A sent frame that is complete and whose checksum holds gives a new result `CTL_FRAMELOG_SENT`; one that breaks gives `DROPPED`, as a received one does. A sent frame is an optional PCB frame when it has 20 bytes, byte 0 is `0xF1` and byte 3 is `0x50`. For each such frame, the glue keeps its byte 6 and the time it saw it. The counters: a `SENT` frame counts as neither decoded nor dropped, so `inputs/frames_dropped` counts only frames that broke.
+The parser now completes such a frame too: `sent bytes: <n> including checksum value: <c>` starts a sent frame of `n` bytes; the data lines give the first `n - 1` bytes, and the parser appends `c` as the last byte. A sent frame that is complete and whose checksum holds gives a new result `CTL_FRAMELOG_SENT`; one that breaks gives `DROPPED`, as a received one does. A sent frame is an optional PCB frame when it has 20 bytes, byte 0 is `0xF1` and byte 3 is `0x50`. For each such frame, the glue keeps its byte 6 and the time it saw it. The counters: `inputs/frames_dropped` counts only frames that broke (`DROPPED`, sent or received). A `SENT` frame, and a whole received frame that is not a main data frame (such as the pump's optional PCB answer or the extra data block), count as neither decoded nor dropped. A sent frame in progress that a following header line cuts short is `DROPPED`, like a received one.
 
 **What the router is told.** With `command_topic` set, the state is known when an optional PCB frame of the other board was seen in the last 60 s, and the reported value is read from that frame's byte 6. Otherwise, as today, from this board's own `optionalPCBQuery[6]`, known when the optional PCB is on and the board is not listen-only. In both cases, the reported value is the Smart Grid bits when `smart_grid` is 1 and the thermostat bits when it is 0.
 
@@ -154,14 +156,14 @@ The parser now completes such a frame too: `sent bytes: <n> including checksum v
 - `ctl_dispatch.h` gains `int ctl_dispatch_smart_grid_mode(uint8_t pcb_byte_6)`, returning `(byte >> 4) & 3`.
 - `ctl_gate` gains `CTL_GATE_NO_FRAME_LOG`, named `no_frame_log`. `ctl_gate_state` takes, in addition to what it takes today, whether `command_topic` is set and whether `frame_log_topic` is set, and returns the reasons in the order of the Description.
 - `ctl_router_config` gains `bool smart_grid` (default false), checked by `ctl_router_config_valid` like every field.
-- The leaves for tests another story wrote: `tests/control/test_settings.c` (the name count, and rows for the two settings), `tests/control/test_gate.c` (the new arguments, and rows for the remote reasons), `tests/control/test_framelog.c` (the sent-frame rows now expect `SENT` where criterion 3 says), `tests/control/test_router.c` and `tests/control/test_telemetry.c` (rows that count the settings or the config entries). Nothing else in those files changes. New tests go into new files.
+- The leaves for tests another story wrote: `tests/control/test_settings.c` (the name count, and rows for the two settings), `tests/control/test_gate.c` (the new arguments, and rows for the remote reasons), `tests/control/test_framelog.c` (the sent-frame rows now expect `SENT` where criterion 3 says; and, by the human's word, the row "a sent frame", which becomes `NSNDD`, and the row "Received 256 and 257", which becomes `NDDN`, because a sent frame in progress is now cut short by the next header and counts as dropped), `tests/control/test_router.c` (rows that count the settings or the config entries, and, by the human's word, the line `config.smart_grid = false;` in `config_with`, which builds a config field by field), and `tests/control/test_telemetry.c` (rows that count the settings or the config entries). Nothing else in those files changes. New tests go into new files.
 - No upstream file changes, and no hook line changes.
 
 ## Acceptance criteria
 
 1. Smart Grid in the router, as rows of one table test with `smart_grid` true and `heat_cool_heat_value` -1 and 1: heating demand sends exactly one command `SetSmartGridMode` `0`; cooling demand sends `SetSmartGridMode` `0`; no demand sends `SetSmartGridMode` `1`; no row sends `SetExternalThermostat1State` or `SetHeatCoolMode`. A reported value equal to the value sent lands the command; a different one leads to the retries and, after `max_retries`, the fault, as with the thermostat.
 2. With `smart_grid` false, every existing router test passes unchanged.
-3. The parser on the sent frame of the Description followed by a received 20-byte answer: the sent frame gives `SENT` on its data line, with the 20 bytes `F1 11 01 50 00 00 40 FF FF E5 FF FF 00 FF 00 FF FF 00 00 8F`; the answer gives `FRAME`. The same sent frame with checksum value `144` gives `DROPPED`. A sent query of 111 bytes (four data lines of up to 32 bytes) gives `SENT`, and `ctl_framelog_is_optional_pcb` is false for it and true for the 20-byte one. Every received-frame row of F0011 still holds.
+3. The parser on the sent frame of the Description followed by a received 20-byte answer: the sent frame gives `SENT` on its data line, with the 20 bytes `F1 11 01 50 00 00 40 FF FF E5 FF FF 00 FF 00 FF FF 00 00 8F`; the answer gives `FRAME`. The same sent frame with checksum value `144` gives `DROPPED`. A sent query of 111 bytes (four data lines of up to 32 bytes) gives `SENT`, and `ctl_framelog_is_optional_pcb` is false for it and true for the 20-byte one. Every received-frame row of F0011 still holds, but for "Received 256 and 257", which becomes `NDDN` as the Interface says.
 4. `ctl_dispatch_smart_grid_mode`: `0x40` gives 0, `0x50` gives 1, `0x60` gives 2, `0x70` gives 3, `0x4C` gives 0.
 5. The gate, as rows of one table: without `command_topic` every existing row holds; with it set: not enabled gives `disabled`; enabled without `frame_log_topic` gives `no_frame_log`; enabled with it gives open, also while this board is listen-only and has no optional PCB.
 6. The settings: `smart_grid` accepts `0` and `1` and refuses `2`; `command_topic` accepts `jeisha/commands` and the empty text and refuses `a+b`; the name count is 23.
@@ -170,9 +172,10 @@ The parser now completes such a frame too: `sent bytes: <n> including checksum v
 9. docs: `docs/control/firmware.md` lists the two settings, and gets a section *Commands to another HeishaMon*. It says:
    - what the dev board needs (`frame_log_topic`, `command_topic`, `smart_grid`, `enabled`), and that the other board must have its optional PCB emulation on;
    - how a command is confirmed, and what `no_frame_log` means;
-   - that the pump must obey Smart Grid mode, and which modes are sent;
+   - how a command goes out, and its three log lines: `control: published <topic> <value>` only when the publish succeeds, `control: publish failed <topic> <value>` when the MQTT client refuses it, and `control: command topic too long for <name>, not published` when the topic does not fit;
+   - that the pump must obey Smart Grid mode, and which modes are sent: value `1` is upstream's "Capacity 1", which stops room heating only because the owner set Capacity 1 on the pump to a curve that never heats; another pump needs the same installer setting first; value `2` is never sent because it stops hot water too;
    - how to switch back: `enabled` 0 on the dev board stops its commands; the other board keeps the last Smart Grid mode it received.
-   The section *What reaches the pump* names the Smart Grid path beside the thermostat path. `docs/control/decisions.md` gets one entry: Smart Grid as the house's switch, because the pump ignores the thermostat input.
+   The section *What reaches the pump* names the Smart Grid path beside the thermostat path. The frame-log counters say that `frames_dropped` counts only frames that broke, and that a `SENT` frame and a whole received frame that is not main data count as neither. `docs/control/decisions.md` gets one entry: Smart Grid as the house's switch, because the pump ignores the thermostat input, with the Capacity 1 explanation and `2` rejected for no demand.
 
 ## Smoke test
 
@@ -457,3 +460,41 @@ Expect: `2`
     - `tests/control/test_telemetry.c`: the last config entry, now `config/command_topic`, falls under the Interface's leave.
 19. 2026-11-13 human: The human chooses (b): the reviewer folds the answers into the Description on its next run, as entry 16 lists them, with the two closing criteria kept last, and approves if nothing else is found.
 20. factory: started review as heishamon.
+21. reviewer: no findings
+
+    Round 2 review, run again as the human chose in entry 19 (option (b)).
+
+    **Description rewritten (R5).** As the human asked, I wrote the answers from entries 8–10 into the work item's `## Description`. Front matter and journal are untouched, and the two closing criteria (8 `make check`, 9 `docs:`) are still last.
+    - *Smart Grid mode in the router*: value `1` is upstream's "Capacity 1". It stops room heating only because the owner set Capacity 1 on the pump to a curve that never heats, so hot water goes on. Another pump needs the same installer setting first. Value `2` is never sent because it stops hot water too.
+    - *The counters*: `frames_dropped` counts only frames that broke, sent or received. A `SENT` frame and a whole received frame that is not main data count as neither decoded nor dropped. A sent frame cut short by the next header is `DROPPED`.
+    - Interface, the leaves:
+      - `test_framelog.c` now names the rows "a sent frame" (`NSNDD`) and "Received 256 and 257" (`NDDN`), with the human's word;
+      - `test_router.c` now names the line `config.smart_grid = false;` in `config_with`.
+    - Criterion 3: "Received 256 and 257" is named as the one F0011 row that changes.
+    - Criterion 9 now also asks for:
+      - the three publish log lines;
+      - the Capacity 1 explanation;
+      - the counters rule;
+      - the decision entry's Capacity 1 explanation, with `2` rejected for no demand.
+
+    **Code.** Nothing outside `factory/` changed since the last review: `git diff 19ee40c HEAD -- . ':!factory'` is empty. Every check in entry 18 still holds:
+    - criteria 1–7 have their tests;
+    - the factory's `make check` after the builder was green (entry 16);
+    - no upstream file and no hook line is in the diff;
+    - the `.c` files stay pure, with bounded indexes, sized buffer writes and a checked `publish`;
+    - the docs say all that criterion 9 now asks for.
+
+    The Description now matches what was built.
+
+    Earlier tests changed (status M):
+    - `tests/control/test_framelog.c`:
+      - the `SENT` letter and the sample fall under the Interface's leave for sent-frame rows;
+      - rows "a sent frame" and "Received 256 and 257" fall under the human's leave (entries 8 and 10, now in the Interface).
+    - `tests/control/test_gate.c`: the new arguments and the remote rows, under the Interface's leave.
+    - `tests/control/test_router.c`: the `config_with` line, under the human's leave (entries 8 and 10, now in the Interface).
+    - `tests/control/test_settings.c`: the name counts and the default, flag and topic rows for the two settings, under the Interface's leave.
+    - `tests/control/test_telemetry.c`: the last config entry, now `config/command_topic`, under the Interface's leave.
+
+    Still open, not findings:
+    - The rules that live only in the firmware glue have no host test: the 60 s freshness, publish versus serial, and forgetting the last frame. The human accepted this in answer 8; they are checked on the dev board after the merge.
+    - `docs/control/router.md` describes only the thermostat path. The docs criterion does not name it.
