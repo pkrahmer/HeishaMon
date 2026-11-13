@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 28
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T12:07:43.514349Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,13 @@ journal:
   kind: started
   at: '2026-11-13T12:07:43.514349Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: question
+  at: '2026-11-13T12:08:11.021827Z'
+  stage: doing
+  run: 213c86b1f35a4430b8078acb8d65667b
+  blocked: question
 ---
 
 # Remove the pump topics and dead code
@@ -167,3 +170,25 @@ Expect: `2`
    - Buffers in the new writer are bounded by their sizes.
    - The reader's loop is bounded by the file's length.
 6. factory: started doing as heishamon.
+7. builder: Round 1: I am asking the human about review findings 1 and 2. I changed no code; finding 3 depends on the answer.
+
+   **What I checked.** I read the `load_settings` in `HeishaMon/src/control/glue/ctl_firmware.cpp` on `develop`. It loads with ArduinoJson and skips every value that is not a text (`if (!pair.value().is<const char *>()) ... skipped`). That causes two problems:
+   - **No host loader.** There is nothing on the host that can "load a control.json text". ArduinoJson only builds for the firmware. That is why last round I wrote a new reader and writer, `HeishaMon/src/control/glue/ctl_settings_file.{c,h}`, which the Description does not ask for (finding 1).
+   - **The Interface asks for something the board never accepted.** The Interface's test holds `"hysteresis_wh":1200`, a number. Neither the old loader nor the new reader accepts a number, so that test cannot pass as written. I used `"1200"` as text without saying so (finding 2). The board's own writer has always written every value as text.
+
+   **Question 1: how should the legacy test load a file?**
+   - (a) Keep `ctl_settings_file.{c,h}` as the board's loader and writer. The Description would get it as a stated part of the story, with its own criterion. I would then fix finding 3 by:
+     - allowing only a number, `true`, `false` or `null` as a scalar that is skipped;
+     - matching `{` with `}` and `[` with `]`;
+     - adding `{"a":x}`, `{"a":1"b"}` and `{"a":[}` as rows of `test_not_an_object`.
+
+     I would also record that `\n` and `\uXXXX` escapes are refused, which a printable-ASCII value never needs. The legacy test then checks the code the board actually runs.
+   - (b) Put the ArduinoJson loader and writer back exactly as on `develop` and delete `ctl_settings_file.*` and `test_settings_file.c`. Then `test_settings_legacy.c` cannot load a JSON text. It could only call `ctl_settings_set` with the removed names (expecting a refusal), set `hysteresis_wh`, and check the written text. That means the Interface's test would change from "loads a control.json text" to "sets pairs".
+
+   **Question 2: number or text for `hysteresis_wh` in the legacy test?**
+   - (i) Text, `"hysteresis_wh":"1200"`, as the board writes it. Number values stay skipped, as they always were. The Interface would be corrected to match.
+   - (ii) Number, `1200`. A number value would then become a setting, which is new behaviour on the production board. This only works with (a), and it needs a decision entry.
+
+   **My choice:** (a) with (i). It is the smallest change to how the board behaves, and the test checks the real loader.
+
+   **Still open:** finding 3 under (a), or reverting the reader under (b), whichever the answer chooses. Everything else from round 0 stands. The factory's `make check` was green at the end of round 0.
