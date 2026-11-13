@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T08:44:20.091816Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-13T08:44:14.862925Z'
   stage: review
   run: caffcb092ff447dcaa8f5b358803b9d7
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-13T08:44:20.091816Z'
+  stage: doing
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -170,3 +179,4 @@ Expect: `2`
    - The gate order matches the Description.
    - The docs criterion's points are all present.
    - The factory's `make check` after the builder was green.
+6. factory: started doing as heishamon.
