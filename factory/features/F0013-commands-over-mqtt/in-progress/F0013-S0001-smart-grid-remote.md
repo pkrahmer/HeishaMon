@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: [6848295711, 6848321203, 6848802245]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T09:11:32.178877Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -62,6 +66,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-13T09:11:28.435621Z'
+  stage: doing
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-13T09:11:32.178877Z'
   stage: doing
 ---
 
@@ -255,3 +264,4 @@ Expect: `2`
    - value 2 is never sent because it stops hot water too.
    The code comment says the same in short. This replaces the reading "upstream writes the bits in the other order".
 10. 2026-11-13 human: The human answers the builder's three questions of round 1 (part of the Description): 1. (a), keep 1, as the correction above explains (Capacity 1, set on the owner's pump to a curve that never heats). 2. (a), the two rows of test_framelog.c may change. 3. (a), the one line in test_router.c may change. Everything else as in the two comments above.
+11. factory: started doing as heishamon.
