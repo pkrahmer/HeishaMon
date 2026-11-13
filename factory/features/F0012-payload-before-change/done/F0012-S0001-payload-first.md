@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 0
 attempts: 0
@@ -36,6 +36,11 @@ journal:
   at: '2026-11-13T00:06:15.072147Z'
   stage: review
   run: 008e912f3b0e4a5cbb8ab8b0df0fc07b
+- number: 6
+  speaker: factory
+  kind: done
+  at: '2026-11-13T00:07:04.100833Z'
+  stage: approval
 ---
 
 # The payload first
@@ -126,3 +131,4 @@ Expect: `2`
    4. Quality: names are clear and there is no dead code. The test reuses `check.h`/`check_true` rather than copying a helper.
    5. Work item hygiene: the journal names the main decision and what was rejected, and the Description matches what was built. The sentence in `docs/control/firmware.md` is accurate. The new `docs/control/decisions.md` entry has the date, decision, reason and rejected options, the dev board symptom (`/1/ACTUAL_`) and the fix, in the same format as the entries before it.
    6. Earlier tests: none changed. In `git diff --name-status develop...HEAD`, the only test file is `tests/control/test_payload_first.c`, with status `A`.
+6. factory: done (pull request merged); cost: 2 runs, 5.9 min, 17 turns, 58711 tokens in (391304 more from cache), 11953 out, $0.61
