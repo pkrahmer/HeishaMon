@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 27
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T08:41:38.959420Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-13T08:41:33.832777Z'
   stage: doing
   run: 96313cfedca843bdbc9d9ae9846e0524
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-13T08:41:38.959420Z'
+  stage: review
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -132,3 +141,4 @@ Expect: `2`
    - The first `make firmware` run hit an ESP32 compiler crash (`internal compiler error: Illegal instruction` in `stl_function.h`). The next runs, including the one inside `make check`, were green, so it looks like a fault of the toolchain or the machine.
 
    `check`: check: green
+4. factory: started review as heishamon.
