@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T12:46:55.434344Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-13T12:46:49.739926Z'
   stage: review
   run: 2de69796d51d41d3a1deaa21d53549c3
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:46:55.434344Z'
+  stage: doing
 ---
 
 # Descriptions and the save result per row
@@ -188,3 +197,4 @@ Expect: `2`
       - "a text that outgrows it stops the build" is false for a text of exactly 192 characters, which C accepts without a closing zero. Only `test_descriptions.c` catches it.
 
       Fix: correct both sentences.
+6. factory: started doing as heishamon.
