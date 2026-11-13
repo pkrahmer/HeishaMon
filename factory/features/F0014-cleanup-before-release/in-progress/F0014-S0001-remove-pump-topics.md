@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T12:16:16.901502Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -64,6 +68,11 @@ journal:
   at: '2026-11-13T12:16:11.298885Z'
   stage: doing
   run: 9771a35067d74452b492667b33210dcb
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:16:16.901502Z'
+  stage: review
 ---
 
 # Remove the pump topics and dead code
@@ -247,3 +256,4 @@ Expect: `2`
     `check`: check: green
 
     `check`: check: green
+11. factory: started review as heishamon.
