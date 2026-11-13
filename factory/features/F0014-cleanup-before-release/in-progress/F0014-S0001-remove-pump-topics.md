@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-13T12:23:40.234164Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -86,6 +90,11 @@ journal:
   at: '2026-11-13T12:23:34.457037Z'
   stage: doing
   run: 5b12fde08d4f4073aeb8052804840257
+- number: 15
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:23:40.234164Z'
+  stage: review
 ---
 
 # Remove the pump topics and dead code
@@ -328,3 +337,4 @@ Expect: `2`
     The factory left out changes outside the write paths: factory/features/F0014-cleanup-before-release/in-progress/F0014-S0001-remove-pump-topics.md.
 
     `check`: check: green
+15. factory: started review as heishamon.
