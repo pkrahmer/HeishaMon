@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T12:08:58.645851Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -52,6 +56,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-13T12:08:56.080409Z'
+  stage: doing
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:08:58.645851Z'
   stage: doing
 ---
 
@@ -198,3 +207,4 @@ Expect: `2`
 
    **Still open:** finding 3 under (a), or reverting the reader under (b), whichever the answer chooses. Everything else from round 0 stands. The factory's `make check` was green at the end of round 0.
 8. 2026-11-13 human: The human answers round 1 (part of the Description): Question 1: (b). The board keeps its ArduinoJson loader and writer exactly as on develop; delete ctl_settings_file.{c,h} and test_settings_file.c. A new parser does not go onto the production board in a cleanup story. test_settings_legacy.c instead feeds the pairs the loader would hand over: heat_topic a/b and outdoor_topic c/d are refused as unknown names and change nothing, hysteresis_wh 1200 is accepted, and a written settings text holds neither removed name. The Interface's 'loads a control.json text' reads as 'feeds the loader's pairs'. Question 2: (i), values stay text as the board writes them; number values stay skipped as before. Finding 3 falls away with (b).
+9. factory: started doing as heishamon.
