@@ -47,7 +47,9 @@ typedef enum {
     SETTING_HEAT_COOL,
     SETTING_MIN_CHANGE_INTERVAL,
     SETTING_RETRY_INTERVAL,
-    SETTING_MAX_RETRIES
+    SETTING_MAX_RETRIES,
+    SETTING_SMART_GRID,
+    SETTING_COMMAND_TOPIC
 } setting_id;
 
 typedef struct {
@@ -78,6 +80,8 @@ static const fixed_name FIXED_NAMES[] = {
     {"min_change_interval_s", SETTING_MIN_CHANGE_INTERVAL},
     {"retry_interval_s", SETTING_RETRY_INTERVAL},
     {"max_retries", SETTING_MAX_RETRIES},
+    {"smart_grid", SETTING_SMART_GRID},
+    {"command_topic", SETTING_COMMAND_TOPIC},
 };
 
 #define FIXED_NAME_COUNT (sizeof FIXED_NAMES / sizeof FIXED_NAMES[0])
@@ -344,6 +348,8 @@ static char *topic_field(ctl_settings *settings, setting_key key)
         return settings->defrost_topic;
     case SETTING_FRAME_LOG_TOPIC:
         return settings->frame_log_topic;
+    case SETTING_COMMAND_TOPIC:
+        return settings->command_topic;
     default:
         return NULL;
     }
@@ -447,6 +453,8 @@ static bool apply_value(ctl_settings *settings, setting_key key, const char *val
     case SETTING_MAX_RETRIES:
         /* Any count an int holds; its range is the router's to check. */
         return parse_whole(value, INT_MIN, INT_MAX, &settings->max_retries);
+    case SETTING_SMART_GRID:
+        return parse_flag(value, &settings->smart_grid);
     default:
         return false;
     }
@@ -473,6 +481,8 @@ static bool write_value(const ctl_settings *settings, setting_key key, char *val
         return format_whole(settings->heat_cool_heat_value, value, size);
     case SETTING_MAX_RETRIES:
         return format_whole(settings->max_retries, value, size);
+    case SETTING_SMART_GRID:
+        return format_whole(settings->smart_grid ? 1 : 0, value, size);
     default: {
         const double *number = number_field((ctl_settings *)settings, key);
         return number != NULL && format_number(*number, value, size);
@@ -519,6 +529,8 @@ void ctl_settings_defaults(ctl_settings *settings)
     settings->min_change_interval_s = router.min_change_interval_s;
     settings->retry_interval_s = router.retry_interval_s;
     settings->max_retries = router.max_retries;
+    settings->smart_grid = router.smart_grid;
+    settings->command_topic[0] = '\0';
 }
 
 ctl_setting_status ctl_settings_set(ctl_settings *settings, const char *name, const char *value)
@@ -617,6 +629,7 @@ void ctl_settings_to_loop(const ctl_settings *settings, ctl_loop_config *config)
     config->router.retry_interval_s = settings->retry_interval_s;
     config->router.max_retries = settings->max_retries;
     config->router.heat_cool_heat_value = settings->heat_cool_heat_value;
+    config->router.smart_grid = settings->smart_grid;
 
     config->allowed =
         (uint8_t)(CTL_DEMAND_BIT(CTL_DEMAND_HEATING) | CTL_DEMAND_BIT(CTL_DEMAND_NONE));

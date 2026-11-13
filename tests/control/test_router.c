@@ -90,6 +90,7 @@ static ctl_router_config config_with(double min_change, double retry, int retrie
     config.retry_interval_s = retry;
     config.max_retries = retries;
     config.heat_cool_heat_value = heat;
+    config.smart_grid = false;
     return config;
 }
 

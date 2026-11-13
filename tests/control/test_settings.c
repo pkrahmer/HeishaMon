@@ -75,13 +75,15 @@ static void test_defaults(void)
         {"min_change_interval_s", "300"},
         {"retry_interval_s", "120"},
         {"max_retries", "3"},
+        {"smart_grid", "0"},
+        {"command_topic", ""},
     };
     ctl_settings settings;
     char name[CTL_SETTINGS_NAME_MAX];
     size_t i;
     fresh_defaults(&settings);
     CHECK_TRUE(ctl_settings_valid(&settings));
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 21u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 23u);
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_get(__FILE__, __LINE__, &settings, rows[i].name, rows[i].text);
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
@@ -102,7 +104,7 @@ static void test_name_list(void)
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
     check_set(__FILE__, __LINE__, &settings, "room.0.topic", "house/room0");
     check_set(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 25u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 27u);
     for (i = 0; i < sizeof expected / sizeof expected[0]; i++) {
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
         CHECK_TEXT(name, expected[i]);
@@ -110,7 +112,9 @@ static void test_name_list(void)
     CHECK_TRUE(ctl_settings_name_at(&settings, 24, name, sizeof name));
     CHECK_TEXT(name, "max_retries");
     strcpy(name, UNTOUCHED);
-    CHECK_TRUE(!ctl_settings_name_at(&settings, 25, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 26, name, sizeof name));
+    CHECK_TEXT(name, "command_topic");
+    CHECK_TRUE(!ctl_settings_name_at(&settings, 27, name, sizeof name));
     CHECK_TRUE(!ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic")));
     CHECK_TRUE(ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic") + 1));
 }
@@ -147,6 +151,8 @@ static void test_numbers(void)
         {"retry_interval_s", "0", "-0.001", CTL_SETTING_INVALID_SET},
         {"max_retries", "10", "11", CTL_SETTING_INVALID_SET},
         {"max_retries", "0", "-1", CTL_SETTING_INVALID_SET},
+        {"smart_grid", "1", "2", CTL_SETTING_BAD_VALUE},
+        {"smart_grid", "0", "2", CTL_SETTING_BAD_VALUE},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
@@ -206,6 +212,7 @@ static void test_topics(void)
         ctl_setting_status status;
     } rows[] = {
         {"ccu/device/status/000A9D89A7961A/1/ACTUAL_TEMPERATURE", CTL_SETTING_OK},
+        {"jeisha/commands", CTL_SETTING_OK},
         {longest, CTL_SETTING_OK},
         {"", CTL_SETTING_OK},
         {too_long, CTL_SETTING_BAD_VALUE},
@@ -216,7 +223,7 @@ static void test_topics(void)
         {"a\x7f", CTL_SETTING_BAD_VALUE},
         {NULL, CTL_SETTING_BAD_VALUE},
     };
-    static const char *const names[] = {"room.0.topic", "pv_topic"};
+    static const char *const names[] = {"room.0.topic", "pv_topic", "command_topic"};
     size_t i;
     size_t n;
     memset(longest, 'a', CTL_SETTINGS_TOPIC_MAX);
@@ -314,7 +321,7 @@ static void test_rooms(void)
 
     /* A lower count keeps what lies above it; the higher count lists it again. */
     check_set(__FILE__, __LINE__, &settings, "rooms", "1");
-    CHECK_UINT(ctl_settings_name_count(&settings), 23);
+    CHECK_UINT(ctl_settings_name_count(&settings), 25);
     CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", value, sizeof value));
     check_refused(__FILE__, __LINE__, &settings, "room.1.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");

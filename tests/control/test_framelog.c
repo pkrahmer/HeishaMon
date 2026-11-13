@@ -85,11 +85,14 @@ static char result_letter(ctl_framelog_result result)
         return 'F';
     case CTL_FRAMELOG_DROPPED:
         return 'D';
+    case CTL_FRAMELOG_SENT:
+        return 'S';
     }
     return '?';
 }
 
-/* Feeds every line and writes one letter per line: N for NOTHING, F for FRAME, D for DROPPED. */
+/* Feeds every line and writes one letter per line: N for NOTHING, F for FRAME, D for DROPPED,
+ * S for SENT. */
 static void feed(ctl_framelog *parser, const sequence *log, char *letters)
 {
     size_t i;
@@ -129,7 +132,7 @@ static void test_sample(void)
 {
     /* Header and six data lines, the seventh, the checksum line; the sent frame's two lines; the
      * answer's header, its data line and its checksum line. */
-    static const char expected[] = "NNNNNNNFNNNNFN";
+    static const char expected[] = "NNNNNNNFNNSNFN";
     sequence log;
     ctl_framelog parser;
     char letters[SEQUENCE_MAX + 1];
@@ -289,7 +292,7 @@ static void test_refusals(void)
     } rows[] = {
         {"one byte changed", changed_byte, "NNNNNNND"},
         {"a data line missing", missing_data_line, "NNNNNNNDF"},
-        {"a sent frame", sent_frame, "NNNDN"},
+        {"a sent frame", sent_frame, "NSNDD"},
         {"a sent frame named before its mark", named_sent_frame, "NDN"},
         {"a malformed byte", malformed_byte, "NDN"},
         {"a byte without its space", missing_space, "ND"},
@@ -297,7 +300,7 @@ static void test_refusals(void)
         {"Received 0", received_zero, "NN"},
         {"Received 300", received_too_many, "NN"},
         {"Received 300 while collecting", received_too_many_while_collecting, "NDN"},
-        {"Received 256 and 257", received_largest, "NDNN"},
+        {"Received 256 and 257", received_largest, "NDDN"},
         {"no time stamp", no_stamp, "NNNNF"},
         {"more bytes than expected", more_than_expected, "ND"},
         {"lower case, no trailing space", lower_case_and_no_trailing_space, "NNF"},

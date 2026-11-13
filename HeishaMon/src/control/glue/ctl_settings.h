@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 21 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 23 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -48,6 +48,10 @@ typedef struct {
     double min_change_interval_s;
     double retry_interval_s;
     int max_retries;
+    bool smart_grid; /* the router sends Smart Grid mode instead of the thermostat state */
+    /* The base under which another HeishaMon takes commands, as <base>/commands; empty: the
+     * commands go to this board's serial port. */
+    char command_topic[CTL_SETTINGS_TOPIC_MAX + 1];
 } ctl_settings;
 
 typedef enum {
@@ -58,8 +62,9 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, no PV, no pump topics, no frame log topic, and
- * the core's and the router's defaults. The result is valid. Refuses nothing. */
+ * topic and weight 1), a room timeout of 1800 s, no PV, no pump topics, no frame log topic, no
+ * command topic, and the core's and the router's defaults, the thermostat rather than Smart Grid
+ * mode among them. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
 
 /* Parses value for the setting called name and applies it when the whole set stays valid.
@@ -90,7 +95,8 @@ bool ctl_settings_pump_from_mqtt(const ctl_settings *settings);
 bool ctl_settings_valid(const ctl_settings *settings);
 
 /* Writes the loop's configuration: the loop's defaults for the rooms' count, with the core's
- * tuning, the room weights and timeout, the router's pacing and polarity, the allowed demands
+ * tuning, the room weights and timeout, the router's pacing, polarity and Smart Grid mode, the
+ * allowed demands
  * and no assumed landing from the settings. No rooms gives one room of weight 1 that never
  * receives a value. Refuses nothing; whether the result is usable is ctl_settings_valid's to
  * say. */

@@ -17,24 +17,37 @@ typedef struct {
     bool enabled;
     bool listen_only;
     bool optional_pcb;
+    bool command_topic;
+    bool frame_log_topic;
     ctl_gate gate;
 } gate_row;
 
 static void test_state(void)
 {
     static const gate_row rows[] = {
-        {false, false, false, CTL_GATE_DISABLED},
-        {false, false, true, CTL_GATE_DISABLED},
-        {false, true, false, CTL_GATE_DISABLED},
-        {false, true, true, CTL_GATE_DISABLED},
-        {true, true, false, CTL_GATE_LISTEN_ONLY},
-        {true, true, true, CTL_GATE_LISTEN_ONLY},
-        {true, false, false, CTL_GATE_NO_OPTIONAL_PCB},
-        {true, false, true, CTL_GATE_OPEN},
+        {false, false, false, false, false, CTL_GATE_DISABLED},
+        {false, false, true, false, false, CTL_GATE_DISABLED},
+        {false, true, false, false, false, CTL_GATE_DISABLED},
+        {false, true, true, false, false, CTL_GATE_DISABLED},
+        {true, true, false, false, false, CTL_GATE_LISTEN_ONLY},
+        {true, true, true, false, false, CTL_GATE_LISTEN_ONLY},
+        {true, false, false, false, false, CTL_GATE_NO_OPTIONAL_PCB},
+        {true, false, true, false, false, CTL_GATE_OPEN},
+        {true, false, true, false, true, CTL_GATE_OPEN},
+        {true, true, false, false, true, CTL_GATE_LISTEN_ONLY},
+        {false, false, true, true, true, CTL_GATE_DISABLED},
+        {false, true, false, true, false, CTL_GATE_DISABLED},
+        {true, false, true, true, false, CTL_GATE_NO_FRAME_LOG},
+        {true, true, false, true, false, CTL_GATE_NO_FRAME_LOG},
+        {true, false, true, true, true, CTL_GATE_OPEN},
+        {true, true, false, true, true, CTL_GATE_OPEN},
+        {true, true, true, true, true, CTL_GATE_OPEN},
+        {true, false, false, true, true, CTL_GATE_OPEN},
     };
     size_t i;
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
-        CHECK_GATE(ctl_gate_state(rows[i].enabled, rows[i].listen_only, rows[i].optional_pcb),
+        CHECK_GATE(ctl_gate_state(rows[i].enabled, rows[i].listen_only, rows[i].optional_pcb,
+                                  rows[i].command_topic, rows[i].frame_log_topic),
                    rows[i].gate);
     }
 }
@@ -45,6 +58,7 @@ static void test_name(void)
     CHECK_TEXT(ctl_gate_name(CTL_GATE_DISABLED), "disabled");
     CHECK_TEXT(ctl_gate_name(CTL_GATE_LISTEN_ONLY), "listen_only");
     CHECK_TEXT(ctl_gate_name(CTL_GATE_NO_OPTIONAL_PCB), "no_optional_pcb");
+    CHECK_TEXT(ctl_gate_name(CTL_GATE_NO_FRAME_LOG), "no_frame_log");
     CHECK_TEXT(ctl_gate_name((ctl_gate)9), "invalid");
 }
 
