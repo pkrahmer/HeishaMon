@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T17:39:17.626342Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-13T17:39:11.287300Z'
   stage: review
   run: 236ac24990744fb8a6924157934677bc
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-13T17:39:17.626342Z'
+  stage: doing
 ---
 
 # Descriptions into a document
@@ -158,3 +167,4 @@ Expect: `2`
    - `tests/control/test_descriptions.c` (D): the story's Interface allows deleting it.
    - `tests/control/test_form_rows.c` (M): the Interface allows changes to the description column only. The change removes only the description cell from `expect_row` and `test_not_editable`.
    - `tests/control/test_html.c` (M): the same leave. The change removes only the description cell from the two expected strings and the two initialisers.
+6. factory: started doing as heishamon.
