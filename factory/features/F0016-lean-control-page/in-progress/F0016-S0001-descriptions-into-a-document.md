@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 30
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T17:45:31.873465Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-13T17:45:31.873465Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T17:45:57.829400Z'
+  stage: review
+  run: 8adde71d312947e5b41703fac7b64da6
 ---
 
 # Descriptions into a document
@@ -189,3 +191,29 @@ Expect: `2`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: no findings
+
+   Round 1 check of the earlier finding:
+   - `docs/control/settings.md:7-9`: the topic rule now reads "1 to 96 printable ASCII characters (0x21 to 0x7e) other than space, `+` and `#`". This matches `is_topic_character` and `parse_topic` in `glue/ctl_settings.c:222-243`. The number rule now reads "a bare number whose magnitude is below 10¹², with at most three decimals". This matches `parse_number` (`fabs(parsed) >= CTL_FORMAT_MAGNITUDE_LIMIT`, at line 186) and `firmware.md:49`.
+
+   Checklist, all groups re-checked:
+   - **Acceptance criteria.**
+     - Criterion 1: `tests/control/test_lean_page.c` renders the rows with rooms 4 and checks that each row has three cells and none of the three texts.
+     - Criterion 2: the same test checks that open + rows + close hold the link exactly once.
+     - Criterion 4: `tests/control/test_settings_doc.c` checks one full four-cell row per name with rooms 1.
+     - Criterion 3: `git grep` for `ctl_settings_describe`/`DESCRIPTION_MAX` in HeishaMon, tests and docs finds only the historical decision entry.
+     - Criteria 5 and 6 are build and git measurements, and the journal records both.
+     - The journal records `check: green` for both rounds.
+   - **Architecture.** Only `HeishaMon/src/control/glue/` changed among the code. No upstream file and no hook line changed. The new macros carry the `CTL_` prefix.
+   - **Embedded safety.** The code change is a removal, plus `FLASHPROG` copies of the header macros. No new loops, buffers or allocation.
+   - **Quality.** No dead static is left: `append_decimal` is still used by `write_room_name`. The comments in `ctl_html.h` say why.
+   - **Hygiene.**
+     - The Description matches what was built.
+     - The cross-references in `settings.md` all exist in `firmware.md`: *The settings*, *What reaches the pump*, *Frames from another HeishaMon's log*, *Commands to another HeishaMon* and *Shadowing another HeishaMon*.
+     - The retained `control/config/<name>` answer matches `firmware.md` *Changing a setting over MQTT*.
+     - `decisions.md` has the entry, with its reason and what was rejected.
+
+   Earlier tests:
+   - `tests/control/test_descriptions.c` (D): deleted under the story's Interface leave.
+   - `tests/control/test_form_rows.c` (M): the Interface allows changes to the description column only, and only the description cell was removed.
+   - `tests/control/test_html.c` (M): the same leave. Only the description cell and its initialiser field were removed.
