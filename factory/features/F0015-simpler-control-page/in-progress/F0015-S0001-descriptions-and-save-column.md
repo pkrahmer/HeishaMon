@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 29
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-13T12:53:38.528687Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-13T12:53:38.528687Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-13T12:55:14.062587Z'
+  stage: review
+  run: 5a88ef2a7bae4202bab6e1501c97619b
 ---
 
 # Descriptions and the save result per row
@@ -69,7 +71,7 @@ journal:
 1. **Setting**: the name, as today.
 2. **Value**: the field, as today.
 3. **What it does**: the description below, in one line or two.
-4. **Last save**: empty, except right after a save:
+4. **Save result** (not "Last save", since criterion 3 forbids that text on the page): empty, except on the page that follows a save:
    - `saved` when the save changed this setting's value;
    - `refused: <reason>` when this setting's value was refused, where the reason is `not a valid value` (the setter answered `BAD_VALUE`), `conflicts with other settings` (`INVALID_SET`) or `unknown setting` (`UNKNOWN`), and the field shows the value that is still in force;
    - empty when the value was sent unchanged.
@@ -232,3 +234,40 @@ Expect: `2`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` and the work item.
+
+   no findings
+
+   The round-0 findings, checked again:
+   1. **Description, item 4 of "The new settings table":** the builder's rewrite was left out, because the builder's write paths do not include the work item (`factory/pipeline.yml`, `roles.builder`). Sending this back would loop, so I made the one-line change myself in the reviewer's write path. Item 4 now names the column **Save result**, says why ("Last save" is forbidden on the page by criterion 3), and says it shows "on the page that follows a save". That matches `ctl_web.cpp` `FORM_OPEN` and the report being emptied in `write_page_part`. Nothing else in the Description changed. Human: please confirm the rename at approval.
+   2. **`tests/control/test_form_rows.c` `set_setting`:** the rule now matches `ctl_firmware_change` (`ctl_firmware.cpp`): changed when the name was not known, cannot be read back, or its text differs. The comment says so.
+   3. **`docs/control/decisions.md`:** the size is now 21 × 192 = 4032 bytes. The slot sentence now says only a text longer than its slot stops the build, and that a text of exactly 192 characters is caught by `ctl_settings_describe` refusing it, so `test_descriptions.c` fails.
+
+   Checked again in this round, all hold:
+   - **Acceptance criteria:**
+     - Criterion 1: `test_every_name` and `test_rooms_named`.
+     - Criterion 2: `test_rows_after_save`, with full expected rows. `rooms` 99 is `BAD_VALUE` via `parse_whole(0, CTL_ROOMS_MAX)` and shows 0.
+     - Criterion 3: the rows plus a scan of the page sources.
+     - Every refusal reason has a test (`test_reasons`, `test_unknown`).
+     - Both sides of the size limits are tested for `ctl_settings_describe`, `ctl_form_row` and `ctl_html_setting_row`.
+     - The factory's `make check` after the builder was green.
+   - **Architecture:**
+     - Every changed file is under `HeishaMon/src/control/`, `tests/control/` or `docs/control/`. No upstream file or hook line changed.
+     - `ctl_settings.c` includes `<sys/pgmspace.h>` only under `ESP8266`. That header is the toolchain's newlib header (`xtensa-lx106-elf/include/sys`), and the file still lints as strict C99.
+     - Names use `ctl_`/`CTL_`, and helpers are `static`.
+   - **Embedded safety:**
+     - No dynamic memory.
+     - Loops are bounded: `CTL_SETTINGS_DESCRIPTION_MAX`, `CTL_FORM_FIELDS_MAX`.
+     - `DESCRIPTIONS[key.id]` is safe: `key.id` comes from `find_name`, and a static check holds the array length at `SETTING_COMMAND_TOPIC + 1`, the last enum value.
+     - Every buffer is written with its size.
+   - **Quality:** the removed report code is gone entirely (`SECTION_SAVE`, `ctl_form_report_items`/`_item`, `REPORT_*`), and the shared `TOO_LONG` moved to `CTL_HTML_TOO_LONG`.
+   - **Docs:** `firmware.md`, section *The control page*, matches the code: four columns, results emptied once the page is written, the too-long row, the descriptions in `PROGMEM`.
+   - **Memory:** the journal reports D1 mini global RAM up 64 bytes (50564 → 50628), within the 200-byte limit.
+
+   Earlier tests:
+   - `tests/control/test_form.c` (M): only the report checks changed, under the story's leave for "the Last save table".
+   - `tests/control/test_html.c` (M): `check_input` became `check_setting` for the settings table's columns, under the story's leave.
+
+   Notes:
+   - `tests/control/test_form_rows.c` `set_setting`: a second copy of a setter like the one in `test_form.c`. It is needed because that one is `static`.
+   - `tests/control/test_form_rows.c` `test_no_last_save_table`: checks criterion 3 by scanning source files. It would miss a text split across string literals.
