@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 28
 comments_read: [6852423812]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-13T12:17:15.118495Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -75,6 +79,11 @@ journal:
   at: '2026-11-13T12:17:09.060232Z'
   stage: review
   run: 3f14070fd7854799bcc71aab25f87e64
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-13T12:17:15.118495Z'
+  stage: doing
 ---
 
 # Remove the pump topics and dead code
@@ -296,3 +305,4 @@ Expect: `2`
 
     Notes:
     - `tests/control/test_settings_legacy.c` covers only `heat_topic` and `outdoor_topic`, as the Interface names them. That `valve_topic` and `defrost_topic` are refused is covered only indirectly, by the 19-name list in `test_settings.c`.
+13. factory: started doing as heishamon.
