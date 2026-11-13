@@ -846,8 +846,9 @@ change between heating and cooling is no new state and sends nothing. A dev boar
 commands over MQTT to another HeishaMon (`command_topic`) and confirm them from the optional PCB
 frames that board logs as sent; the state counts as known while such a frame is at most 60 s old.
 A change of `smart_grid` or `command_topic` reopens the router, and a change of any topic setting
-forgets the other board's last frame. A sent frame that breaks counts as dropped, as a received
-one does; a received frame that is whole but no main data frame still counts as dropped.
+forgets the other board's last frame. `frames_dropped` counts only frames that broke, sent or
+received: a whole frame that is no main data frame no longer counts as dropped, which replaces
+that part of the frame log entry above, and a whole sent frame counts as neither.
 **Reason.** The owner's pump ignores the external thermostat input of the optional PCB and obeys
 Smart Grid mode, which the owner's Node-RED uses today. Smart Grid mode carries no heating or
 cooling, so resending it on that change would only wear the pump's EEPROM. What the router sent
@@ -856,5 +857,6 @@ topic may come from another board.
 **Rejected.** Keeping the thermostat state inside the router and mapping it to Smart Grid mode
 only on the way out, which sends `0` again when heating turns to cooling; sending both the
 thermostat state and Smart Grid mode, which the story forbids; a retained command message, which
-the other board would run again at every reconnect; counting no whole received frame that is no
-main data frame as dropped, which changes a counter the story leaves as it is for received frames.
+the other board would run again at every reconnect; still counting a whole received frame that is
+no main data frame as dropped, which the other board's optional PCB answers would raise every
+second, so that the dropped count would no longer show a log that loses lines.

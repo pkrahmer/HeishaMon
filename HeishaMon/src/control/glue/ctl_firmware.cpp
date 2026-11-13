@@ -347,7 +347,7 @@ void ctl_firmware_change_begin(bool topics, bool every_ok)
 {
     change_cooling = settings.cooling;
     change_smart_grid = settings.smart_grid;
-    strcpy(change_command_topic, settings.command_topic);
+    snprintf(change_command_topic, sizeof change_command_topic, "%s", settings.command_topic);
     change_any = false;
     change_every_ok = every_ok;
     // Unsubscribing needs the old topics, which the change is about to replace.
@@ -423,9 +423,9 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
 
 // --- Frames from another HeishaMon's log ------------------------------------------------------
 
-// Every frame the log shows received whole but that is no main data frame (an optional PCB
-// answer, the extra data block) counts as dropped too: it is read and then thrown away. A frame
-// the other board sent is no frame of the pump's and counts as neither.
+// Only a frame that broke counts as dropped: a whole frame that is no main data frame (an optional
+// PCB answer, the extra data block) arrives every second while the other board's emulation is on,
+// and counting it would hide a log that loses lines. A frame the other board sent counts as neither.
 static void handle_frame_log(const byte *payload, unsigned int length)
 {
     ctl_framelog_result result = ctl_framelog_line(&frame_log, (const char *)payload, length);
@@ -440,9 +440,11 @@ static void handle_frame_log(const byte *payload, unsigned int length)
         }
         return;
     }
-    if (result == CTL_FRAMELOG_DROPPED
-        || !ctl_framelog_is_main_data(frame_log.frame, frame_log.length)) {
+    if (result == CTL_FRAMELOG_DROPPED) {
         frames_dropped++;
+        return;
+    }
+    if (!ctl_framelog_is_main_data(frame_log.frame, frame_log.length)) {
         return;
     }
     frames_decoded++;
@@ -499,9 +501,13 @@ static void publish_command(const ctl_command *command)
     int length = snprintf(topic_text, sizeof topic_text, "%s/%s", settings.command_topic,
                           command->name);
     if (length < 0 || (size_t)length >= sizeof topic_text) {
+        log_text("control: command topic too long for %s, not published", command->name);
         return;
     }
-    control_client->publish(topic_text, command->value, false);
+    if (!control_client->publish(topic_text, command->value, false)) {
+        log_text("control: publish failed %s %s", topic_text, command->value);
+        return;
+    }
     log_text("control: published %s %s", topic_text, command->value);
 }
 

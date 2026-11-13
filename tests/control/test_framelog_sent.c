@@ -159,6 +159,40 @@ static void test_breaks(void)
     }
 }
 
+/* Each limit of a sent header starts a frame on its accepting side and nothing past it. A frame
+ * of 0x01 followed by zeros sums to 0 with the checksum 0xFF. */
+static void test_limits(void)
+{
+    static const struct {
+        int line;
+        size_t count;
+        unsigned checksum;
+        const char *expected;
+    } rows[] = {
+        {__LINE__, 2, 255, "S"},
+        {__LINE__, 256, 255, "NNNNNNNS"},
+        {__LINE__, 2, 256, "N"},
+    };
+    size_t i;
+    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
+        uint8_t frame[256] = {0x01};
+        char header[LINE_SIZE];
+        char letters[16] = "";
+        ctl_framelog parser;
+        ctl_framelog_init(&parser);
+        snprintf(header, sizeof header, "sent bytes: %u including checksum value: %u ",
+                 (unsigned)rows[i].count, rows[i].checksum);
+        check_uint(__FILE__, rows[i].line, (uint32_t)feed(&parser, header),
+                   (uint32_t)CTL_FRAMELOG_NOTHING);
+        feed_data(&parser, frame, rows[i].count - 1, letters);
+        check_text(__FILE__, rows[i].line, letters, rows[i].expected);
+        if (strcmp(rows[i].expected, "N") != 0) {
+            frame[rows[i].count - 1] = 0xFF;
+            check_frame(rows[i].line, &parser, frame, rows[i].count);
+        }
+    }
+}
+
 static void test_is_optional_pcb(void)
 {
     uint8_t frame[PCB_LENGTH];
@@ -179,6 +213,7 @@ int main(void)
     test_bad_checksum();
     test_query();
     test_breaks();
+    test_limits();
     test_is_optional_pcb();
     return check_result();
 }

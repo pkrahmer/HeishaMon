@@ -28,7 +28,7 @@ typedef struct {
     bool enabled;
     ctl_gate gate; /* why commands are blocked, or OPEN */
     uint32_t frames_decoded; /* frames from another HeishaMon's log handed to the decoder */
-    uint32_t frames_dropped; /* frames from that log cut short, corrupt or of no use */
+    uint32_t frames_dropped; /* frames from that log cut short or corrupt */
 } ctl_telemetry_source;
 
 /* Returns the number of entries of the group: 9 inputs, 3 more for each configured room (up to

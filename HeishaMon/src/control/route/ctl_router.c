@@ -14,7 +14,7 @@
 #define STATE_COOLING 1
 #define STATE_HEATING 2
 #define NOTHING_SENT (-1)
-/* Smart Grid mode 0 lets the pump run as it is set; 1 holds it off. */
+/* Smart Grid mode 0 is normal operation, for heating and cooling demand alike. */
 #define SMART_GRID_DEMAND 0
 #define SMART_GRID_NO_DEMAND 1
 

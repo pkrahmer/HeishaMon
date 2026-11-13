@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 27
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-13T08:44:20.091816Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,13 @@ journal:
   kind: started
   at: '2026-11-13T08:44:20.091816Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: question
+  at: '2026-11-13T08:49:11.275268Z'
+  stage: doing
+  run: 727762ad47ad48d4a31361a3ca8ebc3a
+  blocked: question
 ---
 
 # Smart Grid commands to another HeishaMon
@@ -180,3 +183,41 @@ Expect: `2`
    - The docs criterion's points are all present.
    - The factory's `make check` after the builder was green.
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed the review findings that need no answer from you. The rest need your word, so I stopped there. After my edits `make check` is green. The smoke test `make firmware | grep -c -E '^(esp8266|esp32):'` printed `2`. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is still empty.
+
+   **Fixed**
+   - Finding 2 (dropped count): `HeishaMon/src/control/glue/ctl_firmware.cpp` `handle_frame_log` now adds to `frames_dropped` only on `CTL_FRAMELOG_DROPPED`. A whole frame that is not main data counts as neither decoded nor dropped. I followed the Description as written: "counts only frames that broke". The other reading would raise the dropped count every second from the other board's optional PCB answers. Also updated to match:
+     - the comment on `frames_dropped` in `glue/ctl_telemetry.h`;
+     - *The counters* in `docs/control/firmware.md`;
+     - the entry "Smart Grid as the house's switch" in `docs/control/decisions.md`. It now says this replaces that part of the earlier frame-log entry, and it lists the other reading as rejected.
+   - Finding 5: `strcpy` in `ctl_firmware_change_begin` is now `snprintf(..., sizeof change_command_topic, "%s", ...)`.
+   - Finding 6: `publish_command` now checks the result of `publish`. A failed publish logs `control: publish failed <topic> <value>`. A topic that is too long logs `control: command topic too long for <name>, not published`. `published` is logged only when the publish succeeds.
+   - Finding 7: `tests/control/test_framelog_sent.c` has a new table, `test_limits`. A count of 2 and a count of 256, each with checksum 255, give `SENT` with the expected bytes. A checksum of 256 starts nothing.
+   - Finding 1, until you answer: nothing calls `1` "off" any more:
+     - the comment in `route/ctl_router.c` now only says what `0` is;
+     - the switch-back paragraph in `docs/control/firmware.md` says the pump "stays in that mode".
+     - The code still sends `1` for no demand, as the Description says.
+
+   **Not touched:** finding 8 is about the story, not a fix: the 60 s freshness, the choice between publishing and the serial port, and forgetting the last frame live only in `ctl_firmware.cpp`, and only `make firmware` covers them. `docs/control/router.md` still describes only the thermostat path.
+
+   **Questions**
+
+   1. **Smart Grid value for no demand.** The Description says `SetSmartGridMode` `1` for no demand. Upstream's `OptionalPCB.md:31` gives the Smart Grid bits as "00 = normal, 10 = HP/DHW off, 01 = Capacity 1, 11 = Capacity 2". Read the same way as the thermostat bits (10 = 2), `1` is Capacity 1 and `2` is off. So sending `1` for no demand could make the pump run harder. Options:
+      - (a) keep `1`, if that is what your Node-RED sends and the pump obeys;
+      - (b) send `2` for no demand, as upstream documents. Criterion 1's no-demand row, `docs/control/firmware.md` and the decision entry would change with it.
+
+      I would choose (b) unless your Node-RED proves (a).
+   2. **Leave for two rows in `tests/control/test_framelog.c` (finding 3).** A sent frame now in progress is cut by a following line and counts as dropped. That changes two rows beyond "the sent-frame rows now expect `SENT`":
+      - the last letter of the row "a sent frame" changes `N`→`D`;
+      - the row "Received 256 and 257" changes `NDNN`→`NDDN`.
+
+      Options:
+      - (a) extend the leave to both rows as changed;
+      - (b) make a sent frame cut short give `NOTHING` rather than `DROPPED`. That keeps both rows as they were, but it goes against "one that breaks gives `DROPPED`, as a received one does".
+
+      I would choose (a).
+   3. **Leave for one line in `tests/control/test_router.c` (finding 4).** `config_with` builds a config field by field, not from the defaults, so the line `config.smart_grid = false;` keeps the new field initialised. Options:
+      - (a) allow that line;
+      - (b) make `config_with` start from `ctl_router_config_defaults`, a bigger change to the same test.
+
+      I would choose (a).

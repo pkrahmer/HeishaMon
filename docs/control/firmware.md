@@ -449,8 +449,9 @@ produced heat, the valve and the defrost flag from it.
 **The counters.** `control/inputs/frames_decoded` counts the main data frames handed to the
 decoder; `control/inputs/frames_dropped` counts the frames cut short (a missing line, a new
 `Received` line or a `sent bytes:` line before the end, more bytes than announced, a malformed
-byte), the ones whose checksum fails, sent ones included, and the ones received whole that are no main data frame,
-such as an optional PCB answer or the extra data block. Both count from the start and go out with
+byte) and the ones whose checksum fails, sent ones included: only frames that broke. A whole
+frame that is no main data frame (an optional PCB answer, the extra data block) and a whole frame
+the other board sent count as neither. Both count from the start and go out with
 the rest of the telemetry. A dropped count that grows as fast as the decoded one means the log
 loses lines: the broker drops messages, or the production board logs too much between them.
 
@@ -505,12 +506,12 @@ Otherwise the gate is open. While blocked, landing is assumed, as on the serial 
 
 **The pump must obey Smart Grid mode.** The owner's pump ignores the external thermostat input of
 the optional PCB, so the thermostat path changes nothing there. With `smart_grid` 1 the router
-sends only `SetSmartGridMode`: `0` (normal operation) for heating or cooling demand, `1` (off) for
-no demand; never `SetExternalThermostat1State` or `SetHeatCoolMode`. Whether the pump heats or
+sends only `SetSmartGridMode`: `0` (normal operation) for heating or cooling demand, `1` for no
+demand; never `SetExternalThermostat1State` or `SetHeatCoolMode`. Whether the pump heats or
 cools stays as the pump is set.
 
 **How to switch back.** `enabled` 0 on the dev board stops its commands at once. The production
-board keeps the last Smart Grid mode it received: if that was `1`, the pump stays off until the
-owner sends `SetSmartGridMode` `0` to the production board, by its web page or its `commands/`
+board keeps the last Smart Grid mode it received: if that was `1`, the pump stays in that mode
+until the owner sends `SetSmartGridMode` `0` to the production board, by its web page or its `commands/`
 topic, or Node-RED takes over again. Empty `command_topic` sends the dev board's commands to its
 own serial port again.
