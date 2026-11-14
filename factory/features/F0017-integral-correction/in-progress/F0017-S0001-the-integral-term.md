@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911, 6874676115]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T08:46:33.946640Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -81,6 +85,11 @@ journal:
   at: '2026-11-14T08:46:27.414995Z'
   stage: doing
   run: 7cc21784f00d4848879bf65b9c2dbf02
+- number: 14
+  speaker: factory
+  kind: started
+  at: '2026-11-14T08:46:33.946640Z'
+  stage: review
 ---
 
 # The integral term
@@ -296,3 +305,4 @@ Expect: `1`
     **Noticed, not touched:** the same as entry 6. The wire protocol and `replay.py` do not know the new configuration keys or the sixth ledger term, and the Python reference has no integral term.
 
     `check`: check: green
+14. factory: started review as heishamon.
