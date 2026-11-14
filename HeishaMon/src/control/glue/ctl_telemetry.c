@@ -18,7 +18,7 @@
 #define INPUTS_FIXED 9
 #define ENTRIES_PER_ROOM 3
 #define FRAME_COUNTERS 2
-#define STATUS_COUNT 10
+#define STATUS_COUNT 12
 #define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
  * signal names, with room to spare. */
@@ -195,9 +195,17 @@ static void put_status_entry(ctl_text *subtopic, ctl_text *value,
         ctl_text_put(subtopic, "status/uptime_s");
         ctl_text_put_number(value, source->uptime_s, 0);
         break;
-    default:
+    case 9:
         ctl_text_put(subtopic, "status/enabled");
         put_flag(value, source->enabled);
+        break;
+    case 10:
+        ctl_text_put(subtopic, "status/p_integral_w");
+        ctl_text_put_input(value, decision->has_inputs, decision->balance.p_integral_w, 1);
+        break;
+    default:
+        ctl_text_put(subtopic, "status/integral_wh");
+        ctl_text_put_number(value, decision->ledger.integral_wh, 1);
         break;
     }
 }

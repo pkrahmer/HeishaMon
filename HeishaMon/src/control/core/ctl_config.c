@@ -12,6 +12,9 @@ void ctl_config_defaults(ctl_config *config)
     config->hysteresis_wh = 1500.0;
     config->trim_limit_enabled = true;
     config->trim_limit_k = 3.0;
+    /* Off, so that the core decides as the Python reference does until the owner opts in. */
+    config->integral_w_per_kh = 0.0;
+    config->integral_limit_w = 300.0;
     config->solar_gain_factor = 0.02;
     config->energy_clamp_factor = 2.0;
     config->max_step_s = 300.0;
@@ -90,6 +93,16 @@ static bool is_trim_limit_valid(const ctl_config *config)
     return !config->trim_limit_enabled || is_positive(config->trim_limit_k);
 }
 
+static bool is_integral_gain_valid(double gain)
+{
+    return isfinite(gain) && gain >= 0.0 && gain <= 200.0;
+}
+
+static bool is_integral_limit_valid(double limit)
+{
+    return isfinite(limit) && limit > 0.0 && limit <= 2000.0;
+}
+
 static uint32_t problem_if(bool valid, ctl_config_problem problem)
 {
     return valid ? 0u : (uint32_t)problem;
@@ -106,6 +119,10 @@ uint32_t ctl_config_validate(const ctl_config *config)
     problems |= problem_if(is_at_least(config->adjustment_w_per_k, 0.0), CTL_CONFIG_BAD_ADJUSTMENT);
     problems |= problem_if(is_positive(config->hysteresis_wh), CTL_CONFIG_BAD_HYSTERESIS);
     problems |= problem_if(is_trim_limit_valid(config), CTL_CONFIG_BAD_TRIM_LIMIT);
+    problems |=
+        problem_if(is_integral_gain_valid(config->integral_w_per_kh), CTL_CONFIG_BAD_INTEGRAL_GAIN);
+    problems |= problem_if(is_integral_limit_valid(config->integral_limit_w),
+                           CTL_CONFIG_BAD_INTEGRAL_LIMIT);
     problems |= problem_if(is_at_least(config->solar_gain_factor, 0.0), CTL_CONFIG_BAD_SOLAR_GAIN);
     problems |=
         problem_if(is_at_least(config->energy_clamp_factor, 1.0), CTL_CONFIG_BAD_ENERGY_CLAMP);

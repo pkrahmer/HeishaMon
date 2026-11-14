@@ -1,8 +1,10 @@
 #include "ctl_balance.h"
 
+#include <math.h>
+
 /* The deviation is clamped, not the power, so the limit stays readable in kelvin and does not
  * move when adjustment_w_per_k is retuned. */
-static double trim_deviation(double t_indoor_c, const ctl_config *config)
+double ctl_trim_deviation(double t_indoor_c, const ctl_config *config)
 {
     const double deviation = t_indoor_c - config->desired_indoor_c;
     const double limit = config->trim_limit_k;
@@ -19,18 +21,38 @@ static double trim_deviation(double t_indoor_c, const ctl_config *config)
     return deviation;
 }
 
+bool ctl_trim_within_limit(double t_indoor_c, const ctl_config *config)
+{
+    const double deviation = t_indoor_c - config->desired_indoor_c;
+    const double limit = config->trim_limit_k;
+
+    if (!config->trim_limit_enabled) {
+        return !isnan(deviation);
+    }
+    return deviation >= -limit && deviation <= limit;
+}
+
 void ctl_energy_balance(const ctl_inputs *inputs, const ctl_config *config, ctl_balance *balance)
 {
     const double p_transmission =
         config->transmission_w_per_k * (inputs->t_outdoor_c - inputs->t_indoor_c);
     const double p_model =
         inputs->p_produced_w + inputs->p_solar_w + inputs->p_internal_w + p_transmission;
-    const double p_trim = config->adjustment_w_per_k * trim_deviation(inputs->t_indoor_c, config);
+    const double p_trim = config->adjustment_w_per_k * ctl_trim_deviation(inputs->t_indoor_c, config);
 
     balance->p_transmission_w = p_transmission;
     balance->p_model_w = p_model;
     balance->p_trim_w = p_trim;
+    balance->p_integral_w = 0.0;
     balance->p_net_w = p_model + p_trim;
+}
+
+void ctl_balance_add_integral(ctl_balance *balance, double p_integral_w)
+{
+    balance->p_integral_w = p_integral_w;
+    if (p_integral_w != 0.0) {
+        balance->p_net_w = balance->p_net_w + p_integral_w;
+    }
 }
 
 void ctl_ledger_init(ctl_ledger *ledger)
@@ -40,12 +62,13 @@ void ctl_ledger_init(ctl_ledger *ledger)
     ledger->internal_wh = 0.0;
     ledger->transmission_wh = 0.0;
     ledger->trim_wh = 0.0;
+    ledger->integral_wh = 0.0;
 }
 
 double ctl_ledger_total_wh(const ctl_ledger *ledger)
 {
     return ledger->produced_wh + ledger->solar_wh + ledger->internal_wh +
-           ledger->transmission_wh + ledger->trim_wh;
+           ledger->transmission_wh + ledger->trim_wh + ledger->integral_wh;
 }
 
 void ctl_ledger_accumulate(ctl_ledger *ledger, const ctl_inputs *inputs,
@@ -56,4 +79,5 @@ void ctl_ledger_accumulate(ctl_ledger *ledger, const ctl_inputs *inputs,
     ledger->internal_wh += inputs->p_internal_w * hours;
     ledger->transmission_wh += balance->p_transmission_w * hours;
     ledger->trim_wh += balance->p_trim_w * hours;
+    ledger->integral_wh += balance->p_integral_w * hours;
 }

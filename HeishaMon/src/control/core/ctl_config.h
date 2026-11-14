@@ -18,6 +18,8 @@ typedef struct {
     double hysteresis_wh;
     bool trim_limit_enabled;
     double trim_limit_k;
+    double integral_w_per_kh; /* 0 freezes the integral term */
+    double integral_limit_w;
     double solar_gain_factor;
     double energy_clamp_factor;
     double max_step_s;
@@ -42,7 +44,9 @@ typedef enum {
     CTL_CONFIG_BAD_INTEGRATION_INTERVAL = 1u << 9,
     CTL_CONFIG_BAD_INPUT_HOLD = 1u << 10,
     CTL_CONFIG_BAD_MAX_AGE = 1u << 11,
-    CTL_CONFIG_BAD_FALLBACK = 1u << 12
+    CTL_CONFIG_BAD_FALLBACK = 1u << 12,
+    CTL_CONFIG_BAD_INTEGRAL_GAIN = 1u << 13,
+    CTL_CONFIG_BAD_INTEGRAL_LIMIT = 1u << 14
 } ctl_config_problem;
 
 /* Sets every field to its default. The result is valid. Refuses nothing. */

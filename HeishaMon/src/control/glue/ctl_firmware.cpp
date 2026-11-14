@@ -620,6 +620,11 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
     case CTL_TOPIC_FRAME_LOG:
         handle_frame_log(payload, length);
         return true;
+    case CTL_TOPIC_INTEGRAL_RESET:
+        // A command, not a setting: the payload means nothing and nothing is saved.
+        ctl_reset_integral(&loop_state.state, now_s(), &config.core);
+        log_text("control: integral reset");
+        return true;
     case CTL_TOPIC_NONE:
         break;
     }

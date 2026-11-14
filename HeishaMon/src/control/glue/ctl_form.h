@@ -39,10 +39,15 @@ typedef enum {
     CTL_SAVE_REFUSED_UNKNOWN
 } ctl_save_result;
 
+/* An entry keeps its setting's index in ctl_settings_name_at rather than its name, to spare RAM:
+ * the report lives as long as the firmware. The indexes hold while the settings list keeps the
+ * count of names it had after the save; once that count differs the report shows no result. */
 typedef struct {
     size_t count;
-    char name[CTL_FORM_FIELDS_MAX][CTL_SETTINGS_NAME_MAX];
-    uint8_t result[CTL_FORM_FIELDS_MAX]; /* a ctl_save_result, a byte each to spare RAM */
+    const ctl_settings *settings; /* the settings the save changed, or NULL before any save */
+    uint8_t names;                /* ctl_settings_name_count of settings after the save */
+    uint8_t setting[CTL_FORM_FIELDS_MAX]; /* an index of ctl_settings_name_at */
+    uint8_t result[CTL_FORM_FIELDS_MAX];  /* a ctl_save_result, a byte each to spare RAM */
 } ctl_form_report;
 
 /* Changes the setting called name to value and returns the setter's answer; sets *changed when
@@ -75,7 +80,8 @@ bool ctl_form_apply(const ctl_form *form, const ctl_settings *settings, ctl_form
 void ctl_form_report_start(ctl_form_report *report);
 
 /* Returns what the report's save did to the setting called name: unchanged for a name it does
- * not hold. Refuses nothing. */
+ * not hold, and for every name once the count of names differs from the one after the save.
+ * Refuses nothing. */
 ctl_save_result ctl_form_report_result(const ctl_form_report *report, const char *name);
 
 /* Writes the settings table's row of the name at index of ctl_settings_name_at: the name, its

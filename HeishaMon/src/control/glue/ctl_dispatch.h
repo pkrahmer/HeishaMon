@@ -17,7 +17,8 @@ typedef enum {
     CTL_TOPIC_NONE,
     CTL_TOPIC_INPUT,
     CTL_TOPIC_SETTING,
-    CTL_TOPIC_FRAME_LOG /* a line of another HeishaMon's log */
+    CTL_TOPIC_FRAME_LOG, /* a line of another HeishaMon's log */
+    CTL_TOPIC_INTEGRAL_RESET /* the command that clears the core's integral term */
 } ctl_topic_kind;
 
 typedef struct {
@@ -31,7 +32,8 @@ typedef struct {
  * room below room_count, the first such room when several are equal; else INPUT with CTL_INPUT_PV
  * for a topic equal to a non-empty pv_topic; else FRAME_LOG for a topic equal to a non-empty
  * frame_log_topic;
- * SETTING with the name for <base>/control/set/<name>,
+ * INTEGRAL_RESET for <base>/control/set/integral_reset, which is a command and no setting;
+ * SETTING with the name for every other <base>/control/set/<name>,
  * when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
  * for a NULL argument; an empty topic setting matches nothing, since an empty topic is NONE.

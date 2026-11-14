@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 19 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 21 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -37,6 +37,8 @@ typedef struct {
     double hysteresis_wh;
     bool trim_limit_enabled;
     double trim_limit_k;
+    double integral_w_per_kh;
+    double integral_limit_w;
     double solar_gain_factor;
     double internal_w; /* the core's fallback for P_INTERNAL */
     int heat_cool_heat_value;
