@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 33
 comments_read: [6875586408]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T10:10:53.729203Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -42,6 +46,11 @@ journal:
   at: '2026-11-14T10:10:44.965663Z'
   stage: doing
   run: 7b1eadb70fe44d23bc17231b7a7e3465
+- number: 7
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:10:53.729203Z'
+  stage: review
 ---
 
 # Remove the remote-board mode
@@ -118,3 +127,4 @@ Expect: `1`
    Noticed, not touched: the senders list in `test_payload_first.c` still names `decode_heatpump_data` and `ctl_firmware_frame`. No handler calls them any more, and the list stays as it is on the human's word.
 
    `check`: check: green
+7. factory: started review as heishamon.
