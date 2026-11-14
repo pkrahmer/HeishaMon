@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T19:20:09.523081Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-14T19:20:02.111754Z'
   stage: doing
   run: 395edf67ca524d32bb1044597a0e072a
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:20:09.523081Z'
+  stage: review
 ---
 
 # Remove the Python reference copy
@@ -138,3 +147,4 @@ Expect: `1`
    Noticed, not touched: nothing new.
 
    `check`: check: green
+8. factory: started review as heishamon.
