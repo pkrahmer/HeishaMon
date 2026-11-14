@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 39
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T19:28:51.321516Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-14T19:28:42.721637Z'
   stage: doing
   run: df9e75b7fd03450bb4f1758af1a50fe8
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:28:51.321516Z'
+  stage: review
 ---
 
 # Use the neutral trace name
@@ -75,3 +84,4 @@ Expect: `1`
    Noticed, not touched: in test_integral.c's name list, `house_march` is now first, out of alphabetical order. I left it because the story allows only the name to change. The old name stays in the git history, as the decision records.
 
    `check`: check: green
+4. factory: started review as heishamon.
