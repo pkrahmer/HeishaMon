@@ -138,11 +138,12 @@ static ctl_setting_status refuse_unknown(void *context, const char *name, const 
 static void test_unknown(void)
 {
     ctl_settings_defaults(&settings);
+    CHECK_UINT(ctl_settings_set(&settings, "rooms", "1"), CTL_SETTING_OK);
     ctl_form_start(&form);
     ctl_form_report_start(&report);
-    keep_text(&form, "pv_topic", "house/pv");
+    keep_text(&form, "room.0.topic", "house/room");
     CHECK_TRUE(!ctl_form_apply(&form, &settings, refuse_unknown, NULL, &report));
-    expect_row("pv_topic", "", REFUSED_MARK, "refused: unknown setting");
+    expect_row("room.0.topic", "", REFUSED_MARK, "refused: unknown setting");
 }
 
 /* Before any save, and once the report is emptied, every last column is empty. */

@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 19 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 17 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -28,7 +28,6 @@ typedef struct {
     char room_topic[CTL_ROOMS_MAX][CTL_SETTINGS_TOPIC_MAX + 1]; /* empty: never receives a value */
     double room_weight[CTL_ROOMS_MAX];
     double room_timeout_s;
-    char pv_topic[CTL_SETTINGS_TOPIC_MAX + 1]; /* empty: no PV */
     double desired_indoor_c;
     double transmission_w_per_k;
     double adjustment_w_per_k;
@@ -37,7 +36,6 @@ typedef struct {
     double trim_limit_k;
     double integral_w_per_kh;
     double integral_limit_w;
-    double solar_gain_factor;
     double internal_w; /* the core's fallback for P_INTERNAL */
     int heat_cool_heat_value;
     double min_change_interval_s;
@@ -54,7 +52,7 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, no PV, and the core's and the router's defaults, the thermostat rather than Smart Grid
+ * topic and weight 1), a room timeout of 1800 s, and the core's and the router's defaults, the thermostat rather than Smart Grid
  * mode among them. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
 
@@ -83,10 +81,9 @@ bool ctl_settings_valid(const ctl_settings *settings);
 
 /* Writes the loop's configuration: the loop's defaults for the rooms' count, with the core's
  * tuning, the room weights and timeout, the router's pacing, polarity and Smart Grid mode, the
- * allowed demands
- * and no assumed landing from the settings. No rooms gives one room of weight 1 that never
- * receives a value. Refuses nothing; whether the result is usable is ctl_settings_valid's to
- * say. */
+ * allowed demands and no assumed landing from the settings, and a solar gain of 0, since the
+ * board has no solar input. No rooms gives one room of weight 1 that never receives a value.
+ * Refuses nothing; whether the result is usable is ctl_settings_valid's to say. */
 void ctl_settings_to_loop(const ctl_settings *settings, ctl_loop_config *config);
 
 #endif

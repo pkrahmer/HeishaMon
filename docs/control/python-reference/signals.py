@@ -4,7 +4,7 @@ Each signal holds its last observed value until the next observation *for that
 signal*. That makes all five inputs defined at every instant, and makes p_net a
 piecewise-constant function whose breakpoints are exactly the observation
 instants -- so integrating it over an observation-free interval is exact rather
-than approximate. See docs/algorithm-plan.md 1.2 and [A-17].
+than approximate. See docs/control/core.md.
 """
 
 from __future__ import annotations

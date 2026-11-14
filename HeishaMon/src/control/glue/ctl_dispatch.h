@@ -28,11 +28,9 @@ typedef struct {
 } ctl_topic;
 
 /* Returns INPUT with CTL_INPUT_ROOM and the room's index for a topic equal to the topic of a
- * room below room_count, the first such room when several are equal; else INPUT with CTL_INPUT_PV
- * for a topic equal to a non-empty pv_topic; else
- * INTEGRAL_RESET for <base>/control/set/integral_reset, which is a command and no setting;
- * SETTING with the name for every other <base>/control/set/<name>,
- * when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
+ * room below room_count, the first such room when several are equal; else INTEGRAL_RESET for
+ * <base>/control/set/integral_reset, which is a command and no setting; SETTING with the name for
+ * every other <base>/control/set/<name>, when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
  * for a NULL argument; an empty topic setting matches nothing, since an empty topic is NONE.
  * Every field the kind does not use is zero. */

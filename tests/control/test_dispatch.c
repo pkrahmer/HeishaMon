@@ -27,14 +27,13 @@ static void set_or_fail(ctl_settings *settings, const char *name, const char *va
     check_true(__FILE__, __LINE__, status == CTL_SETTING_OK, name);
 }
 
-/* Two rooms, a/room1 and a/room2, and PV on pv/dc. */
+/* Two rooms, a/room1 and a/room2. */
 static void two_rooms(ctl_settings *settings)
 {
     ctl_settings_defaults(settings);
     set_or_fail(settings, "rooms", "2");
     set_or_fail(settings, "room.0.topic", "a/room1");
     set_or_fail(settings, "room.1.topic", "a/room2");
-    set_or_fail(settings, "pv_topic", "pv/dc");
 }
 
 static void check_row(const char *file, int line, const ctl_settings *settings,
@@ -70,7 +69,6 @@ static void test_topics(void)
         const topic_row rows[] = {
             {"a/room1", CTL_TOPIC_INPUT, CTL_INPUT_ROOM, 0, ""},
             {"a/room2", CTL_TOPIC_INPUT, CTL_INPUT_ROOM, 1, ""},
-            {"pv/dc", CTL_TOPIC_INPUT, CTL_INPUT_PV, 0, ""},
             {SET_PREFIX "hysteresis_wh", CTL_TOPIC_SETTING, CTL_INPUT_ROOM, 0, "hysteresis_wh"},
             {SET_PREFIX "room.1.topic", CTL_TOPIC_SETTING, CTL_INPUT_ROOM, 0, "room.1.topic"},
             {longest_topic, CTL_TOPIC_SETTING, CTL_INPUT_ROOM, 0, longest_name},
@@ -83,7 +81,6 @@ static void test_topics(void)
             {"a/room3", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""},
             {"a/room", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""},
             {"a/room10", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""},
-            {"pv/dc/x", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""},
             {"", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""},
         };
         two_rooms(&settings);

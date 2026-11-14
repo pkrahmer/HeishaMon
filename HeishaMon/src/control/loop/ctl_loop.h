@@ -1,7 +1,7 @@
 /*
- * The loop: the one module the firmware glue and the shadow sketch call. It takes each input as
- * it arrives, runs it through its adapter and hands any reading to the core at once, so that the
- * core holds every value from the instant it was measured. Called often with the current
+ * The loop: the one module the firmware glue calls. It takes each input as it arrives, runs it
+ * through its adapter and hands any reading to the core at once, so that the core holds every
+ * value from the instant it was measured. Called often with the current
  * instant, it advances the core every integration interval and, every tick interval, turns the
  * room average into one indoor reading, lets the core decide and steps the router. It is pure
  * like the core: instants are seconds of the caller's monotonic clock, and the commands it

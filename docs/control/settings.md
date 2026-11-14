@@ -17,7 +17,6 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `room.<i>.topic` | empty | a topic; one per room `i` below `rooms` | MQTT topic of room `i`'s temperature. Empty: the room never receives a value. |
 | `room.<i>.weight` | `1` | 0 to 1000; one per room `i` below `rooms`; the weights of all rooms together above 0 | Weight of room `i` in the indoor average; 0 = watched, not counted. |
 | `room_timeout_s` | `1800` | s, above 0 | Seconds after which a room's last value counts as too old. |
-| `pv_topic` | empty | a topic | MQTT topic of the PV power in W, for the solar gains. Empty: no PV. |
 | `desired_indoor_c` | `22` | °C, 5 to 30 | Target for the indoor average. |
 | `transmission_w_per_k` | `155` | W/K, above 0 | The house's heat loss per kelvin between inside and outside. |
 | `adjustment_w_per_k` | `805` | W/K, 0 or more | Extra power per kelvin the indoor average is off its target. |
@@ -25,7 +24,6 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `trim_limit_k` | `3` | K, above 0, or `none` | The largest deviation from the target that the adjustment acts on. `none`: no limit. |
 | `integral_w_per_kh` | `0` | W/(K·h), 0 to 200 | How fast the integral term learns the power the adjustment leaves missing: watts added per kelvin of deviation and hour. 0 = off; a learned integral then stays as it is. |
 | `integral_limit_w` | `300` | W, above 0 up to 2000 | The largest integral term, either way. Lowering it below the term's size clamps the term at once. |
-| `solar_gain_factor` | `0.02` | 0 or more | Share of the PV power counted as solar heat entering the house. |
 | `internal_w` | `550` | W, any number | Heat from people and devices inside. |
 | `heat_cool_heat_value` | `-1` | `-1`, `0` or `1` | The SetHeatCoolMode value that means heat; -1 never sends it. Used only without Smart Grid. |
 | `min_change_interval_s` | `300` | s, 0 or more | Shortest time between two switches of the pump. |
@@ -57,7 +55,7 @@ integral file*).
 The owner's production board is wired to the pump and switches it by Smart Grid mode:
 
 - `smart_grid` `1`;
-- `enabled` `1`, once the rooms, `pv_topic` and the tuning are set.
+- `enabled` `1`, once the rooms and the tuning are set.
 
 HeishaMon's optional PCB emulation must be on and listen-only mode off, or no command reaches the
 pump (`firmware.md`, *What reaches the pump*).

@@ -108,17 +108,17 @@ static void test_unchanged(void)
 static void test_pieces(void)
 {
     start();
-    keep_text(&form, "pv_topic", "house/");
-    keep_text(&form, "pv_topic", "pv/");
-    ctl_form_keep(&form, "pv_topic", NULL, 0);
-    keep_text(&form, "pv_topic", "power");
+    keep_text(&form, "room.0.topic", "house/");
+    keep_text(&form, "room.0.topic", "room/");
+    ctl_form_keep(&form, "room.0.topic", NULL, 0);
+    keep_text(&form, "room.0.topic", "air");
     /* A name that comes back after another starts its value again. */
     keep_text(&form, "desired_indoor_c", "2");
     keep_text(&form, "rooms", "1");
     keep_text(&form, "desired_indoor_c", "19");
     CHECK_UINT(form.count, 3);
     CHECK_TRUE(ctl_form_apply(&form, &target.settings, set_setting, &target, &report));
-    check_setting(&target.settings, "pv_topic", "house/pv/power");
+    check_setting(&target.settings, "room.0.topic", "house/room/air");
     check_setting(&target.settings, "desired_indoor_c", "19");
 }
 
@@ -127,23 +127,24 @@ static void test_too_long(void)
     char piece[CTL_SETTINGS_VALUE_MAX / 2];
     memset(piece, 'a', sizeof piece);
     start();
+    CHECK_UINT(ctl_settings_set(&target.settings, "rooms", "1"), CTL_SETTING_OK);
     /* Exactly the longest value that fits, in two pieces. */
-    ctl_form_keep(&form, "pv_topic", piece, sizeof piece);
-    ctl_form_keep(&form, "pv_topic", piece, sizeof piece - 1);
+    ctl_form_keep(&form, "room.0.topic", piece, sizeof piece);
+    ctl_form_keep(&form, "room.0.topic", piece, sizeof piece - 1);
     CHECK_TRUE(form.count == 1 && form.field[0].fits);
     /* One byte more, then a piece that alone would fit: refused whole. */
-    ctl_form_keep(&form, "pv_topic", "b", 1);
-    ctl_form_keep(&form, "pv_topic", "", 0);
+    ctl_form_keep(&form, "room.0.topic", "b", 1);
+    ctl_form_keep(&form, "room.0.topic", "", 0);
     CHECK_TRUE(form.count == 1 && !form.field[0].fits);
     keep_text(&form, "room_timeout_s", "a\0b");
     ctl_form_keep(&form, "room_timeout_s", "a\0b", 3);
     CHECK_TRUE(form.count == 2 && !form.field[1].fits);
     CHECK_TRUE(!ctl_form_apply(&form, &target.settings, set_setting, &target, &report));
     CHECK_UINT(target.calls, 0);
-    check_setting(&target.settings, "pv_topic", "");
+    check_setting(&target.settings, "room.0.topic", "");
     CHECK_UINT(report.count, 2);
-    check_report_entry(&report, 0, "room_timeout_s", CTL_SAVE_REFUSED_BAD_VALUE);
-    check_report_entry(&report, 1, "pv_topic", CTL_SAVE_REFUSED_BAD_VALUE);
+    check_report_entry(&report, 0, "room.0.topic", CTL_SAVE_REFUSED_BAD_VALUE);
+    check_report_entry(&report, 1, "room_timeout_s", CTL_SAVE_REFUSED_BAD_VALUE);
 }
 
 static void test_unknown_name(void)

@@ -2,7 +2,7 @@
 
 Engage at -+H, release at 0. The deadband is 2H wide, so swapping direction costs
 2H of energy travel and there is no HEATING -> COOLING edge: both directions route
-through NO_DEMAND. See docs/algorithm-plan.md 1.3/1.4.
+through NO_DEMAND. See docs/control/core.md.
 
 Cycle sizing:  t_on ~ H / (P_delivered - P_loss),  t_off ~ H / P_loss.
 """

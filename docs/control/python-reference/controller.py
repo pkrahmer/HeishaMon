@@ -10,7 +10,7 @@ world from its own timestamp onward and never before it, so the open interval is
 closed with the *old* held values before the new value takes effect. Reversing
 those two steps is the classic asynchronous-integration bug.
 
-See docs/algorithm-plan.md 1.2-1.7.
+See docs/control/core.md.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class ControllerState:
     """Everything the loop remembers. Threaded through the pure functions, never mutated.
 
     Only ``energy_wh`` and ``demand`` are worth persisting across a restart; see
-    docs/algorithm-plan.md 3.
+    docs/control/core.md.
     """
 
     phase: Phase = Phase.UNINITIALIZED

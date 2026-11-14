@@ -58,7 +58,6 @@ static void test_defaults(void)
         {"cooling", "0"},
         {"rooms", "0"},
         {"room_timeout_s", "1800"},
-        {"pv_topic", ""},
         {"desired_indoor_c", "22"},
         {"transmission_w_per_k", "155"},
         {"adjustment_w_per_k", "805"},
@@ -66,7 +65,6 @@ static void test_defaults(void)
         {"trim_limit_k", "3"},
         {"integral_w_per_kh", "0"},
         {"integral_limit_w", "300"},
-        {"solar_gain_factor", "0.02"},
         {"internal_w", "550"},
         {"heat_cool_heat_value", "-1"},
         {"min_change_interval_s", "300"},
@@ -79,7 +77,7 @@ static void test_defaults(void)
     size_t i;
     fresh_defaults(&settings);
     CHECK_TRUE(ctl_settings_valid(&settings));
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 19u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 17u);
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_get(__FILE__, __LINE__, &settings, rows[i].name, rows[i].text);
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
@@ -91,7 +89,7 @@ static void test_name_list(void)
 {
     static const char *const expected[] = {
         "enabled",          "cooling",        "rooms",          "room.0.topic", "room.0.weight",
-        "room.1.topic",     "room.1.weight",  "room_timeout_s", "pv_topic",
+        "room.1.topic",     "room.1.weight",  "room_timeout_s", "desired_indoor_c",
     };
     ctl_settings settings;
     char name[CTL_SETTINGS_NAME_MAX];
@@ -100,17 +98,17 @@ static void test_name_list(void)
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
     check_set(__FILE__, __LINE__, &settings, "room.0.topic", "house/room0");
     check_set(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 23u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 21u);
     for (i = 0; i < sizeof expected / sizeof expected[0]; i++) {
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
         CHECK_TEXT(name, expected[i]);
     }
-    CHECK_TRUE(ctl_settings_name_at(&settings, 21, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 19, name, sizeof name));
     CHECK_TEXT(name, "max_retries");
     strcpy(name, UNTOUCHED);
-    CHECK_TRUE(ctl_settings_name_at(&settings, 22, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 20, name, sizeof name));
     CHECK_TEXT(name, "smart_grid");
-    CHECK_TRUE(!ctl_settings_name_at(&settings, 23, name, sizeof name));
+    CHECK_TRUE(!ctl_settings_name_at(&settings, 21, name, sizeof name));
     CHECK_TRUE(!ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic")));
     CHECK_TRUE(ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic") + 1));
 }
@@ -147,7 +145,6 @@ static void test_numbers(void)
         {"integral_limit_w", "2000", "2001", CTL_SETTING_INVALID_SET},
         {"integral_limit_w", "1", "nan", CTL_SETTING_BAD_VALUE},
         {"integral_limit_w", "300", "1e999", CTL_SETTING_BAD_VALUE},
-        {"solar_gain_factor", "0", "-0.001", CTL_SETTING_INVALID_SET},
         {"internal_w", "-100", "1e999", CTL_SETTING_BAD_VALUE},
         {"heat_cool_heat_value", "1", "2", CTL_SETTING_BAD_VALUE},
         {"heat_cool_heat_value", "-1", "-2", CTL_SETTING_BAD_VALUE},
@@ -182,7 +179,7 @@ static void test_unparsed_numbers(void)
         {"hysteresis_wh", "12x"},
         {"hysteresis_wh", "{\"v\":1000}"},
         {"hysteresis_wh", "1e12"},
-        {"solar_gain_factor", "0.0004"},
+        {"internal_w", "0.0004"},
         {"max_retries", "2.5"},
         {"rooms", "1.5"},
         {"enabled", "yes"},
@@ -227,7 +224,7 @@ static void test_topics(void)
         {"a\x7f", CTL_SETTING_BAD_VALUE},
         {NULL, CTL_SETTING_BAD_VALUE},
     };
-    static const char *const names[] = {"room.0.topic", "pv_topic"};
+    static const char *const names[] = {"room.0.topic"};
     size_t i;
     size_t n;
     memset(longest, 'a', CTL_SETTINGS_TOPIC_MAX);
@@ -273,7 +270,7 @@ static void test_rooms(void)
 
     /* A lower count keeps what lies above it; the higher count lists it again. */
     check_set(__FILE__, __LINE__, &settings, "rooms", "1");
-    CHECK_UINT(ctl_settings_name_count(&settings), 21);
+    CHECK_UINT(ctl_settings_name_count(&settings), 19);
     CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", value, sizeof value));
     check_refused(__FILE__, __LINE__, &settings, "room.1.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
@@ -321,7 +318,7 @@ static void test_formatting(void)
         const char *expected;
     } rows[] = {
         {"hysteresis_wh", 1500.0, 0, "1500"},
-        {"solar_gain_factor", 0.02, 0, "0.02"},
+        {"internal_w", 0.02, 0, "0.02"},
         {"desired_indoor_c", 22.5, 0, "22.5"},
         {"adjustment_w_per_k", 805.0, 0, "805"},
         {"internal_w", -0.125, 0, "-0.125"},
@@ -339,7 +336,6 @@ static void test_formatting(void)
         bool written;
         fresh_defaults(&settings);
         settings.hysteresis_wh = rows[i].value;
-        settings.solar_gain_factor = rows[i].value;
         settings.desired_indoor_c = rows[i].value;
         settings.adjustment_w_per_k = rows[i].value;
         settings.internal_w = rows[i].value;
@@ -353,9 +349,10 @@ static void test_formatting(void)
         ctl_settings settings;
         char topic[CTL_SETTINGS_VALUE_MAX];
         fresh_defaults(&settings);
-        check_set(__FILE__, __LINE__, &settings, "pv_topic", "gx/pv");
-        CHECK_TRUE(!ctl_settings_get(&settings, "pv_topic", topic, strlen("gx/pv")));
-        CHECK_TRUE(ctl_settings_get(&settings, "pv_topic", topic, strlen("gx/pv") + 1));
+        check_set(__FILE__, __LINE__, &settings, "rooms", "1");
+        check_set(__FILE__, __LINE__, &settings, "room.0.topic", "gx/room");
+        CHECK_TRUE(!ctl_settings_get(&settings, "room.0.topic", topic, strlen("gx/room")));
+        CHECK_TRUE(ctl_settings_get(&settings, "room.0.topic", topic, strlen("gx/room") + 1));
         CHECK_TRUE(!ctl_settings_get(&settings, "trim_limit_k", topic, 1));
         CHECK_TRUE(!ctl_settings_get(&settings, "enabled", topic, 1));
     }
@@ -412,6 +409,7 @@ static void test_to_loop(void)
 
     fresh_defaults(&settings);
     ctl_loop_config_defaults(&expected, 1);
+    expected.core.solar_gain_factor = 0.0;
     expected.allowed = heating_and_none;
     expected.assume_landed = false;
     ctl_settings_to_loop(&settings, &actual);
@@ -441,7 +439,6 @@ static void test_to_loop_fields(void)
     check_set(__FILE__, __LINE__, &settings, "trim_limit_k", "none");
     check_set(__FILE__, __LINE__, &settings, "integral_w_per_kh", "25");
     check_set(__FILE__, __LINE__, &settings, "integral_limit_w", "500");
-    check_set(__FILE__, __LINE__, &settings, "solar_gain_factor", "0.03");
     check_set(__FILE__, __LINE__, &settings, "heat_cool_heat_value", "0");
     check_set(__FILE__, __LINE__, &settings, "min_change_interval_s", "400");
     check_set(__FILE__, __LINE__, &settings, "retry_interval_s", "90");
@@ -459,7 +456,7 @@ static void test_to_loop_fields(void)
     CHECK_TRUE(!config.core.trim_limit_enabled);
     CHECK_DOUBLE(config.core.integral_w_per_kh, 25.0);
     CHECK_DOUBLE(config.core.integral_limit_w, 500.0);
-    CHECK_DOUBLE(config.core.solar_gain_factor, 0.03);
+    CHECK_DOUBLE(config.core.solar_gain_factor, 0.0);
     CHECK_UINT((uint32_t)config.router.heat_cool_heat_value, 0u);
     CHECK_DOUBLE(config.router.min_change_interval_s, 400.0);
     CHECK_DOUBLE(config.router.retry_interval_s, 90.0);

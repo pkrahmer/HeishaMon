@@ -2,10 +2,9 @@
 
 The loop ties the core, the adapters and the router together. It lives in
 `HeishaMon/src/control/loop/` as plain C99 and, like them, takes values and returns values: it has
-no clock of its own, sends nothing and logs nothing. Two callers use it the same way: the firmware
-glue, which hands it HeishaMon's values and the MQTT payloads as they arrive and sends the
-commands it returns, and the shadow sketch, which runs the loop beside the legacy controller and
-only writes its records. Instants are seconds of the caller's monotonic clock (see *The clock*).
+no clock of its own, sends nothing and logs nothing. Its caller is the firmware glue, which hands
+it HeishaMon's values and the MQTT payloads as they arrive and sends the commands it returns.
+Instants are seconds of the caller's monotonic clock (see *The clock*).
 
 The configuration (`ctl_loop_config`) holds the core's, the rooms' and the router's own
 configurations, the allowed demands and `assume_landed`. `ctl_loop_config_valid` accepts it when
@@ -27,6 +26,9 @@ reaches the core at once with `ctl_observe`, at the instant it arrived.
 | `CTL_INPUT_VALVE` | `ctl_pump_valve` | `P_PRODUCED`, only when the mask changes |
 | `CTL_INPUT_DEFROST` | `ctl_pump_defrost` | `P_PRODUCED`, only when the mask changes |
 | `CTL_INPUT_PV` | `ctl_solar`, with the core's `solar_gain_factor` | `P_SOLAR` |
+
+The firmware never offers `CTL_INPUT_PV` and sets `solar_gain_factor` to 0 (`firmware.md`), so on
+the board `P_SOLAR` stays at its fallback of 0 W.
 
 The answer is one of four:
 
@@ -102,7 +104,7 @@ buffer of that size is therefore refused only for a number the fixed format refu
 
 ## The clock (`ctl_clock.h`)
 
-The core needs elapsed time that never jumps back (`firmware-design.md` §5), but the boards'
+The core needs elapsed time that never jumps back, but the boards'
 `millis()` is a 32-bit counter of milliseconds and wraps to 0 every 2^32 ms, about 49.7 days. A
 board that runs for months would see time go backwards, which the core refuses as no time at
 all. `ctl_clock_widen` widens the counter to 64 bits: its first call takes the counter as it is,
@@ -118,7 +120,7 @@ often than that. The glue divides the result by 1000.0 to get the loop's seconds
   direction to the hysteresis, so that nothing banks up. Cooling is switched on only by the owner.
 - **Landing is not assumed.** `assume_landed` is false: the router waits for the pump's state that
   the glue hands in with `ctl_loop_confirm`, and repeats and then faults a command that does not
-  land (`router.md`). A shadow, which sends no command to a pump, sets it to true: every command
+  land (`router.md`). A caller that sends nothing to the pump sets it to true: every command
   then counts as landed at the next decision tick, so that its router does not repeat and fault on
-  commands nobody sent.
+  commands nobody sent. The firmware does so while its gate is blocked (`firmware.md`).
 - The core's, the rooms' and the router's own defaults (`core.md`, `adapters.md`, `router.md`).
