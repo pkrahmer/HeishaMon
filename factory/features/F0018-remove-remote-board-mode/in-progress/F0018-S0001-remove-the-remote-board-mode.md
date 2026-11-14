@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 33
 comments_read: [6875586408]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T10:10:53.729203Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -51,6 +47,12 @@ journal:
   kind: started
   at: '2026-11-14T10:10:53.729203Z'
   stage: review
+- number: 8
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T10:11:51.291943Z'
+  stage: review
+  run: 69edebb0d58b4abc938a327b8ce20e46
 ---
 
 # Remove the remote-board mode
@@ -128,3 +130,38 @@ Expect: `1`
 
    `check`: check: green
 7. factory: started review as heishamon.
+8. reviewer: no findings
+
+   What I checked (round 0), against `git diff develop...HEAD -- . ':!factory'` and the code at HEAD:
+
+   1. Acceptance criteria
+      - Criterion 1: a grep over the tree finds the removed names only in the decision log. It also finds them in `tests/control/test_settings_remote.c`, but only as split literals, which the grep pattern does not match.
+      - Criteria 2 and 3: covered by `tests/control/test_settings_remote.c`. It sets the loader's name/value pairs for a file holding both old names among kept settings. It checks that both names give UNKNOWN, every other setting is applied, unlisted settings stay at their defaults, and neither name is listed or readable. Criterion 2 is partly covered there: the JSON loading itself (`load_settings`) is in `ctl_firmware.cpp`, which does not build on the host, so the test calls the setter directly. That is the same approach `test_settings_legacy.c` already uses. `test_settings.c` checks the counts (19, 21, 23).
+      - Criterion 4: `test_gate.c` has rows for all 8 combinations of the three kept inputs, with the same results as the old rows where `command_topic` was false. Every kept reason appears.
+      - Criteria 5 and 6: the journal reports `make firmware` before and after, and both numbers went down. The stat of upstream files is empty.
+      - Criterion 7: the factory's `make check` after the builder was green.
+   2. Architecture
+      - No upstream file changed and no hook line changed.
+      - `ctl_firmware_frame` is still called from the `HeishaMon.ino` hook.
+      - `decode.h` is still needed for `getDataValue`.
+      - `webfunctions.h` and the externs of upstream's globals are gone.
+      - Every `.c` change is a removal, and the public names keep the `ctl_` prefix.
+   3. Embedded safety: nothing was added. `send_commands` keeps its bound, and `subscribe_inputs` is simpler.
+   4. Quality
+      - No dead leftovers: `change_command_topic`, `REMOTE_PCB_FRESH_S`, `put_frame_counter` and `FRAME_COUNTERS` are gone.
+      - `confirm` no longer takes `now`.
+      - The header comments of `ctl_gate.h`, `ctl_dispatch.h`, `ctl_firmware.h`, `ctl_settings.h` and `ctl_telemetry.h` match the code.
+   5. Hygiene and docs
+      - `firmware.md` and `settings.md` describe only the board's own path.
+      - No cross-reference to a removed section is left; the `smart_grid` row now points to the new *Smart Grid mode* section.
+      - The claims I checked against the code hold: the `smart_grid` change reopens the router, the gate order and log texts, and `config/smart_grid` is the last setting.
+      - The `decisions.md` entry has the decision, the reason and what was rejected, as criterion 8 asks.
+   6. Earlier tests the diff changed or deleted, each with the leave it was changed under:
+      - `tests/control/test_framelog.c` (D): the Interface names it as deletable.
+      - `tests/control/test_framelog_sent.c` (D): the Interface names it as deletable.
+      - `tests/control/data/framelog_sample.txt` (D): test data that only the two deleted tests read; nothing else refers to it.
+      - `tests/control/test_dispatch.c` (M): the Interface allows its changes; only the frame-log test was removed.
+      - `tests/control/test_gate.c` (M): the Interface allows its changes; remote rows and the `no_frame_log` check were removed, kept rows are unchanged, and the out-of-range value moved from 9 to 4.
+      - `tests/control/test_settings.c` (M): the Interface allows its changes; rows were removed and counts and indexes shifted.
+      - `tests/control/test_telemetry.c` (M): the Interface allows its changes; the counter rows were removed and the counts shifted.
+      - `tests/control/test_payload_first.c` (M): changed on the human's word in journal entry 4; only line 131 was deleted.
