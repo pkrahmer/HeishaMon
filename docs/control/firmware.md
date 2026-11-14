@@ -95,7 +95,7 @@ whether commands are enabled. A subtopic, with its terminating zero, fits
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
 does not have is written `-`. A flag is `1` or `0`.
 
-**Inputs**, 8 entries, 3 for each configured room and the 2 frame counters:
+**Inputs**, 8 entries, plus 3 for each configured room:
 
 | Subtopic | Value |
 |---|---|
@@ -111,7 +111,7 @@ does not have is written `-`. A flag is `1` or `0`.
 | `inputs/room/<i>/fresh` | `1` when the room is fresh at the record's instant, else `0` |
 | `inputs/room/<i>/weight` | its weight, 1 decimal |
 
-The five input values are `-` when the decision has no inputs: the core resolved nothing then.
+The four input values are `-` when the decision has no inputs: the core resolved nothing then.
 
 **Status**, 10 entries:
 

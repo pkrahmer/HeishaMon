@@ -82,7 +82,8 @@ bool ctl_settings_valid(const ctl_settings *settings);
 /* Writes the loop's configuration: the loop's defaults for the rooms' count, with the core's
  * tuning, the room weights and timeout, the router's pacing, polarity and Smart Grid mode, the
  * allowed demands
- * and no assumed landing from the settings. No rooms gives one room of weight 1 that never
+ * and no assumed landing from the settings, and a solar_gain_factor of 0, since the board has no
+ * solar input. No rooms gives one room of weight 1 that never
  * receives a value. Refuses nothing; whether the result is usable is ctl_settings_valid's to
  * say. */
 void ctl_settings_to_loop(const ctl_settings *settings, ctl_loop_config *config);

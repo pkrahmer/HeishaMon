@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T10:36:39.996760Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,12 @@ journal:
   kind: started
   at: '2026-11-14T10:36:39.996760Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-14T10:41:43.107479Z'
+  stage: doing
+  run: e64ca721483446a78d37036daa706621
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -210,3 +212,23 @@ Expect: `1`
    - `decisions.md` has the required entry, with the rejected option.
    - `settings.md`, `loop.md` and `device-test.md` match the code.
 9. factory: started doing as heishamon.
+10. builder: Round 1: I fixed exactly the three findings from the reviewer's entry 8. Nothing else changed.
+
+    1. `docs/control/firmware.md`: "The five input values are `-`" now says "four", which matches `indoor_c`, `outdoor_c`, `produced_w` and `internal_w`.
+    2. `docs/control/firmware.md`: the inputs heading line now reads "8 entries, plus 3 for each configured room". The wrong "2 frame counters" is gone, because `glue/ctl_telemetry.c` publishes no frame counter.
+    3. `HeishaMon/src/control/glue/ctl_settings.h`: the comment on `ctl_settings_to_loop` now says the function writes a `solar_gain_factor` of 0, because the board has no solar input.
+
+    I changed no code and no tests. Comments and documents only, so the golden traces are unaffected.
+
+    Results:
+    - `make check` is green.
+    - D1 mini memory is unchanged from round 0:
+      - RAM: 48412 B on `develop`, 48244 B now.
+      - Flash: 757528 B on `develop`, 757144 B now.
+    - ESP32-S3 sketch: 1705491 B before, 1705151 B now.
+    - ESP32-S3 globals: 67488 B before, 67368 B now.
+    - Smoke test: prints `1`, as expected.
+
+    Still open, as the human decided in entry 4: `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop. Nothing in the firmware uses them any more. Removing them would be a follow-up story.
+
+    `check`: check: green
