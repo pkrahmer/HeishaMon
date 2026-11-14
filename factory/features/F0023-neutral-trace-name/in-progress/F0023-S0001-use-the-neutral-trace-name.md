@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 39
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T19:28:51.321516Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-14T19:28:51.321516Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T19:29:19.145892Z'
+  stage: review
+  run: d2de0602d365451586c2a324297cc896
 ---
 
 # Use the neutral trace name
@@ -85,3 +87,16 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: no findings
+
+   What I checked against the diff `develop...HEAD` (factory paths excluded) and the work item:
+
+   1. Acceptance criteria. Criterion 1: the `git grep -n -i barbarastr` command (excluding factory and decisions.md) prints nothing, and `git ls-files tests/control/data | grep -c -i barbara` prints `0`. `docs/control/decisions.md` does not name the old name either. Criterion 2: the builder's journal gives the same summary on develop and on the branch (`13 files, 332239 calls, 0 mismatches`). The count stays the same because `test_traces.c` keeps `{"house_march", 129493}`. I also compared the unpacked develop `barbarastr_march` with `house_march`: they differ only in lines 3–4, the header's scenario name. Criterion 3: in each test file, the one changed line only swaps the name. Criterion 4: `git diff develop --stat -- HeishaMon` prints nothing. Criterion 5: the factory's check after the builder is `check: green`. Criterion 6: core.md and golden-traces.md swap only the name and keep the description. decisions.md has one new entry with the date, decision, reason, and the rejected option (rewriting history), as the criterion asks. The criteria are checked by commands, and the existing trace and integral tests cover the behaviour. No new test is needed for a rename.
+   2. Architecture: no file outside `docs/control/` and `tests/control/` changed, and no code under `HeishaMon/` changed.
+   3. Embedded safety: no code that runs on the board changed.
+   4. Quality: the change is limited to the names. `house_march` now heads the name list in `test_integral.c` out of alphabetical order. The story allows only the name to change, so this is correct.
+   5. Work item hygiene: the journal explains the rename, the zcat comparison before the removal, and why there is no new test. The Description matches what was built, and the documents' names match the code.
+   6. Earlier tests changed:
+   - `tests/control/test_traces.c` (M): the human approved the change in the story's Interface. Only the name changed.
+   - `tests/control/test_integral.c` (M): the human approved the change in the story's Interface. Only the name changed.
+   - `tests/control/data/barbarastr_march.trace.gz` (D): test data. The Description and Interface name its removal, and `house_march.trace.gz` holds the same data.
