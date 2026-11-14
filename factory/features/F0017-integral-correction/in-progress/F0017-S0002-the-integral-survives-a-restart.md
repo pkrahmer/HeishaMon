@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T09:12:05.415528Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-14T09:12:05.415528Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T09:13:39.040049Z'
+  stage: review
+  run: 4420bfe0ba1240959a4f309a4d40cb9a
 ---
 
 # The integral survives a restart
@@ -216,3 +218,37 @@ Expect: `1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Review, round 1: no findings.
+
+   I read the diff against `develop` and the code it calls: `ctl_payload_parse` (`adapt/ctl_payload.c`), `ctl_advance`, `ctl_observe` and `ctl_reset_integral` (`core/ctl_controller.c`), `ctl_loop_init`, the `started` guards in `ctl_firmware.cpp`, and `check.h`. The factory's `make check` after the builder was green (journal entry 7).
+
+   **Findings from round 0, rechecked**
+   1. `test_start_is_held_without_gain` now integrates for real.
+      - The first `ctl_observe` sets `t_last`, and all three required signals are observed every minute.
+      - Steps of 60 s are under `max_step_s`, so `CHECK_TRUE(ctl_advance(...))` holds only when `integrate` ran.
+      - The gain-20 control shows that the hour reaches the integral.
+   2. The second copy of `is_space` and the trim are gone. `ctl_payload_parse` refuses length 0 by itself: `at_end`, then a bare number with no digits.
+   3. The header and `firmware.md` now say "white space around it", and there is a `" 42"` row.
+   4. The format comment is correct now, and `test_format_reads_back` has rows for NaN and ±infinity.
+   5. `ctl_firmware.h` is rewrapped.
+   6. Bookkeeping is now pure code (`ctl_integral_store_load`, `ctl_integral_store_begin`, `ctl_integral_store_end`) and is tested:
+      - nothing is written at load, and the 6 hours count from boot, checked on both sides;
+      - a failed write keeps the old saved value, is not retried at 11 h 59 min, and is retried at 12 h;
+      - a reset writes at once.
+      - The only rule still without a test is that `status/integral_saved_w` is published (one `ctl_format_fixed` and `publish` in `publish_telemetry`). The builder named this for the human in entry 7. The human accepts it or rejects it at the approval.
+
+   **Checked, nothing to report**
+   - **Criteria 1–4:** the rows are exact, with both boundaries tested. 10 W writes and 9.9 W does not; 6 h writes and 5 h 59 min does not. The simulated day counts writes 1 to 4, each at least 6 h apart.
+   - **Architecture:**
+     - The new `.c` file includes only `../adapt` and `../loop` headers and the C standard library, and nothing from the core includes it.
+     - File access stays in `ctl_firmware.cpp`, and names use `ctl_`/`CTL_`.
+     - `git diff --name-status develop...HEAD` lists only files under the fork's folders, plus the work item. No upstream file or hook line changed (criterion 6).
+   - **Embedded safety:**
+     - The file read is bounded by `sizeof text` (32 bytes), and a larger file is refused before it is read.
+     - Every text buffer is written with its size.
+     - The parsed value is checked with `isfinite` and clamped to ±`integral_limit_w` before the core gets it.
+     - There is no dynamic memory or recursion.
+     - The write runs only when `begin` says it is due, so at most every 6 h or on a reset.
+   - **Docs:** `firmware.md`, `settings.md` (one sentence) and the one `decisions.md` entry match the code: the names, the 32-byte limit, three decimals in the file and one in the telemetry, and the retry after 6 h. One prose line in `decisions.md` and two in `firmware.md` run past the wrap width. Other lines in these files already do, and it does not change the meaning, so I did not raise it.
+
+   **Earlier tests:** none. The diff adds `tests/control/test_integral_store.c` (status A) and changes, renames or deletes no test file that `develop` holds.
