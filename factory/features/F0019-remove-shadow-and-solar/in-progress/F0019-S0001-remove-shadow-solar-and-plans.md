@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T10:36:39.996760Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -53,6 +57,11 @@ journal:
   at: '2026-11-14T10:36:34.238124Z'
   stage: review
   run: 5a377b0aa9f543a7ac8939a8ddfd48ab
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:36:39.996760Z'
+  stage: doing
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -200,3 +209,4 @@ Expect: `1`
    - The diff adds no dynamic memory, recursion or unbounded loop.
    - `decisions.md` has the required entry, with the rejected option.
    - `settings.md`, `loop.md` and `device-test.md` match the code.
+9. factory: started doing as heishamon.
