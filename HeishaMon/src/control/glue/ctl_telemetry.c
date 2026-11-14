@@ -7,6 +7,7 @@
 #include "../loop/ctl_loop.h"
 #include "../loop/ctl_text.h"
 #include "../route/ctl_router.h"
+#include "ctl_desired.h"
 #include "ctl_gate.h"
 #include "ctl_settings.h"
 
@@ -17,7 +18,7 @@
 
 #define INPUTS_FIXED 8
 #define ENTRIES_PER_ROOM 3
-#define STATUS_COUNT 12
+#define STATUS_COUNT 14
 #define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
  * signal names, with room to spare. */
@@ -183,9 +184,17 @@ static void put_status_entry(ctl_text *subtopic, ctl_text *value,
         ctl_text_put(subtopic, "status/p_integral_w");
         ctl_text_put_input(value, decision->has_inputs, decision->balance.p_integral_w, 1);
         break;
-    default:
+    case 11:
         ctl_text_put(subtopic, "status/integral_wh");
         ctl_text_put_number(value, decision->ledger.integral_wh, 1);
+        break;
+    case 12:
+        ctl_text_put(subtopic, "status/desired_c");
+        ctl_text_put_number(value, source->desired_c, 2);
+        break;
+    default:
+        ctl_text_put(subtopic, "status/desired_source");
+        ctl_text_put(value, ctl_desired_source_name(source->desired_source));
         break;
     }
 }

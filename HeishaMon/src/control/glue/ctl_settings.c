@@ -32,6 +32,7 @@ typedef enum {
     SETTING_ROOM_WEIGHT,
     SETTING_ROOM_TIMEOUT,
     SETTING_DESIRED_INDOOR,
+    SETTING_DESIRED_TOPIC,
     SETTING_TRANSMISSION,
     SETTING_ADJUSTMENT,
     SETTING_HYSTERESIS,
@@ -58,6 +59,7 @@ static const fixed_name FIXED_NAMES[] = {
     {"rooms", SETTING_ROOMS},
     {"room_timeout_s", SETTING_ROOM_TIMEOUT},
     {"desired_indoor_c", SETTING_DESIRED_INDOOR},
+    {"desired_topic", SETTING_DESIRED_TOPIC},
     {"transmission_w_per_k", SETTING_TRANSMISSION},
     {"adjustment_w_per_k", SETTING_ADJUSTMENT},
     {"hysteresis_wh", SETTING_HYSTERESIS},
@@ -324,6 +326,8 @@ static char *topic_field(ctl_settings *settings, setting_key key)
     switch (key.id) {
     case SETTING_ROOM_TOPIC:
         return settings->room_topic[key.room];
+    case SETTING_DESIRED_TOPIC:
+        return settings->desired_topic;
     default:
         return NULL;
     }
@@ -488,6 +492,7 @@ void ctl_settings_defaults(ctl_settings *settings)
     }
     settings->room_timeout_s = rooms.room_timeout_s;
     settings->desired_indoor_c = core.desired_indoor_c;
+    settings->desired_topic[0] = '\0';
     settings->transmission_w_per_k = core.transmission_w_per_k;
     settings->adjustment_w_per_k = core.adjustment_w_per_k;
     settings->hysteresis_wh = core.hysteresis_wh;

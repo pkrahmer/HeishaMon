@@ -28,6 +28,7 @@ below, with the rooms' names after `rooms`.
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
+| `desired_topic` | text | empty | see topics below and *The target from a thermostat* |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
 | `adjustment_w_per_k` | number | the core's default | as the core validates it |
 | `hysteresis_wh` | number | the core's default | as the core validates it |
@@ -48,7 +49,8 @@ The values:
 - A decimal (`rooms`, `max_retries`, the flags and `heat_cool_heat_value`) is a number that is
   whole and in its range.
 - A topic is empty, or 1 to 96 printable ASCII characters (0x21 to 0x7e) without the wildcards
-  `+` and `#`. An empty room topic is a room that never receives a value.
+  `+` and `#`. An empty room topic is a room that never receives a value, and an empty
+  `desired_topic` is no thermostat.
 - The getter writes a whole number without decimals and any other number with its decimals, the
   trailing zeros cut: `1500`, `0.02`, `22.5`.
 
@@ -88,8 +90,8 @@ The loop never reads them back.
 The entries come one at a time, by index, so that the glue needs no buffer for all of them:
 `ctl_telemetry_count` gives a group's count and `ctl_telemetry_entry` the entry at an index of
 `CTL_GROUP_INPUTS`, `CTL_GROUP_STATUS` or `CTL_GROUP_OUTPUTS`. The source holds the record of the
-last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds and
-whether commands are enabled. A subtopic, with its terminating zero, fits
+last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds,
+whether commands are enabled, and the target the decision was made with and its source. A subtopic, with its terminating zero, fits
 `CTL_TELEMETRY_SUBTOPIC_MAX` (48 bytes).
 
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
@@ -113,7 +115,7 @@ does not have is written `-`. A flag is `1` or `0`.
 
 The four input values are `-` when the decision has no inputs: the core resolved nothing then.
 
-**Status**, 10 entries:
+**Status**, 14 entries:
 
 | Subtopic | Value |
 |---|---|
@@ -127,6 +129,10 @@ The four input values are `-` when the decision has no inputs: the core resolved
 | `status/skipped_s` | 0 decimals |
 | `status/uptime_s` | 0 decimals |
 | `status/enabled` | `1` or `0` |
+| `status/p_integral_w` | the integral term, 1 decimal, or `-` without inputs |
+| `status/integral_wh` | the integral term's energy in the ledger, 1 decimal |
+| `status/desired_c` | the target the decision was made with, 2 decimals |
+| `status/desired_source` | where the target came from: `setting` (`desired_indoor_c`) or `topic` (the setpoint held from `desired_topic`) |
 
 Beside the telemetry's status entries, the glue publishes `status/integral_saved_w` with them:
 the integral last written to or loaded from `/control_integral.txt` (*The integral file*), 1
@@ -298,8 +304,8 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
 allowed demands at once, a change of `smart_grid` reopens the router (*What reaches the pump*),
-so it sends the wanted state once, paced, and a change of `rooms` or a room's topic
-unsubscribes the old input topics and subscribes the new ones.
+so it sends the wanted state once, paced, and a change of `rooms`, a room's topic or
+`desired_topic` unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
 `<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
@@ -316,6 +322,32 @@ the next connect, when the glue publishes every listed setting retained. So afte
 raised, the new rooms' `config/room.<i>.*` appear only at the next connect, and after it is
 lowered, the retained `config/room.<i>.*` of the dropped rooms stay on the broker until they are
 cleared by hand.
+
+## The target from a thermostat
+
+The setting `desired_topic` names a room thermostat's setpoint topic; `glue/ctl_desired.h` holds
+the rule, pure, and the glue subscribes to the topic with the room topics. The dispatch answers
+`CTL_TOPIC_DESIRED` for a message on it; a room with the same topic keeps it, since the rooms are
+matched first.
+
+- `ctl_desired_offer` takes the payload as the room temperatures' payloads are parsed
+  (`adapters.md`). A finite value from 16 to 26 °C, both included, is held as the setpoint; any
+  other message, an empty or unparsable one included, clears it. There is no replay check and no
+  timeout: the thermostat publishes its setpoint retained and only on change, so the last one is
+  meant until the next.
+- `ctl_desired_target` gives the target and its source: the held setpoint (`topic`), else the
+  setting `desired_indoor_c` (`setting`). `ctl_desired_apply` writes it into the core's
+  `desired_indoor_c` of the loop's configuration, after every `ctl_settings_to_loop` and after
+  every message, so the new target counts from the next interval, as a change of the setting
+  does. The integral term is not touched, and the core does not know where its target came from.
+- `ctl_desired_follow` runs after every change of settings: when `desired_topic` differs from the
+  topic the held setpoint came from, the setpoint is forgotten, so a new topic, or an empty one,
+  falls back to `desired_indoor_c` until a valid message arrives there.
+- Nothing of this is written to `/control.json`; `desired_indoor_c` keeps its own value. After a
+  restart, the broker's retained setpoint arrives with the subscription.
+
+The target and its source of the last decision are the telemetry's `status/desired_c` and
+`status/desired_source`.
 
 ## The control page
 
