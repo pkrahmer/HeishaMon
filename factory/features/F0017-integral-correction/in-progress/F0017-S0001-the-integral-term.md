@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 31
 comments_read: [6874460911]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T08:32:40.338827Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -51,6 +47,12 @@ journal:
   kind: started
   at: '2026-11-14T08:32:40.338827Z'
   stage: review
+- number: 8
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T08:35:04.767558Z'
+  stage: review
+  run: bae5f485c231438cb4b021e088808198
 ---
 
 # The integral term
@@ -194,3 +196,24 @@ Expect: `1`
 
    `check`: check: green
 7. factory: started review as heishamon.
+8. reviewer: Findings:
+
+   1. `HeishaMon/src/control/core/ctl_controller.h:2-6` and `docs/control/core.md` (lines 196-199, heading "The four functions" at 222, "The order of calls" at 296-309): these still say the controller has "four functions" and that "the other three call it [ctl_advance] first". `ctl_reset_integral` is now a fifth public function that advances the state and changes it. It is also missing from the order of calls. In addition, the header comment's third line was lengthened without reflowing it, so it now runs to about 135 characters. Fix: name the fifth function in the header comment and in core.md, add the reset to the order of calls, and reflow the comment.
+   2. `docs/control/settings.md:42`: it says "`core.md` (*Energy balance*) says when it learns". The learning conditions are written under *Controller* ("The four functions", the paragraph that starts "`ctl_advance` is also where the integral term learns"). *Energy balance* only names the term. Fix: point to the *Controller* section.
+   3. `docs/control/decisions.md`, the new entry's first sentence: "The balance gets a fourth power". `ctl_balance` already held four powers (transmission, model, trim, net). `p_integral_w` is the fifth, as core.md's table now shows. Fix: correct the count, or drop it.
+   4. The work item's `## Description` does not match what was built or what entry 4 decided. Criterion 10 still reads "no more than 64 bytes", but entry 4 changed it to "no larger than on `develop`, before and after reported". The Interface does not name the `glue/ctl_form.c`, `glue/ctl_form.h` and `glue/ctl_web.cpp` changes, the new `tests/control/test_form_report.c`, or the human's leave for the one check in `tests/control/test_form.c`. Entry 4 also requires that the page renders exactly as before after a save, and that is not in the Description either. Fix: rewrite criterion 10 and the Interface, and add the rendering requirement as a criterion before the two closing ones (R5). The builder reported in entry 6 that its edit was refused. If the work item stays unwritable for the builder, it should end with `question` and name the path.
+
+   Earlier tests:
+   - `tests/control/test_form.c` (M): the human gave leave in entry 4 for the `report->name[index]` check. Only that check changed, and it now checks the same thing through `ctl_settings_name_at`. The three static declarations moved up so that check can reach `target`; no check was removed.
+   - `tests/control/test_settings.c` (M): changed under the Interface's leave. It adds rows and checks for the two new settings. The name counts (19→21, 23→25, 21→23) and the name-list indexes (20/22/23 → 22/24/25) shift by the two new entries, and every earlier check still checks the same setting.
+   - `tests/control/test_telemetry.c` (M): changed under the Interface's leave. It adds the two status rows. The status count (10→12) and the refused index (10→12) shift by the two new entries; no check was loosened.
+
+   Checked and sound:
+   - **Acceptance criteria 1–9 and 11:** each has a test that tests it.
+     - Criterion 1: `test_traces.c` covers the default configuration, and the twin replay in `test_integral.c` covers `integral_limit_w` 50 with the gain at 0, as the human accepted in entry 4.
+     - Criteria 6 and 7: both sides of every boundary are tested.
+   - **Core:** with the gain at 0 the integral stays exactly 0.0, and `ctl_balance_add_integral` keeps a `-0.0` in `p_net_w`. The sum is `(p_model + p_trim) + p_integral`, in the reference's left-to-right order. Learning requires an integrated interval, and integration requires `ctl_signals_resolve`, which refuses when a required signal is not fresh.
+   - **Save report:** `report->settings` points to the firmware's global settings (`ctl_firmware_settings()`), so it cannot dangle. A compile-time check makes sure the index fits in a byte. Every loop is bounded by `CTL_FORM_FIELDS_MAX`.
+   - **Embedded safety:** no dynamic memory, no recursion, no unbounded loop. The firmware's reset handler calls `ctl_reset_integral` with `now_s()`, the same way the existing `ctl_set_allowed` call does.
+
+   Not verified by me: the RAM numbers for criterion 10 (49260 against 50628 bytes on `develop`) are the builder's measurement. No stage check compares `make firmware` against `develop`.
