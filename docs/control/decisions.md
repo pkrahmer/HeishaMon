@@ -1018,3 +1018,15 @@ little from the sun to model and the proportional and integral terms absorb what
 `core.md`, `firmware.md` and this log replaced the two documents.
 **Rejected.** Removing the solar signal from the core: the golden traces are compared bit for bit
 and nobody edits them, so the core keeps the signal and its field.
+
+## 2026-11-14: The device replay is removed
+
+**Decision.** The device replay is removed: the line protocol `HeishaMon/src/control/wire/`, the
+sketch, host twin, replay script and its tests under `tests/control/device/`, the protocol's host
+tests, and `device-test.md`. The link to it in `core.md` is gone. Nothing else under
+`HeishaMon/src/control/` served only the protocol, so nothing else changes; the faulty traces
+under `tests/control/data/bad/` stay, since the trace runner replays them.
+**Reason.** The replay proved that the core computes on a D1 mini exactly as on the host; the
+production board now runs the core, and the host replay of the golden traces, built with
+`-ffp-contract=off`, keeps the proof.
+**Rejected.** Keeping it as an optional tool: nothing would build or run it, so it would rot.
