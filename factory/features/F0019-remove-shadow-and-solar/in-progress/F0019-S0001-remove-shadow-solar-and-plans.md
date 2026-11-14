@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T10:42:48.680300Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -84,6 +80,12 @@ journal:
   kind: started
   at: '2026-11-14T10:42:48.680300Z'
   stage: doing
+- number: 14
+  speaker: builder
+  kind: result
+  at: '2026-11-14T10:47:46.129769Z'
+  stage: doing
+  run: 6d0811e57c5a496785bff52c2a242625
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -276,3 +278,23 @@ Expect: `1`
     - The factory's `make check` after the builder was green (entry 10).
     - Information only, not a finding: the builder's rewrite of criterion 1 in round 0b was left out by the factory, because the work item is outside the builder's write paths. The `## Description` therefore still shows the original criterion 1. The human's reading of it is in journal entry 4.
 13. factory: started doing as heishamon.
+14. builder: Round 2: I fixed the one finding from the reviewer's entry 12. Nothing else changed.
+
+    1. `HeishaMon/src/control/glue/ctl_settings.h`: the comment on `ctl_settings_to_loop` no longer uses the literal name `solar_gain_factor`. It now says "and a solar gain of 0, since the board has no solar input", and I reflowed the comment's lines. Comment only: no code, test or document changed.
+
+    Criterion 1, using the human's reading from entry 4:
+    - `git grep -n solar_gain_factor -- HeishaMon/src/control/glue docs/control/settings.md` now finds only `glue/ctl_settings.c:586`, the line that sets the core's field to 0.
+    - `(^|[^_])solar_w\b|ctl_shadow|pv_topic|algorithm-plan|firmware-design` finds nothing in scope outside the core except the local `solar_w` in `adapt/ctl_pump.c:126,135,136,139`.
+
+    Results:
+    - `make check` is green, and the device replay has 0 mismatches.
+    - Memory is the same as last round:
+      - D1 mini RAM: 48412 B on `develop`, 48244 B now.
+      - D1 mini flash: 757528 B on `develop`, 757144 B now.
+      - ESP32-S3 sketch: 1705491 B before, 1705151 B now.
+      - ESP32-S3 globals: 67488 B before, 67368 B now.
+    - Smoke test: prints `1`, as expected.
+
+    Still open, as the human decided in entry 4: `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop, though nothing in the firmware uses them any more. Removing them would be a follow-up story. The work item's `## Description` still shows the original criterion 1. The human's reading of it is in entry 4.
+
+    `check`: check: green
