@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 2
 attempts: 0
@@ -97,6 +97,11 @@ journal:
   at: '2026-11-14T10:48:18.284969Z'
   stage: review
   run: c08cc4b190074086b7513072c3babd82
+- number: 17
+  speaker: factory
+  kind: done
+  at: '2026-11-14T10:50:08.617165Z'
+  stage: approval
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -338,3 +343,4 @@ Expect: `1`
     Open, for the human:
     - The `## Description` still shows the original criterion 1. The builder's rewrite was left out because the work item is outside the builder's write paths. The binding reading is the human's, in entry 4.
     - `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop as the human decided in entry 4. Removing them would be a possible follow-up story.
+17. factory: done (pull request merged); cost: 7 runs, 26.0 min, 105 turns, 357941 tokens in (7479124 more from cache), 53894 out, $4.36
