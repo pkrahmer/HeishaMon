@@ -17,7 +17,7 @@ typedef struct {
 
 /* The calls each trace announces on its end line. */
 static const golden_row GOLDEN[] = {
-    {"barbarastr_march", 129493},
+    {"house_march", 129493},
     {"cold_snap_undersized", 12952},
     {"dhw_interruptions", 14033},
     {"edge_cases", 3236},

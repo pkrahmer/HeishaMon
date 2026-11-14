@@ -42,7 +42,7 @@ Traces start cold: the firmware never restores a snapshot (`decisions.md`, 2026-
 | Trace | Source | What it is there for |
 |---|---|---|
 | 11 library scenarios | `heatnrgx.sim.scenario.catalog()`, cut to 9–24 h | the control law under synthetic weather, transport jitter, loss, out-of-order delivery, DHW diversion, a sensor outage, a mask |
-| `barbarastr_march` | the house model under measured weather, 10–14 March 2023, indoor thermometer silent 60 min from 101.9 h | real PV, a real building, HOLD during a heating pulse; the chronogram's run |
+| `house_march` | the house model under measured weather, 10–14 March 2023, indoor thermometer silent 60 min from 101.9 h | real PV, a real building, HOLD during a heating pulse; the chronogram's run |
 | `edge_cases` | scripted, `golden.edge_cases()` | what the simulator never produces: NaN and infinite values and instants, a clock going backwards, a duplicate instant, a stale duplicate reading, a reading older than the integration reference **[A-18]**, a gap over `max_step_s`, mask changes that re-clamp E |
 
 Each library scenario keeps its own seed; a cut changes nothing before it, because the simulator

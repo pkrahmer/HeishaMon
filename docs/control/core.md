@@ -330,7 +330,7 @@ or both NaN. A trace that does not follow the format is refused at the line of t
 
 | Trace | Calls | What it is there for |
 |---|---:|---|
-| `barbarastr_march` | 129,493 | the house model under measured weather, 10–14 March 2023 (120 h), indoor thermometer silent for 60 min from 101.9 h: real PV, a real building, HOLD during a heating pulse |
+| `house_march` | 129,493 | the house model under measured weather, 10–14 March 2023 (120 h), indoor thermometer silent for 60 min from 101.9 h: real PV, a real building, HOLD during a heating pulse |
 | `cold_snap_undersized` | 12,952 | library scenario, 12 h: a cold snap on an undersized heat pump |
 | `dhw_interruptions` | 14,033 | library scenario, 13 h: DHW diversion |
 | `edge_cases` | 3,236 | scripted, what the simulator never produces: NaN and infinite values and instants, a clock going backwards, a duplicate instant, a stale duplicate reading, a reading older than the integration reference, a gap over `max_step_s`, mask changes that re-clamp E; the one trace that reaches every demand, reason and phase and both values of the clamp flag |
