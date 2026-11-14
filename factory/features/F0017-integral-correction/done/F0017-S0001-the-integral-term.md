@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -92,6 +92,11 @@ journal:
   at: '2026-11-14T08:47:48.044758Z'
   stage: review
   run: e774f207cfcb40d495663bef2e53773b
+- number: 16
+  speaker: factory
+  kind: done
+  at: '2026-11-14T08:49:38.469370Z'
+  stage: approval
 ---
 
 # The integral term
@@ -348,3 +353,4 @@ Expect: `1`
       - `decisions.md` has one entry, which names the rejected higher proportional gain.
 
     Not verified by me: the RAM numbers for criterion 10 (`develop` 50628 bytes, the branch 49260) are the builder's measurement. No stage check compares `make firmware` against `develop`.
+16. factory: done (pull request merged); cost: 6 runs, 34.5 min, 102 turns, 359155 tokens in (6460104 more from cache), 87134 out, $4.83
