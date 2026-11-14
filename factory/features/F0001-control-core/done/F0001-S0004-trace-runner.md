@@ -116,7 +116,7 @@ The replay and the comparison:
 `tests/control/test_traces.c`:
 
 - It reads the folder from `CTL_TRACES`. Without the variable it prints `CTL_TRACES is not set; run make test` and fails.
-- It replays the thirteen traces by their names, from a table in the test: `barbarastr_march`, `cold_snap_undersized`, `dhw_interruptions`, `edge_cases`, `flaky_transport`, `indoor_sensor_outage`, `masked_cooling`, `model_mismatch`, `shoulder_season`, `steady_winter`, `summer_day`, `underreported_solar`, `winter_day`, each as `<name>.trace` with a mismatch limit of 10.
+- It replays the thirteen traces by their names, from a table in the test: `house_march`, `cold_snap_undersized`, `dhw_interruptions`, `edge_cases`, `flaky_transport`, `indoor_sensor_outage`, `masked_cooling`, `model_mismatch`, `shoulder_season`, `steady_winter`, `summer_day`, `underreported_solar`, `winter_day`, each as `<name>.trace` with a mismatch limit of 10.
 - When all thirteen pass it prints one line: `traces: 13 files, 332239 calls, 0 mismatches`, with the numbers it counted.
 - It then replays each faulty trace under `tests/control/data/bad/` by its path from the root of the checkout and checks the result named in the criteria. The lines these replays print are expected; the test prints `expected mismatches and format errors follow` before them.
 
@@ -124,7 +124,7 @@ The faulty traces are small text files the builder writes, each a valid trace of
 
 ## Acceptance criteria
 
-1. Each of the thirteen golden traces replays with `trace_replay` returning true, `mismatches` 0, `format_line` 0, and `calls` equal to the number on the trace's `end` line. The counts are: `barbarastr_march` 129493, `cold_snap_undersized` 12952, `dhw_interruptions` 14033, `edge_cases` 3236, `flaky_transport` 7403, `indoor_sensor_outage` 9657, `masked_cooling` 25913, `model_mismatch` 12952, `shoulder_season` 25912, `steady_winter` 12952, `summer_day` 25912, `underreported_solar` 25912, `winter_day` 25912.
+1. Each of the thirteen golden traces replays with `trace_replay` returning true, `mismatches` 0, `format_line` 0, and `calls` equal to the number on the trace's `end` line. The counts are: `house_march` 129493, `cold_snap_undersized` 12952, `dhw_interruptions` 14033, `edge_cases` 3236, `flaky_transport` 7403, `indoor_sensor_outage` 9657, `masked_cooling` 25913, `model_mismatch` 12952, `shoulder_season` 25912, `steady_winter` 12952, `summer_day` 25912, `underreported_solar` 25912, `winter_day` 25912.
 2. `tests/control/data/bad/valid_small.trace`, a correct trace of at least one call of each of the four kinds with a `config trim_limit_k none` line, a blank line and a comment line in its body, replays true with its number of calls.
 3. A wrong value is found: `bad/wrong_energy.trace` is `valid_small.trace` with the `E` of one `advance` line changed in its last digit. Its replay returns false with `format_line` 0 and at least 1 mismatch, and the first line it prints names that line number and the key `E`.
 4. The mismatch limit holds: `bad/wrong_everywhere.trace` has a wrong `int` on at least five call lines. With a limit of 3, its replay returns false with `mismatches` exactly 3.

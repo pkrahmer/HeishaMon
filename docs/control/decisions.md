@@ -1068,7 +1068,7 @@ copy adds nothing that the traces do not prove.
 `house_march`. Its data is the same trace, line by line, apart from the name in its header lines;
 the trace under the old name is removed, and the tests and documents read the new one with the same
 call count.
-**Reason.** The fork is public, and the old name was the owner's street.
+**Reason.** The fork is public, and the old name pointed to a real place.
 **Rejected.** Rewriting the history to remove the old name from earlier commits: it would rewrite
 every published commit and break every clone and open pull request, for a name that the current
 tree no longer shows.
