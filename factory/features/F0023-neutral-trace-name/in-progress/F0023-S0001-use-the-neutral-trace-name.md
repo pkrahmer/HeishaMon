@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 39
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T19:21:59.631917Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-14T19:21:59.631917Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-14T19:28:42.721637Z'
+  stage: doing
+  run: df9e75b7fd03450bb4f1758af1a50fe8
 ---
 
 # Use the neutral trace name
@@ -62,3 +64,14 @@ Expect: `1`
 
 1. 2026-11-14 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built: `tests/control/test_traces.c` and `tests/control/test_integral.c` read `house_march` instead of `barbarastr_march`. The call count is still 129,493, and no other line in either file changed. `tests/control/data/barbarastr_march.trace.gz` is removed, with the deletion staged so that `git ls-files` no longer lists it. `docs/control/core.md` and `docs/control/golden-traces.md` name the trace `house_march` in their tables, with the descriptions unchanged. `docs/control/decisions.md` has a new entry: the March trace renamed to a neutral name because the fork is public and the old name was the owner's street; rejected: rewriting the history. The entry does not repeat the street name.
+
+   Checked before removing: zcat-diff of the two traces differs only in header lines 3–4 (the scenario name).
+
+   Decisions: I wrote no new failing-first test. This is a rename, and the existing trace and integral tests are the check: the trace summary is `traces: 13 files, 332239 calls, 0 mismatches` both with my changes and with them stashed (the develop state).
+
+   Results: criteria 1, 3 and 4 commands print nothing, and the barbara count is 0. `make check` is green (lint, test, firmware). Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1` (expected `1`).
+
+   Noticed, not touched: in test_integral.c's name list, `house_march` is now first, out of alphabetical order. I left it because the story allows only the name to change. The old name stays in the git history, as the decision records.
+
+   `check`: check: green

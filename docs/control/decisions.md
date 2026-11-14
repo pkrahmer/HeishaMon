@@ -1061,3 +1061,14 @@ they were written.
 not. The golden traces, replayed bit for bit by the host tests, are what guards the C core, so a
 copy adds nothing that the traces do not prove.
 **Rejected.** Keeping the copy in sync by hand: nothing checks it, so it would drift again.
+
+## 2026-11-14: The March trace has a neutral name
+
+**Decision.** The golden trace of the house model under measured March weather is named
+`house_march`. Its data is the same trace, line by line, apart from the name in its header lines;
+the trace under the old name is removed, and the tests and documents read the new one with the same
+call count.
+**Reason.** The fork is public, and the old name was the owner's street.
+**Rejected.** Rewriting the history to remove the old name from earlier commits: it would rewrite
+every published commit and break every clone and open pull request, for a name that the current
+tree no longer shows.

@@ -437,7 +437,7 @@ static long replay_twins(const char *path, long *calls)
 static void test_traces_with_other_limit(void)
 {
     static const char *const names[] = {
-        "barbarastr_march", "cold_snap_undersized", "dhw_interruptions", "edge_cases",
+        "house_march", "cold_snap_undersized", "dhw_interruptions", "edge_cases",
         "flaky_transport", "indoor_sensor_outage", "masked_cooling", "model_mismatch",
         "shoulder_season", "steady_winter", "summer_day", "underreported_solar", "winter_day",
     };
