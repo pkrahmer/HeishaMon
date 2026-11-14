@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911, 6874676115]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T08:46:33.946640Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -90,6 +86,12 @@ journal:
   kind: started
   at: '2026-11-14T08:46:33.946640Z'
   stage: review
+- number: 15
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T08:47:48.044758Z'
+  stage: review
+  run: e774f207cfcb40d495663bef2e53773b
 ---
 
 # The integral term
@@ -306,3 +308,43 @@ Expect: `1`
 
     `check`: check: green
 14. factory: started review as heishamon.
+15. reviewer: no findings
+
+    Round 1 re-review. I read the whole diff `develop...HEAD`, including the parts of `test_integral.c`, `test_settings.c` and `test_telemetry.c` that the context block cut off.
+
+    Earlier findings:
+    - Findings 1 to 3 from entry 8 are fixed in the code and docs. `ctl_controller.h` and `core.md` now say five functions and include the reset in the order of calls. `settings.md` points to *Controller*, *The five functions*. `decisions.md` says "a fifth power".
+    - Finding 4 is settled by the human's answer in entry 11: entry 4 is the record. I judged criterion 10 and the page criterion by entry 4.
+
+    Earlier tests:
+    - `tests/control/test_form.c` (M): changed under the human's leave in entry 4. Only the `report->name[index]` check changed, and it now checks the same thing through `ctl_settings_name_at`. The three static declarations moved above it. No check was removed or loosened.
+    - `tests/control/test_settings.c` (M): changed under the Interface's leave. It adds rows and checks for the two settings. The counts (19→21, 23→25, 21→23) and the name-list indexes (20/22/23 → 22/24/25) shift by the two new entries, and every earlier check still tests the same setting.
+    - `tests/control/test_telemetry.c` (M): changed under the Interface's leave. It adds rows for `status/p_integral_w` and `status/integral_wh`. The status count (10→12) and the refused index (10→12) shift by two; nothing was loosened.
+
+    Checked and sound:
+    - **Criteria:**
+      - Criteria 2 and 3: `integral_after_two_hours` runs 120 intervals of 60 s and checks the integral to within 1e-9. It also checks that `p_net_w` exceeds the run without the integral by exactly the integral.
+      - Criterion 4: `test_limit` covers ±30 W and the lowered limit to 10 W at the next interval.
+      - Criterion 5: `test_holds` has four rows: stale, long step, 5 K error against a 3 K limit, and energy at its bound. In the clamped row, the tested interval starts with the energy exactly at the low bound.
+      - Criterion 6: `test_config_rules` covers both sides of every boundary, plus NaN and infinity.
+      - Criterion 7: `test_settings.c` has the accept and refuse rows. The order after `trim_limit_k` is checked by `name_at` in `test_defaults`. The file without the two settings is tested the way `test_settings_legacy.c` tests the loader, with the pairs handed to the setter on top of the defaults, which is what `load_settings` in `ctl_firmware.cpp` does.
+      - Criterion 8: `test_reset_topic` and `test_freeze_and_reset` cover it. The firmware case saves nothing.
+      - Criterion 9: `test_telemetry.c` covers it.
+      - Criterion 1: `test_traces.c` covers the default configuration, and the twin replay covers `integral_limit_w` 50.
+    - **Core:**
+      - The learning conditions are read at the interval's start, before the energy is integrated.
+      - Required signals: `ctl_signals_resolve` refuses an unhealthy required signal, and only optional signals are filled in with fallback values.
+      - The clamp runs on every interval that `ctl_advance` closes, before the skip test.
+      - With the gain at 0 the integral stays exactly 0.0, and `ctl_balance_add_integral` leaves `p_net_w` untouched.
+      - The sum keeps the left-to-right order, and `ctl_ledger_total_wh` adds `integral_wh` last.
+    - **Architecture and embedded safety:**
+      - The core includes only allowed headers (`math.h`, `stdbool.h`).
+      - There is no dynamic memory and no recursion.
+      - The loops in `ctl_form.c` are bounded by `CTL_FORM_FIELDS_MAX`, and a compile-time check makes sure a setting's index fits in a byte.
+      - No upstream file and no hook line changed.
+    - **Docs:**
+      - `settings.md` has both settings, the reset topic, and the 25 / 600 suggestion.
+      - `core.md` describes the term, when it learns, and that it is off by default.
+      - `decisions.md` has one entry, which names the rejected higher proportional gain.
+
+    Not verified by me: the RAM numbers for criterion 10 (`develop` 50628 bytes, the branch 49260) are the builder's measurement. No stage check compares `make firmware` against `develop`.
