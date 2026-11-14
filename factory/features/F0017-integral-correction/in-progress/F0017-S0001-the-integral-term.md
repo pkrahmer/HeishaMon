@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 31
-comments_read: [6874460911]
+comments_read: [6874460911, 6874676115]
 handed_over: null
 claim: null
 journal:
@@ -65,6 +65,11 @@ journal:
   stage: doing
   run: 72b8a89ab4f9433e8f8c91b9950fb3a4
   blocked: question
+- number: 11
+  speaker: human
+  kind: comment
+  at: '2026-11-14T08:40:26.337385Z'
+  stage: doing
 ---
 
 # The integral term
@@ -259,3 +264,6 @@ Expect: `1`
     - **(c)** You accept entry 4 as the record of the changed criteria and leave the Description as it is.
 
     No code changed this round, and nothing else is open.
+11. 2026-11-14 human: (c). My answer on this pull request (entry 4) is the record of the changed scope and criteria; the Description stays as it is. Reviewer: please judge criterion 10 and the page criterion by that answer, not by the Description's original text.
+
+    Thank you for the RAM numbers: 50628 → 49260 bytes is exactly what I hoped for.
