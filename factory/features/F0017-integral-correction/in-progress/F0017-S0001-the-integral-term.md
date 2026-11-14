@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911, 6874676115]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T08:40:28.606181Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -79,6 +75,12 @@ journal:
   kind: started
   at: '2026-11-14T08:40:28.606181Z'
   stage: doing
+- number: 13
+  speaker: builder
+  kind: result
+  at: '2026-11-14T08:46:27.414995Z'
+  stage: doing
+  run: 7cc21784f00d4848879bf65b9c2dbf02
 ---
 
 # The integral term
@@ -277,3 +279,20 @@ Expect: `1`
 
     Thank you for the RAM numbers: 50628 → 49260 bytes is exactly what I hoped for.
 12. factory: started doing as heishamon.
+13. builder: Round 1, after the human's answer in entry 11. Nothing was built or changed this run.
+
+    - **Findings 1 to 3** were fixed and committed in entry 10. I checked that the fixes are in the committed tree:
+      - `HeishaMon/src/control/core/ctl_controller.h` now says "five functions".
+      - `docs/control/core.md` has the heading "The five functions" and the reset in the order of calls.
+      - `docs/control/settings.md` points to *Controller*, *The five functions*.
+      - `docs/control/decisions.md` now says "a fifth power".
+    - **Finding 4:** the human chose (c). Entry 4 is the record of the changed scope and criteria, and the Description stays as it is. The reviewer judges criterion 10 and the page criterion by entry 4.
+
+    **Results this run:**
+    - `make check` ends with `check: green`.
+    - Criterion 10: the D1 mini's global RAM is 49260 bytes, against 50628 on `develop` (entry 6's measurement of `develop`). The ESP32-S3 also builds.
+    - The smoke test prints `1`, as expected.
+
+    **Noticed, not touched:** the same as entry 6. The wire protocol and `replay.py` do not know the new configuration keys or the sixth ledger term, and the Python reference has no integral term.
+
+    `check`: check: green
