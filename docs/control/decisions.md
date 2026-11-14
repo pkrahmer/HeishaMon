@@ -1049,3 +1049,15 @@ house's target.
 **Rejected.** The heat pump's curve shift: it also shifts the water temperature. Clamping an
 out-of-range setpoint to the range: a frost setting means the thermostat is off, not a target of
 16 °C. A timeout like a room's: a setpoint is published only when it changes.
+
+## 2026-11-14: The copy of the Python reference is removed
+
+**Decision.** The fork no longer carries a copy of the Python reference: `python-reference/` and
+its manual `reference.md` are removed from `docs/control/`. The reference lives only in the owner's
+separate repository heatnrgx, which also exports the golden traces; `core.md` and
+`golden-traces.md` say so. The earlier entries of this log that name the removed files stay as
+they were written.
+**Reason.** Two copies drift, and these already had: heatnrgx has the integral term, the copy did
+not. The golden traces, replayed bit for bit by the host tests, are what guards the C core, so a
+copy adds nothing that the traces do not prove.
+**Rejected.** Keeping the copy in sync by hand: nothing checks it, so it would drift again.

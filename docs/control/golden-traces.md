@@ -3,6 +3,10 @@
 **Status:** format version 1. Exporter and reference replayer in `heatnrgx/sim/golden.py`,
 committed set in `golden/`.
 
+**Source.** The Python reference lives only in the owner's separate repository heatnrgx; the fork
+keeps no copy of it. The traces exported from it, committed under `tests/control/data/`, are the
+reference the C core is held to: `tests/control/test_traces.c` replays each one bit for bit.
+
 A golden trace is the exact stream of calls the simulator makes into the Python core, with the
 core's state after each call. A port of the core (the C core of `core.md`) passes a trace
 when, started cold and fed the same calls in the same order, it reproduces every recorded value.

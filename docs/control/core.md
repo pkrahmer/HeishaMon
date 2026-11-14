@@ -3,10 +3,10 @@
 The control core is the part of the fork that decides, from five input signals, whether the
 heat pump should heat, cool or do neither. It lives in `HeishaMon/src/control/core/` as plain
 C99 that takes values and returns values: no input or output, no clock, no logger, no hidden
-state. It is a port of the Python reference beside this document
-(`docs/control/python-reference/`, described in `reference.md`), and the golden traces exported
-from that reference are the measure the port is compared against, bit for bit. Where the port differs from the reference on purpose,
-`decisions.md` says why.
+state. It is a port of the Python reference, which lives only in the owner's separate repository
+heatnrgx; the fork keeps no copy of it. The golden traces exported from heatnrgx
+(`golden-traces.md`) are the reference the core is held to: the core replays every one of them
+bit for bit. Where the port differs from the reference on purpose, `decisions.md` says why.
 
 ## Enums (`ctl_types.h`)
 
