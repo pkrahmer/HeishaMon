@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 35
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T10:58:05.594947Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-14T10:58:05.594947Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T10:58:42.262083Z'
+  stage: review
+  run: 6ff65b2f99e849f0b8c0e7d7e0ccd65b
 ---
 
 # Remove the device replay
@@ -108,3 +110,20 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: no findings
+
+   What I checked, in the order of the checklist:
+
+   1. **Acceptance criteria.** I ran criteria 1, 2 and 5 against the branch, and all three print nothing. Criterion 3 rests on `tests/control/test_traces.c`, which the diff leaves alone, along with `trace.c`/`trace.h` and every trace under `tests/control/data/` and `data/bad/`. Criterion 4's sizes come from the builder's `make firmware` runs, recorded in the journal; I did not rebuild. Criterion 6: the journal records `check: green` after the builder. This story only removes code, so the criteria are its own commands. It adds no new rule that would need a test of its failing side.
+   2. **Architecture.** `git diff --name-status develop...HEAD` lists only deletions under `HeishaMon/src/control/wire/`, `tests/control/device/` and `tests/control/test_{wire,frame}.c`, the deletion of `docs/control/device-test.md`, and edits to `docs/control/core.md` and `docs/control/decisions.md`. No upstream file, hook line, `Makefile` or `CLAUDE.md` changed. Nothing under `HeishaMon/src/control/` outside `wire/` changed.
+   3. **Embedded safety.** No code was added. The only code changes are deletions.
+   4. **Quality.** Nothing is left orphaned. The shared helpers `check.c`/`check.h` and `trace.c`/`trace.h` are still used by the remaining tests (`trace_replay`, `trace_replay_to` in `test_traces.c`). `test_wire.c` used only `check_*` and its own `check_same_config`. `test_format.c` tests `loop/ctl_format.h`, not the protocol, so it rightly stays. A grep of `HeishaMon/src/control`, `tests/control` and `docs/control` finds no other use of the protocol.
+   5. **Work item hygiene.**
+      - The journal names what was deleted, what stays and why (the faulty traces under `data/bad/`, the older decision-log entries), and that nothing outside `wire/` served only the protocol.
+      - The new paragraph in `docs/control/core.md` claims `-ffp-contract=off` only for the host build, and the `Makefile` `CFLAGS` set it there.
+      - `golden-traces.md` never mentioned the device replay, and no other document in `docs/control/` links to the removed parts.
+      - The new 2026-11-14 entry in `decisions.md` gives the decision, the reason and the rejected option the story asks for.
+   6. **Earlier tests.** Each deletion is covered by the story's Interface:
+      - `tests/control/test_wire.c` (D): named by the story's Interface as deletable.
+      - `tests/control/test_frame.c` (D): named by the story's Interface as deletable.
+      - `tests/control/device/test_replay.py`, `garbling_twin.py`, `host_server.c`, `replay.py`, `replay/replay.ino` (D): everything under `tests/control/device/` is named by the story's Description as removed.
