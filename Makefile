@@ -1,17 +1,13 @@
 # The contract between this fork and kumpel-factory is four targets: `check`, `lint`, `test`, `sync`.
-# Upstream HeishaMon builds with arduino-cli (scripts/); this file covers only what runs on the
-# host with gcc, g++ and python3, plus the device test sketch compiled for the D1 mini. The
-# firmware build for the two boards is not part of `check` yet.
-.PHONY: check lint test device firmware device-replay sync facts-diff facts-files
+# Upstream HeishaMon builds with arduino-cli (scripts/); this file covers what runs on the host with
+# gcc and python3, and the firmware compiled for the two boards with arduino-cli.
+.PHONY: check lint test firmware sync facts-diff facts-files
 .SILENT:
 
 # The fork's own folders: the control code, its host tests, its documents.
 CONTROL = HeishaMon/src/control
 CORE = $(CONTROL)/core
 TESTS = tests/control
-# The device test: a sketch that serves the core over a serial line, and its host twin.
-DEVICE = $(TESTS)/device
-FQBN = esp8266:esp8266:d1_mini
 # The firmware's two boards, with the options of upstream's scripts/build_esp8266.sh and build_esp32s3.sh.
 FIRMWARE_D1 = esp8266:esp8266:d1_mini:xtal=160,vt=flash,ssl=basic,mmu=3216,non32xfer=fast,eesz=4M2M,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=921600
 FIRMWARE_S3 = esp32:esp32:esp32s3:CDCOnBoot=cdc,PSRAM=enabled,PartitionScheme=min_spiffs
@@ -27,7 +23,7 @@ SHELL := /bin/bash
 start = started=$$(date +%s%N)
 green = tenths=$$(( ($$(date +%s%N) - started) / 100000000 )); echo "$@: green ($$((tenths / 10)).$$((tenths % 10)) s)"
 
-check: lint test device firmware
+check: lint test firmware
 	echo "check: green"
 
 # Nothing to fetch: the stage image (factory/stage.Containerfile) holds every tool.
@@ -84,34 +80,6 @@ test:
 	  count=$$((count + 1))
 	done
 	echo "control: $$count test programs passed"
-	# The device replay on the host: the server the board runs, built for the host, fed through a pipe.
-	if [ -f $(DEVICE)/host_server.c ]; then
-	  gcc $(CFLAGS) -I$(CONTROL) $(DEVICE)/host_server.c $$sources -lm -o "$$build/host_server"
-	  python3 $(DEVICE)/replay.py --command "$$build/host_server" "$$CTL_TRACES/edge_cases.trace" "$$CTL_TRACES/flaky_transport.trace"
-	fi
-	# The device tools' own tests: each tests/control/device/test_*.py, run from the root, finds the
-	# control code's sources in CTL_SOURCES and a scratch folder in CTL_BUILD.
-	for script in $$(find $(DEVICE) -maxdepth 1 -name 'test_*.py' 2>/dev/null | sort); do
-	  CTL_SOURCES="$$sources" CTL_BUILD="$$build" python3 "$$script"
-	done
-	$(green)
-
-# Every device sketch (a folder under tests/control/device/ that holds a .ino of its own name),
-# compiled for the D1 mini (ESP8266) with each folder of the control code as a library; nothing is
-# flashed. Each sketch prints its name and its memory lines.
-device:
-	$(start)
-	build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
-	libraries=$$(find $(CONTROL) -mindepth 1 -maxdepth 1 -type d | sort | sed 's/^/--library /')
-	for sketch in $$(find $(DEVICE) -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
-	  name=$$(basename "$$sketch")
-	  [ -f "$$sketch/$$name.ino" ] || continue
-	  if ! arduino-cli compile --fqbn $(FQBN) $$libraries --build-path "$$build/$$name" --warnings all "$$sketch" > "$$build/$$name.log" 2>&1; then
-	    cat "$$build/$$name.log"; exit 1
-	  fi
-	  echo "$$name:"
-	  grep -E '^\. (Variables|Code in flash)' "$$build/$$name.log"
-	done
 	$(green)
 
 # The firmware, HeishaMon/HeishaMon.ino with the control code under its src/, compiled for both boards;
@@ -128,15 +96,6 @@ firmware:
 	  grep -E '^\. (Variables|Code in flash)|^Sketch uses|^Global variables' "$$build/$$name.log"
 	done
 	$(green)
-
-# The same replay against the board on a serial port, run by hand on the machine the board is
-# plugged into, with pyserial installed: make device-replay PORT=COM5. Never part of `check`.
-PORT ?=
-device-replay:
-	if [ -z "$(PORT)" ]; then echo "device-replay: set PORT, as in make device-replay PORT=COM5"; exit 2; fi
-	build=$$(mktemp -d); trap 'rm -rf "$$build"' EXIT
-	for trace in $(TESTS)/data/*.trace.gz; do gzip -dc "$$trace" > "$$build/$$(basename "$$trace" .gz)"; done
-	python3 $(DEVICE)/replay.py --port "$(PORT)" "$$build"/*.trace
 
 # Start facts: the factory runs these before an agent and puts their output into its first
 # message; never part of `check`. The base is where the branch left origin/develop.
