@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T12:21:53.991853Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-14T12:21:48.620766Z'
   stage: doing
   run: b87020091b8e407f9fb79e79f67a6802
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-14T12:21:53.991853Z'
+  stage: review
 ---
 
 # The target from a thermostat's setpoint
@@ -128,3 +137,4 @@ Expect: `1`
    - After a change of `desired_topic`, the broker still holds the old retained `config/desired_topic` value only until the glue answers with the new one. This is the same as for every setting topic, so nothing new.
 
    `check`: check: green
+4. factory: started review as heishamon.
