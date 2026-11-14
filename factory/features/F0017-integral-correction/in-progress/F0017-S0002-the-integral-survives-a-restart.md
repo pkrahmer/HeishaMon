@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T09:03:22.506684Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-14T09:03:22.506684Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-14T09:11:58.654690Z'
+  stage: doing
+  run: 4fc6ec95fde0494b8fbd9609c461a5f9
 ---
 
 # The integral survives a restart
@@ -173,3 +175,34 @@ Expect: `1`
    - **`replace_file`:** a good reuse of the settings' rename logic.
    - **Decision log:** the entry has the reason and both rejected options that criterion 8 names.
 6. factory: started doing as heishamon.
+7. builder: Rework, round 1. I fixed findings 1 to 5 of the review. For finding 6 I took the reviewer's first option: what the glue remembers between writes is now pure code, so a host test covers it. `make check` passed (lint, test, device and firmware all green). The smoke test printed `1`, as expected. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` shows no changes, so no upstream file and no hook line changed.
+
+   **Fixes, by finding**
+   1. `tests/control/test_integral_store.c` `test_start_is_held_without_gain`: the test now runs a real hour through `integral_after_an_hour(gain)`.
+      - It starts from the stored 120 W.
+      - Each minute it observes indoor 23 °C (1 K above the target, inside the trim limit), outdoor 5 °C, and a produced power that keeps the energy away from its bounds.
+      - It checks that every `ctl_advance` of 60 s integrates.
+      - With gain 0 the integral stays at 120.0. With gain 20 it moves by more than 1 W, which shows that the hour reaches `integrate`.
+   2. `HeishaMon/src/control/glue/ctl_integral_store.c`: I removed `is_space`, the trailing-trim loop and the `length == 0` test. What is left is the refusal of `{` and the `isfinite` check.
+   3. The header comment and `docs/control/firmware.md` now say "white space around it". There is a new parse row: `" 42"` gives 42.0.
+   4. The format comment in the header now says that the store refuses NaN and the infinities itself. `test_format_reads_back` gained rows for `NAN`, `INFINITY` and `-INFINITY`.
+   5. `HeishaMon/src/control/glue/ctl_firmware.h`: I rewrapped both comments.
+   6. New in `glue/ctl_integral_store.h` and `.c`:
+      - `ctl_integral_store` holds two fields: `saved_w`, and `attempt_s` (the time of the last attempt, or the boot).
+      - `ctl_integral_store_load`: sets the store at boot and returns the start value. NULL or length 0 means a missing file.
+      - `ctl_integral_store_begin`: applies `ctl_integral_store_due`, and when a write is due it records the attempt.
+      - `ctl_integral_store_end`: a successful write becomes the saved value; a failed one keeps the old value.
+      - `ctl_firmware.cpp` now uses these three in place of its two static variables. `status/integral_saved_w` publishes `integral_store.saved_w`.
+      - New tests:
+        - `test_load_writes_nothing`: missing, refused and clamped files ask for no write, and the 6 hours count from the boot.
+        - `test_failed_write_is_retried_later`: the old saved value is kept, there is no retry before 6 hours, and the retry comes at 6 hours.
+        - `test_reset_writes_at_once`.
+      - `test_writes_in_a_day` now runs through the store's functions.
+
+   **Documents:** `docs/control/firmware.md` (*The integral file*) names `load`, `begin` and `end` and the store's two fields. In `docs/control/decisions.md` I extended the existing entry by one sentence: the bookkeeping is pure, so the host tests the retry and the load as well. It is still one entry.
+
+   **Rejected:** a pure function that would produce the `status/integral_saved_w` topic and value text. Publishing stays one `ctl_format_fixed` call in the glue. So no host test checks that the topic is published; the human may want to accept that.
+
+   **Noticed, not touched:** as before, the shared rename helper's fallback (remove the target, then rename again) could lose the old integral file if the second rename also fails. `/control.json` already behaves the same way.
+
+   `check`: check: green

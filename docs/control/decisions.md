@@ -972,8 +972,9 @@ W with three decimals. It writes the file at most every 6 hours, and only when t
 once. It reads the file once at boot, after the settings, and clamps the value to
 `integral_limit_w`; a missing or unreadable file starts at 0 and writes nothing. The value it
 compares against after a load is the clamped start value, the one the core holds. A failed write
-counts as a write for the 6 hours, so it is retried at the first check 6 hours later. The rules
-are pure (`glue/ctl_integral_store.c`); the file is written with the same temporary-file-and-rename
+counts as a write for the 6 hours, so it is retried at the first check 6 hours later. The rules,
+and the value last saved and the time of the last attempt that they work on, are pure
+(`glue/ctl_integral_store.c`), so that the host tests the retry and the load as well; the file is written with the same temporary-file-and-rename
 helper as `/control.json`. `status/integral_saved_w` is published by the glue beside the
 telemetry's status entries, not as one of them, so that the telemetry's fixed status list stays
 as it is.

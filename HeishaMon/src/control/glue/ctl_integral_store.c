@@ -19,21 +19,12 @@ bool ctl_integral_store_due(double integral_w, double saved_w, double since_writ
            fabs(integral_w - saved_w) >= CTL_INTEGRAL_STORE_MOVE_W;
 }
 
-static bool is_space(char c)
-{
-    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
-
 bool ctl_integral_store_parse(const char *text, size_t length, double *value_w)
 {
     ctl_payload payload;
-    /* A file edited by hand or by a tool may end in a line break. */
-    while (length > 0 && is_space(text[length - 1])) {
-        length--;
-    }
     /* The payload parser also takes a JSON object; the file holds a bare number only. */
-    if (length == 0 || memchr(text, '{', length) != NULL ||
-        !ctl_payload_parse(text, length, &payload) || !isfinite(payload.value)) {
+    if (memchr(text, '{', length) != NULL || !ctl_payload_parse(text, length, &payload) ||
+        !isfinite(payload.value)) {
         return false;
     }
     *value_w = payload.value;
@@ -53,6 +44,35 @@ double ctl_integral_store_start(const char *text, size_t length, double limit_w)
         return -limit_w;
     }
     return value_w;
+}
+
+double ctl_integral_store_load(ctl_integral_store *store, const char *text, size_t length,
+                               double limit_w, double boot_s)
+{
+    double start_w = 0.0;
+    if (text != NULL) {
+        start_w = ctl_integral_store_start(text, length, limit_w);
+    }
+    store->saved_w = start_w;
+    store->attempt_s = boot_s;
+    return start_w;
+}
+
+bool ctl_integral_store_begin(ctl_integral_store *store, double integral_w, double now_s,
+                              bool reset)
+{
+    if (!ctl_integral_store_due(integral_w, store->saved_w, now_s - store->attempt_s, reset)) {
+        return false;
+    }
+    store->attempt_s = now_s;
+    return true;
+}
+
+void ctl_integral_store_end(ctl_integral_store *store, double integral_w, bool written)
+{
+    if (written) {
+        store->saved_w = integral_w;
+    }
 }
 
 bool ctl_integral_store_format(double value_w, char *text, size_t size)

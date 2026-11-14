@@ -90,9 +90,7 @@ static bool remote_pcb_seen;
 static double remote_pcb_seen_s;
 static uint8_t remote_pcb_byte;
 
-// The integral as last written or loaded, and when the last write was tried (or the boot).
-static double integral_saved_w;
-static double integral_write_s;
+static ctl_integral_store integral_store;
 static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
 
 static char log_line[LOG_SIZE];
@@ -242,13 +240,10 @@ static void save_settings()
 
 // --- The integral file ---------------------------------------------------------------------
 
-// Nothing is written at boot: a missing or refused file starts the integral at 0, which is the
-// value a cold start has anyway.
 static void load_integral(double now)
 {
     char text[INTEGRAL_FILE_MAX];
     size_t length = 0;
-    integral_write_s = now;
     if (LittleFS.exists(INTEGRAL_PATH)) {
         File file = LittleFS.open(INTEGRAL_PATH, "r");
         if (file && file.size() <= sizeof text) {
@@ -258,9 +253,9 @@ static void load_integral(double now)
             file.close();
         }
     }
-    double start_w = ctl_integral_store_start(text, length, config.core.integral_limit_w);
+    double start_w =
+        ctl_integral_store_load(&integral_store, text, length, config.core.integral_limit_w, now);
     loop_state.state.p_integral_w = start_w;
-    integral_saved_w = start_w;
     if (ctl_format_fixed(start_w, 1, integral_text, sizeof integral_text)) {
         log_text("control: integral starts at %s W", integral_text);
     }
@@ -271,22 +266,16 @@ static bool write_integral(File &file)
     return put_text(file, integral_text);
 }
 
-// A failed write keeps the old file and counts as a write for the interval, so that a broken
-// flash is not hammered at every tick.
 static void store_integral(bool reset, double now)
 {
     double integral_w = loop_state.state.p_integral_w;
-    if (!ctl_integral_store_due(integral_w, integral_saved_w, now - integral_write_s, reset)) {
+    if (!ctl_integral_store_begin(&integral_store, integral_w, now, reset)) {
         return;
     }
-    integral_write_s = now;
-    if (!ctl_integral_store_format(integral_w, integral_text, sizeof integral_text)) {
-        return;
-    }
-    if (replace_file(INTEGRAL_PATH, INTEGRAL_TEMPORARY_PATH, write_integral,
-                     "the integral is tried again later")) {
-        integral_saved_w = integral_w;
-    }
+    bool written = ctl_integral_store_format(integral_w, integral_text, sizeof integral_text) &&
+                   replace_file(INTEGRAL_PATH, INTEGRAL_TEMPORARY_PATH, write_integral,
+                                "the integral is tried again later");
+    ctl_integral_store_end(&integral_store, integral_w, written);
 }
 
 // --- MQTT ----------------------------------------------------------------------------------
@@ -346,7 +335,7 @@ static void publish_telemetry()
             }
         }
     }
-    if (ctl_format_fixed(integral_saved_w, 1, value_text, sizeof value_text)) {
+    if (ctl_format_fixed(integral_store.saved_w, 1, value_text, sizeof value_text)) {
         publish("status/integral_saved_w", value_text, false);
     }
 }

@@ -272,28 +272,30 @@ holds until the next start.
 
 The learned integral term (`core.md`) lives in `/control_integral.txt`, a file of its own: one
 number in W as text, such as `123.456`, written with three decimals. It is never part of
-`/control.json`, and nothing but the rules below writes it. The rules are pure, in
-`glue/ctl_integral_store.h`; the glue only reads and writes the file.
+`/control.json`, and nothing but the rules below writes it. The rules, and what the glue remembers
+between two writes (`ctl_integral_store`: the value last saved and the time of the last attempt),
+are pure, in `glue/ctl_integral_store.h`; the glue only reads and writes the file.
 
 **At boot**, after the settings, the glue reads the file once. `ctl_integral_store_parse` takes a
-bare number, white space after it allowed, and refuses an empty text, anything else and a number
+bare number, white space around it allowed, and refuses an empty text, anything else and a number
 that is not finite (`nan`, `inf`, `1e999`); a file longer than 32 bytes is refused too.
-`ctl_integral_store_start` clamps an accepted value to `-integral_limit_w` and
-`integral_limit_w`, and gives 0 for a missing or refused file; that value becomes the core's
-integral term and the value last loaded. Nothing is written at boot. With `integral_w_per_kh` 0
+`ctl_integral_store_load` clamps an accepted value to `-integral_limit_w` and
+`integral_limit_w` (`ctl_integral_store_start`), and gives 0 for a missing or refused file; that
+value becomes the core's integral term and the value last loaded, and the boot counts as the last
+write. Nothing is written at boot. With `integral_w_per_kh` 0
 the loaded value is held as it is: 0 freezes the term, it does not clear it.
 
-**When it is written.** After every decision the glue asks `ctl_integral_store_due` with the
-integral, the value last written or loaded, and the seconds since the last write (since boot
-before the first): it writes only when at least 6 hours (`CTL_INTEGRAL_STORE_INTERVAL_S`) have
+**When it is written.** After every decision the glue asks `ctl_integral_store_begin`, which
+applies `ctl_integral_store_due` to the integral, the value last written or loaded, and the
+seconds since the last write (since boot before the first): it writes only when at least 6 hours (`CTL_INTEGRAL_STORE_INTERVAL_S`) have
 passed and the integral differs by 10 W (`CTL_INTEGRAL_STORE_MOVE_W`) or more. A message to
 `<base>/control/set/integral_reset` writes 0 at once, regardless of the 6 hours. So a day sees at
 most four writes, and a steady integral none, which spares the flash.
 
 **How it is written**, as `/control.json` is: to `/control_integral.txt.new` first, then renamed
 over the file, so that a power cut during a write leaves the old value or the new one. A failed
-write is logged and keeps the old file and the old saved value; it counts as a write for the
-6 hours, so it is tried again at the first check 6 hours later, not at every tick.
+write is logged and keeps the old file and, through `ctl_integral_store_end`, the old saved
+value; it counts as a write for the 6 hours, so it is tried again at the first check 6 hours later, not at every tick.
 
 ## Changing a setting over MQTT
 
