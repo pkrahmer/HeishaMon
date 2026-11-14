@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T08:22:03.730633Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -30,6 +34,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-14T08:22:01.144408Z'
+  stage: doing
+- number: 5
+  speaker: factory
+  kind: started
+  at: '2026-11-14T08:22:03.730633Z'
   stage: doing
 ---
 
@@ -141,3 +150,4 @@ Expect: `1`
    - The page must render exactly as before after a save: same rows, same results, same order.
 
    Your other decisions stand as you took them, including `status/integral_wh` and the twin replay from the default configuration.
+5. factory: started doing as heishamon.
