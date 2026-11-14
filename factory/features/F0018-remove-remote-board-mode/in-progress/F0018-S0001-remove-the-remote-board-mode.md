@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 0
 attempts: 0
 crashes: 0
 pull_request: 33
-comments_read: []
+comments_read: [6875586408]
 handed_over: null
 claim: null
 journal:
@@ -26,6 +26,11 @@ journal:
   stage: doing
   run: c1d5ac0edb8a4f968fc05187e12da8a3
   blocked: question
+- number: 4
+  speaker: human
+  kind: comment
+  at: '2026-11-14T10:01:16.723208Z'
+  stage: doing
 ---
 
 # Remove the remote-board mode
@@ -80,3 +85,6 @@ Expect: `1`
    - `make firmware` builds both boards (criterion 5). D1 mini RAM 49372 → 48412 B, flash 759224 → 757528 B. ESP32-S3 sketch 1707703 → 1705491 B, globals 68104 → 67488 B. The `develop` numbers come from `make firmware` on a `git archive develop` export.
    - Docs: `docs/control/settings.md` (rows and the section on running a board without a pump removed), `docs/control/firmware.md` (rows, the telemetry counters, the gate's remote reason and its log text removed; the sections on shadowing, the frame log and commands to another board removed; their Smart Grid notes kept under a new section, *Smart Grid mode*, with the switch-back text rewritten for the board's own frame), and one new entry in `docs/control/decisions.md`.
    - Noticed, not touched: in an earlier command I accidentally included a `git stash`; the permission layer denied the whole command, so it never ran.
+4. 2026-11-14 human: (a). You may delete line 131 of `tests/control/test_payload_first.c` (the `handle_frame_log` check); the `handle_setting` check stays as it is, and the senders list stays as you said. No other change to that file.
+
+   The RAM and flash numbers are good, thank you.
