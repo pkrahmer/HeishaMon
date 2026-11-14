@@ -32,7 +32,6 @@ typedef enum {
     SETTING_ROOM_WEIGHT,
     SETTING_ROOM_TIMEOUT,
     SETTING_PV_TOPIC,
-    SETTING_FRAME_LOG_TOPIC,
     SETTING_DESIRED_INDOOR,
     SETTING_TRANSMISSION,
     SETTING_ADJUSTMENT,
@@ -46,8 +45,7 @@ typedef enum {
     SETTING_MIN_CHANGE_INTERVAL,
     SETTING_RETRY_INTERVAL,
     SETTING_MAX_RETRIES,
-    SETTING_SMART_GRID,
-    SETTING_COMMAND_TOPIC
+    SETTING_SMART_GRID
 } setting_id;
 
 typedef struct {
@@ -62,7 +60,6 @@ static const fixed_name FIXED_NAMES[] = {
     {"rooms", SETTING_ROOMS},
     {"room_timeout_s", SETTING_ROOM_TIMEOUT},
     {"pv_topic", SETTING_PV_TOPIC},
-    {"frame_log_topic", SETTING_FRAME_LOG_TOPIC},
     {"desired_indoor_c", SETTING_DESIRED_INDOOR},
     {"transmission_w_per_k", SETTING_TRANSMISSION},
     {"adjustment_w_per_k", SETTING_ADJUSTMENT},
@@ -77,7 +74,6 @@ static const fixed_name FIXED_NAMES[] = {
     {"retry_interval_s", SETTING_RETRY_INTERVAL},
     {"max_retries", SETTING_MAX_RETRIES},
     {"smart_grid", SETTING_SMART_GRID},
-    {"command_topic", SETTING_COMMAND_TOPIC},
 };
 
 #define FIXED_NAME_COUNT (sizeof FIXED_NAMES / sizeof FIXED_NAMES[0])
@@ -334,10 +330,6 @@ static char *topic_field(ctl_settings *settings, setting_key key)
         return settings->room_topic[key.room];
     case SETTING_PV_TOPIC:
         return settings->pv_topic;
-    case SETTING_FRAME_LOG_TOPIC:
-        return settings->frame_log_topic;
-    case SETTING_COMMAND_TOPIC:
-        return settings->command_topic;
     default:
         return NULL;
     }
@@ -504,7 +496,6 @@ void ctl_settings_defaults(ctl_settings *settings)
     }
     settings->room_timeout_s = rooms.room_timeout_s;
     settings->pv_topic[0] = '\0';
-    settings->frame_log_topic[0] = '\0';
     settings->desired_indoor_c = core.desired_indoor_c;
     settings->transmission_w_per_k = core.transmission_w_per_k;
     settings->adjustment_w_per_k = core.adjustment_w_per_k;
@@ -520,7 +511,6 @@ void ctl_settings_defaults(ctl_settings *settings)
     settings->retry_interval_s = router.retry_interval_s;
     settings->max_retries = router.max_retries;
     settings->smart_grid = router.smart_grid;
-    settings->command_topic[0] = '\0';
 }
 
 ctl_setting_status ctl_settings_set(ctl_settings *settings, const char *name, const char *value)

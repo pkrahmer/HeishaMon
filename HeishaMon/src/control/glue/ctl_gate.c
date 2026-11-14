@@ -2,14 +2,10 @@
 
 #include <stdbool.h>
 
-ctl_gate ctl_gate_state(bool enabled, bool listen_only, bool optional_pcb, bool command_topic,
-                        bool frame_log_topic)
+ctl_gate ctl_gate_state(bool enabled, bool listen_only, bool optional_pcb)
 {
     if (!enabled) {
         return CTL_GATE_DISABLED;
-    }
-    if (command_topic) {
-        return frame_log_topic ? CTL_GATE_OPEN : CTL_GATE_NO_FRAME_LOG;
     }
     if (listen_only) {
         return CTL_GATE_LISTEN_ONLY;
@@ -31,8 +27,6 @@ const char *ctl_gate_name(ctl_gate gate)
         return "listen_only";
     case CTL_GATE_NO_OPTIONAL_PCB:
         return "no_optional_pcb";
-    case CTL_GATE_NO_FRAME_LOG:
-        return "no_frame_log";
     }
     return "invalid";
 }

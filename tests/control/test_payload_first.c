@@ -128,7 +128,6 @@ int main(void)
     CHECK_TRUE(read);
     if (read) {
         check_payload_first("static void handle_setting(", senders, count);
-        check_payload_first("static void handle_frame_log(", senders, count);
     }
     return check_result();
 }

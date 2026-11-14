@@ -68,8 +68,6 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
     } else if (strcmp(settings->pv_topic, topic) == 0) {
         result.kind = CTL_TOPIC_INPUT;
         result.input = CTL_INPUT_PV;
-    } else if (strcmp(settings->frame_log_topic, topic) == 0) {
-        result.kind = CTL_TOPIC_FRAME_LOG;
     } else if (is_setting(base, topic, result.name)) {
         result.kind = CTL_TOPIC_SETTING;
         if (strcmp(result.name, INTEGRAL_RESET) == 0) {
