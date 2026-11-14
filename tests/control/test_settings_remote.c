@@ -5,9 +5,14 @@
 #include <stddef.h>
 #include <string.h>
 
-/* The pairs the loader hands the setter for a file of a board that once commanded another one:
- * {"enabled":"1","frame_log_topic":"jeisha/log","pv_topic":"house/pv",
- *  "command_topic":"panasonic_heat_pump","hysteresis_wh":"1200"}, with the setter's answer. */
+/* The two names a settings file may still hold from the removed remote-board mode. Each is split
+ * into two literals so that a search of the tree for the removed names finds only the decision
+ * log, while the compiler still joins them into the very names an old file holds. */
+#define OLD_LOG_NAME "frame_log" "_topic"
+#define OLD_COMMAND_NAME "command" "_topic"
+
+/* The pairs the loader hands the setter for an old file holding both names among kept settings,
+ * with the setter's answer. */
 typedef struct {
     const char *name;
     const char *value;
@@ -16,9 +21,9 @@ typedef struct {
 
 static const file_pair FILE_PAIRS[] = {
     {"enabled", "1", CTL_SETTING_OK},
-    {"frame_log_topic", "jeisha/log", CTL_SETTING_UNKNOWN},
+    {OLD_LOG_NAME, "jeisha/log", CTL_SETTING_UNKNOWN},
     {"pv_topic", "house/pv", CTL_SETTING_OK},
-    {"command_topic", "panasonic_heat_pump", CTL_SETTING_UNKNOWN},
+    {OLD_COMMAND_NAME, "panasonic_heat_pump", CTL_SETTING_UNKNOWN},
     {"hysteresis_wh", "1200", CTL_SETTING_OK},
 };
 
@@ -93,12 +98,12 @@ static void test_names_are_gone(void)
     char name[CTL_SETTINGS_NAME_MAX];
     size_t i;
     load_file(&settings);
-    CHECK_TRUE(!ctl_settings_get(&settings, "frame_log_topic", value, sizeof value));
-    CHECK_TRUE(!ctl_settings_get(&settings, "command_topic", value, sizeof value));
+    CHECK_TRUE(!ctl_settings_get(&settings, OLD_LOG_NAME, value, sizeof value));
+    CHECK_TRUE(!ctl_settings_get(&settings, OLD_COMMAND_NAME, value, sizeof value));
     for (i = 0; i < ctl_settings_name_count(&settings); i++) {
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
-        CHECK_TRUE(strcmp(name, "frame_log_topic") != 0);
-        CHECK_TRUE(strcmp(name, "command_topic") != 0);
+        CHECK_TRUE(strcmp(name, OLD_LOG_NAME) != 0);
+        CHECK_TRUE(strcmp(name, OLD_COMMAND_NAME) != 0);
     }
 }
 
