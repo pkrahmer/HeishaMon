@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T12:23:18.929350Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-14T12:23:13.875912Z'
   stage: review
   run: 6b6f50709a1e45549eeb65b43463d02b
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-14T12:23:18.929350Z'
+  stage: doing
 ---
 
 # The target from a thermostat's setpoint
@@ -182,3 +191,4 @@ Expect: `1`
 
    - `tests/control/test_settings.c` (M): changed under the leave the story gives `tests/control/test_settings*.c`. It adds rows and shifts counts and indexes; no check was removed or loosened.
    - `tests/control/test_telemetry.c` (M): changed under the leave the story gives `tests/control/test_telemetry*.c`. It adds rows and a case and shifts the count and the refused index; no check was removed or loosened.
+6. factory: started doing as heishamon.
