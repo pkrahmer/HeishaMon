@@ -2,11 +2,11 @@
 
 ## Goal
 
-One golden trace is named after the street the owner lives on (`barbarastr_march`), in its file name, its first lines and in the fork's tests and documents. The fork is public, so the name is a hint to where the owner lives. The owner decided to give it a neutral name. The human exported the same trace from heatnrgx as `house_march`; its data is identical to `barbarastr_march` line by line, only the name differs. Done when the story is merged, `make check` is green, and the street's name appears nowhere in the fork's current tree outside `factory/`.
+One golden trace is named after a real place (its old name), in its file name, its first lines and in the fork's tests and documents. The fork is public, so the name is a hint to a real place. The owner decided to give it a neutral name. The human exported the same trace from heatnrgx as `house_march`; its data is identical to `<old name>` line by line, only the name differs. Done when the story is merged, `make check` is green, and the street's name appears nowhere in the fork's current tree outside `factory/`.
 
 ## Scope
 
-- Replace `barbarastr_march` by `house_march` in the trace test, the integral test and the documents, and remove the old trace file.
+- Replace `<old name>` by `house_march` in the trace test, the integral test and the documents, and remove the old trace file.
 
 ## Out of scope
 
