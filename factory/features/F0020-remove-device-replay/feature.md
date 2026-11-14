@@ -20,7 +20,7 @@ The device replay proved that the C core computes bit for bit the same on a D1 m
 
 ## The human's changes
 
-Before S0001, in the `Makefile`: `make check` no longer runs `make device`; the targets `device` and `device-replay` are removed; `make test` no longer builds the host server, runs `replay.py` or the scripts `tests/control/device/test_*.py`. Done by the human in commit "Makefile: drop the device replay".
+Before S0001, in the `Makefile`: `make check` no longer runs `make device`; the targets `device` and `device-replay` are removed; `make test` no longer builds the host server, runs `replay.py` or the scripts `tests/control/device/test_*.py`. Done by the human in commit "Makefile and CLAUDE.md: drop the device replay", together with the device test's lines in `CLAUDE.md`.
 
 ## Decisions taken for the human
 
