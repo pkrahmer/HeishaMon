@@ -50,6 +50,10 @@ command, not a setting: nothing is stored in `/control.json` and nothing comes b
 (`-` while the inputs are missing), and the energy it has booked since the start on
 `<base>/control/status/integral_wh`.
 
+The learned term survives a restart: the board keeps it in `/control_integral.txt`, written at
+most every 6 hours and only after it moved by 10 W, and loads it at boot (`firmware.md`, *The
+integral file*).
+
 ## Running a board on the pump with Smart Grid mode
 
 The owner's production board is wired to the pump and switches it by Smart Grid mode:

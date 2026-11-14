@@ -17,6 +17,7 @@ extern "C" {
 #include "ctl_dispatch.h"
 #include "ctl_framelog.h"
 #include "ctl_gate.h"
+#include "ctl_integral_store.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
 }
@@ -25,10 +26,15 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-static const char SETTINGS_PATH[] = "/control.json";
-// The file is written beside its place and renamed over it, so that a reset while writing never
+// Each file is written beside its place and renamed over it, so that a reset while writing never
 // leaves half a file behind.
+static const char SETTINGS_PATH[] = "/control.json";
 static const char SETTINGS_TEMPORARY_PATH[] = "/control.json.new";
+// The learned integral lives apart from the settings, which change only when a setting does.
+static const char INTEGRAL_PATH[] = "/control_integral.txt";
+static const char INTEGRAL_TEMPORARY_PATH[] = "/control_integral.txt.new";
+// Holds the integral file's text; a longer file is no number the store writes, and is refused.
+static const size_t INTEGRAL_FILE_MAX = 32;
 
 // Upstream's main data frame numbers the values it decodes; these four are the loop's.
 static const unsigned int TOPIC_OUTSIDE_TEMP = 14;
@@ -83,6 +89,11 @@ static uint32_t frames_dropped;
 static bool remote_pcb_seen;
 static double remote_pcb_seen_s;
 static uint8_t remote_pcb_byte;
+
+// The integral as last written or loaded, and when the last write was tried (or the boot).
+static double integral_saved_w;
+static double integral_write_s;
+static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
 
 static char log_line[LOG_SIZE];
 static char topic_text[TOPIC_SIZE];
@@ -196,28 +207,85 @@ static bool write_settings(File &file)
     return ok && put_text(file, "}\n");
 }
 
-static void save_settings()
+// Returns false, with the old file kept, when the temporary file cannot be written; the
+// consequence ends each log line.
+static bool replace_file(const char *path, const char *temporary_path, bool (*write)(File &),
+                         const char *consequence)
 {
-    File file = LittleFS.open(SETTINGS_TEMPORARY_PATH, "w");
+    File file = LittleFS.open(temporary_path, "w");
     if (!file) {
-        log_text("control: cannot write %s, the change is lost at the next start",
-                 SETTINGS_TEMPORARY_PATH);
-        return;
+        log_text("control: cannot write %s, %s", temporary_path, consequence);
+        return false;
     }
-    bool written = write_settings(file);
+    bool written = write(file);
     file.close();
     if (!written) {
-        LittleFS.remove(SETTINGS_TEMPORARY_PATH);
-        log_text("control: writing %s failed, the change is lost at the next start",
-                 SETTINGS_TEMPORARY_PATH);
+        LittleFS.remove(temporary_path);
+        log_text("control: writing %s failed, %s", temporary_path, consequence);
+        return false;
+    }
+    if (!LittleFS.rename(temporary_path, path)) {
+        LittleFS.remove(path);
+        if (!LittleFS.rename(temporary_path, path)) {
+            log_text("control: cannot replace %s, %s", path, consequence);
+            return false;
+        }
+    }
+    return true;
+}
+
+static void save_settings()
+{
+    replace_file(SETTINGS_PATH, SETTINGS_TEMPORARY_PATH, write_settings,
+                 "the change is lost at the next start");
+}
+
+// --- The integral file ---------------------------------------------------------------------
+
+// Nothing is written at boot: a missing or refused file starts the integral at 0, which is the
+// value a cold start has anyway.
+static void load_integral(double now)
+{
+    char text[INTEGRAL_FILE_MAX];
+    size_t length = 0;
+    integral_write_s = now;
+    if (LittleFS.exists(INTEGRAL_PATH)) {
+        File file = LittleFS.open(INTEGRAL_PATH, "r");
+        if (file && file.size() <= sizeof text) {
+            length = file.read((uint8_t *)text, sizeof text);
+        }
+        if (file) {
+            file.close();
+        }
+    }
+    double start_w = ctl_integral_store_start(text, length, config.core.integral_limit_w);
+    loop_state.state.p_integral_w = start_w;
+    integral_saved_w = start_w;
+    if (ctl_format_fixed(start_w, 1, integral_text, sizeof integral_text)) {
+        log_text("control: integral starts at %s W", integral_text);
+    }
+}
+
+static bool write_integral(File &file)
+{
+    return put_text(file, integral_text);
+}
+
+// A failed write keeps the old file and counts as a write for the interval, so that a broken
+// flash is not hammered at every tick.
+static void store_integral(bool reset, double now)
+{
+    double integral_w = loop_state.state.p_integral_w;
+    if (!ctl_integral_store_due(integral_w, integral_saved_w, now - integral_write_s, reset)) {
         return;
     }
-    if (!LittleFS.rename(SETTINGS_TEMPORARY_PATH, SETTINGS_PATH)) {
-        LittleFS.remove(SETTINGS_PATH);
-        if (!LittleFS.rename(SETTINGS_TEMPORARY_PATH, SETTINGS_PATH)) {
-            log_text("control: cannot replace %s, the change is lost at the next start",
-                     SETTINGS_PATH);
-        }
+    integral_write_s = now;
+    if (!ctl_integral_store_format(integral_w, integral_text, sizeof integral_text)) {
+        return;
+    }
+    if (replace_file(INTEGRAL_PATH, INTEGRAL_TEMPORARY_PATH, write_integral,
+                     "the integral is tried again later")) {
+        integral_saved_w = integral_w;
     }
 }
 
@@ -277,6 +345,9 @@ static void publish_telemetry()
                 publish(subtopic_text, value_text, false);
             }
         }
+    }
+    if (ctl_format_fixed(integral_saved_w, 1, value_text, sizeof value_text)) {
+        publish("status/integral_saved_w", value_text, false);
     }
 }
 
@@ -534,7 +605,9 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     ctl_framelog_init(&frame_log);
     load_settings();
     ctl_settings_to_loop(&settings, &config);
-    ctl_loop_init(&loop_state, &config, now_s());
+    double now = now_s();
+    ctl_loop_init(&loop_state, &config, now);
+    load_integral(now);
     started = true;
 }
 
@@ -556,6 +629,7 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     if (!ctl_loop_tick(&loop_state, &config, now, &record)) {
         return;
     }
+    store_integral(false, now);
     decided = true;
     decision_s = now;
     decision_gate = current;
@@ -621,9 +695,11 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
         handle_frame_log(payload, length);
         return true;
     case CTL_TOPIC_INTEGRAL_RESET:
-        // A command, not a setting: the payload means nothing and nothing is saved.
+        // A command, not a setting: the payload means nothing, and only the integral's own file is
+        // written, at once.
         ctl_reset_integral(&loop_state.state, now_s(), &config.core);
         log_text("control: integral reset");
+        store_integral(true, now_s());
         return true;
     case CTL_TOPIC_NONE:
         break;

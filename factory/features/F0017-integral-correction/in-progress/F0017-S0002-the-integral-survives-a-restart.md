@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 32
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T08:50:14.251751Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-14T08:50:14.251751Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-14T09:01:24.151335Z'
+  stage: doing
+  run: c17842868c684d36b32e84aedc590420
 ---
 
 # The integral survives a restart
@@ -70,3 +72,49 @@ Expect: `1`
 
 1. 2026-11-14 human: created.
 2. factory: started doing as heishamon.
+3. builder: The learned integral now survives a restart. The board keeps it in `/control_integral.txt` and writes the file at most every 6 hours, and only after a move of 10 W. A reset writes 0 at once. The final `make check` passed (lint, test, device and firmware all green), and the smoke test printed `1`, as expected.
+
+   **What I built**
+   - `HeishaMon/src/control/glue/ctl_integral_store.h` and `.c` (new, pure C99):
+     - `ctl_integral_store_due(integral_w, saved_w, since_write_s, reset)`: the write rule.
+     - `ctl_integral_store_parse(text, length, *value_w)`: reads a bare number through `ctl_payload_parse`. It refuses a `{` (so no JSON object), an empty text and any number that is not finite. It allows white space after the number.
+     - `ctl_integral_store_start(text, length, limit_w)`: the start value at boot, clamped to ±limit, or 0 for a refused text.
+     - `ctl_integral_store_format`: the file's text, with three decimals, through `ctl_format_fixed`.
+   - `HeishaMon/src/control/glue/ctl_firmware.cpp`:
+     - The temporary-file-and-rename logic of `save_settings` is now a shared helper, `replace_file(path, temporary_path, writer, consequence)`. The settings and the integral both use it. The settings' log lines read as before.
+     - `load_integral` runs once in setup, after `ctl_loop_init`. It sets `loop_state.state.p_integral_w` and the saved value, and writes nothing.
+     - `store_integral(reset, now)` runs after every decision tick, and with `reset` true in the `integral_reset` handler.
+     - `publish_telemetry` also publishes `status/integral_saved_w`, with 1 decimal.
+   - `HeishaMon/src/control/glue/ctl_firmware.h`: the comments of setup and loop now mention the integral file.
+   - `tests/control/test_integral_store.c`, which checks:
+     - the write-rule rows, plus a move of -10 W and a move downwards;
+     - the parse rows, plus a trailing line break and a JSON object;
+     - the start rows (120, 500, -500, refused, empty);
+     - that a loaded value is held with gain 0, through the real `ctl_advance`;
+     - that the file text reads back exactly;
+     - a simulated day, checked every minute with the integral moving 15 W an hour: at most 4 writes, each at least 6 h after the last;
+     - that a steady integral is never written.
+     
+     I saw it fail at compile, because the header was missing, before writing the code.
+   - Documents:
+     - `docs/control/firmware.md`: a new section, *The integral file*, and a note about `status/integral_saved_w` under the status table.
+     - `docs/control/settings.md`: the sentence about surviving a restart (two short sentences in fact, the second points to `firmware.md`).
+     - `docs/control/decisions.md`: one new entry.
+
+   **Decisions where the story left something open**
+   - **Telemetry:** `status/integral_saved_w` is published by the glue beside the telemetry's status entries, not as a 13th entry of `ctl_telemetry`. The existing `test_telemetry.c` checks a status count of 12, and no test of another story may change.
+   - **Value compared after a load:** the clamped start value, which is the one the core holds.
+   - **Failed write:** it counts as a write for the 6 hours, so it is retried at the first check 6 hours later, as the story asks. The old saved value is kept.
+   - **File format:** three decimals. A file longer than 32 bytes is refused, so it starts at 0.
+   - **The check:** it runs at decision ticks only, not on every loop pass.
+   - **Comment:** the one in the reset handler said "nothing is saved"; it now says only the integral's own file is written.
+
+   **Rejected:** extending `ctl_telemetry`'s status group, which would break that test. A core function to set the integral: the glue assigns the caller-owned state field directly, which saved a core change.
+
+   **Criterion checks:** `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` shows nothing, so no upstream file changed and no hook line moved.
+
+   **Noticed, not touched**
+   - The shared rename helper keeps the settings' fallback: when a rename fails, it removes the target and renames again. If that second rename also failed, the old integral file would be gone too. This is the same behaviour `/control.json` already has.
+   - The control page does not show `integral_saved_w`; the story didn't ask for it.
+
+   `check`: check: green
