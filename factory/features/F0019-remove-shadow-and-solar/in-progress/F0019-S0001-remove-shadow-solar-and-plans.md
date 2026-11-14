@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 0
 attempts: 0
 crashes: 0
 pull_request: 34
-comments_read: []
+comments_read: [6875920189]
 handed_over: null
 claim: null
 journal:
@@ -26,6 +26,11 @@ journal:
   stage: doing
   run: 0e400c7fd54a4188bf1c942baa8a62f0
   blocked: question
+- number: 4
+  speaker: human
+  kind: comment
+  at: '2026-11-14T10:29:31.738994Z'
+  stage: doing
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -121,3 +126,6 @@ Expect: `1`
    - Criterion 6: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` prints nothing.
    - Criterion 7: `make check` is green ("control: 35 test programs passed").
    - Smoke test: prints `1`, as expected.
+4. 2026-11-14 human: (a). My criterion was aimed at the telemetry name and the settings, not at the core's `p_solar_w` or locals that use it. Read criterion 1 as: `(^|[^_])solar_w\b` finds nothing outside the core and the local in `adapt/ctl_pump.c`, and the second grep accepts the one line in `glue/ctl_settings.c` that sets the core's field to 0, which the Description asks for.
+
+   Your decision on `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stands; leave them for now.
