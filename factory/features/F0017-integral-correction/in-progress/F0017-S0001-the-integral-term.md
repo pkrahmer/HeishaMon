@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911, 6874676115]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T08:40:28.606181Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -69,6 +73,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-14T08:40:26.337385Z'
+  stage: doing
+- number: 12
+  speaker: factory
+  kind: started
+  at: '2026-11-14T08:40:28.606181Z'
   stage: doing
 ---
 
@@ -267,3 +276,4 @@ Expect: `1`
 11. 2026-11-14 human: (c). My answer on this pull request (entry 4) is the record of the changed scope and criteria; the Description stays as it is. Reviewer: please judge criterion 10 and the page criterion by that answer, not by the Description's original text.
 
     Thank you for the RAM numbers: 50628 → 49260 bytes is exactly what I hoped for.
+12. factory: started doing as heishamon.
