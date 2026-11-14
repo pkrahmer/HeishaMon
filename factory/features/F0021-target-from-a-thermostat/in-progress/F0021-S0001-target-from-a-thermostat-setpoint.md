@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T12:27:54.288490Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-14T12:27:54.288490Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T12:28:47.648629Z'
+  stage: review
+  run: f25f35fc29094080865c5e89a42e5041
 ---
 
 # The target from a thermostat's setpoint
@@ -227,3 +229,40 @@ Expect: `1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review of `git diff develop...HEAD -- . ':!factory'` against the description and the ten criteria. I read the code, not the builder's account, and also read `load_settings`, `ctl_firmware_change_begin` and `ctl_firmware_change_end` in `HeishaMon/src/control/glue/ctl_firmware.cpp` and the subscribe path in `glue/ctl_web.cpp`. According to the journal, the factory's `make check` after the builder was green.
+
+   no findings
+
+   **Checked, no finding**
+   - **Round 0 finding:** fixed. `test_rule` in `tests/control/test_desired_topic.c` now offers `1e999` and `-1e999` after a held 21 and expects 22 with `CTL_DESIRED_SETTING`. This covers the failing side of the "finite" rule. The story's own gap, that criterion 1 lists no non-finite row, was already named in round 0, and the test now covers it.
+   - **Criteria 1–6:**
+     - Rule rows: 16 and 26 taken; 15.9, 26.1, 5.5 and 4.5 clear the setpoint; an unparsable and an empty payload clear it; a valid setpoint after an invalid one is taken again.
+     - An empty topic dispatches NONE and falls back to `desired_indoor_c`. A new topic is forgotten through `ctl_desired_follow`.
+     - The setting:
+       - `test_topics` runs the room topics' refusal rows for `desired_topic` too.
+       - A file without the setting loads with it empty, following the loader's set-only-what-it-holds pattern.
+       - The list places it right after `desired_indoor_c`.
+     - The loop's `p_trim_w` equals the balance at 21 and differs from the one at 22.
+     - Telemetry has rows for both sources.
+   - **Ordering in the firmware:**
+     - `ctl_firmware_change_end` runs `configure_loop`, which forgets the old setpoint, before `subscribe_inputs(true)`. So the new topic's retained message arrives after the forget.
+     - `moves_topics` covers the MQTT path. The web form always passes `topics = true`.
+     - `ctl_settings_to_loop` is called only in `configure_loop`, so the setpoint is never overwritten without being applied again.
+   - **Architecture:**
+     - Every change is under `glue/`, `docs/control/` and `tests/control/`. The core, the upstream files and the hook lines are untouched.
+     - `ctl_desired.c` is pure C99. Names carry `ctl_`/`CTL_`, and the helpers are `static`.
+   - **Embedded safety:**
+     - No dynamic memory, recursion or unbounded loop.
+     - `memcpy` copies between two buffers of the same size.
+     - The payload is read only up to its length.
+     - The log text is written with `sizeof value_text`.
+     - The value from outside passes the parser, `isfinite` and the range check before use.
+   - **Quality:** the rule reuses `ctl_payload_parse` rather than a second parser. The comments explain why.
+   - **Docs:** I found every claim in `settings.md`, `firmware.md` (14 status rows, matching `STATUS_COUNT` 14) and the `decisions.md` entry in the code. The decision entry rejects the curve shift, as the story asks.
+
+   **Earlier tests** (`git diff --name-status develop...HEAD`)
+   - `tests/control/test_settings.c` (M): changed under the story's leave for `tests/control/test_settings*.c`. It adds rows and shifts counts and indexes; no check was removed or loosened.
+   - `tests/control/test_telemetry.c` (M): changed under the story's leave for `tests/control/test_telemetry*.c`. It adds rows and a case and shifts the count and the refused index; no check was removed or loosened.
+
+   Notes:
+   - `tests/control/test_desired_topic.c:69`: the rows with `ts` 9 and 10 come before the row with `ts` 8. The rule does not read `ts`, so this changes nothing.
