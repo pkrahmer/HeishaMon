@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 2
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T10:47:50.999974Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -95,6 +91,12 @@ journal:
   kind: started
   at: '2026-11-14T10:47:50.999974Z'
   stage: review
+- number: 16
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T10:48:18.284969Z'
+  stage: review
+  run: c08cc4b190074086b7513072c3babd82
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -308,3 +310,31 @@ Expect: `1`
 
     `check`: check: green
 15. factory: started review as heishamon.
+16. reviewer: Review, round 2: no findings.
+
+    The round-2 change between `b5df311` and `e1983bf` touches one file, the comment on `ctl_settings_to_loop` in `HeishaMon/src/control/glue/ctl_settings.h`. It now says "a solar gain of 0, since the board has no solar input" and no longer uses the literal setting name. Nothing else changed since round 1.
+
+    Groups 1 to 5:
+    - Criterion 1, read as the human reads it in entry 4:
+      - The pattern `(^|[^_])solar_w\b|ctl_shadow|pv_topic|algorithm-plan|firmware-design` finds only the local `solar_w` in `adapt/ctl_pump.c:126,135,136,139`. The search covered `HeishaMon`, `tests` and `docs/control`, leaving out `decisions.md` and the core.
+      - `git grep -n solar_gain_factor -- HeishaMon/src/control/glue docs/control/settings.md` finds only `glue/ctl_settings.c:586`, the line that sets the core's field to 0.
+    - Criteria 2 and 6: `git diff develop --stat` prints nothing, both for the core and for `HeishaMon` outside `HeishaMon/src`.
+    - Criterion 3: `tests/control/test_settings_solar.c` stands as reviewed in rounds 0 and 1.
+    - Criteria 4, 5 and 7: the factory's `make check` after the builder was green (entry 14). The memory numbers are reported, and the D1 mini's RAM and flash both went down.
+    - Shadow: no shadow file or reference is left under `HeishaMon/src/control`, `tests/control`, `docs/control` or the `Makefile`.
+    - Docs: `firmware.md`, `loop.md`, `settings.md` and `device-test.md` match the code. This includes the round-1 fixes: "four input values" and "8 entries, plus 3 for each configured room".
+
+    Earlier tests (group 6). All are unchanged since round 0, and each was changed or deleted under the leave the story's Interface gives with the human's word:
+    - `tests/control/test_dispatch.c` (M): the PV rows are deleted.
+    - `tests/control/test_form.c` (M): the removed name is replaced by `room.0.topic`, and one index shifts.
+    - `tests/control/test_form_rows.c` (M): the removed name is replaced by `room.0.topic`.
+    - `tests/control/test_html.c` (M): the removed name is replaced by `room.0.topic`.
+    - `tests/control/test_settings.c` (M): the rows for the removed settings are deleted, and counts and indexes shift. Kept checks moved to `internal_w` or `room.0.topic`, and none was loosened.
+    - `tests/control/test_settings_remote.c` (M): the kept-setting pair `pv_topic` is now `desired_indoor_c`.
+    - `tests/control/test_telemetry.c` (M): the `inputs/solar_w` row and its fixture line are deleted, and counts shift.
+    - `tests/control/test_shadow.c` and `tests/control/device/test_shadow.py` (D): shadow-only tests, which the story allows deleting.
+    - `tests/control/device/shadow_host.c`, `shadow.py`, `shadow/shadow.ino`, `shadow.example.json` and `data/shadow_capture.jsonl` (D): the shadow tool and its data, which the Description names.
+
+    Open, for the human:
+    - The `## Description` still shows the original criterion 1. The builder's rewrite was left out because the work item is outside the builder's write paths. The binding reading is the human's, in entry 4.
+    - `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop as the human decided in entry 4. Removing them would be a possible follow-up story.
