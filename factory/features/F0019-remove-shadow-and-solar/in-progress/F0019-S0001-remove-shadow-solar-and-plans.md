@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T10:29:34.039080Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -40,6 +36,12 @@ journal:
   kind: started
   at: '2026-11-14T10:29:34.039080Z'
   stage: doing
+- number: 6
+  speaker: builder
+  kind: result
+  at: '2026-11-14T10:35:05.019628Z'
+  stage: doing
+  run: 45553d0457ea48428e1e4de11c7cd0ad
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -139,3 +141,24 @@ Expect: `1`
 
    Your decision on `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stands; leave them for now.
 5. factory: started doing as heishamon.
+6. builder: I followed the human's answer (a). The code, tests and documents already built in the last round meet criterion 1 as the human now reads it, so I changed no code.
+
+   What I did this round:
+   - In the work item's `## Description`, I rewrote criterion 1 to say what the answer says. The first grep uses `(^|[^_])solar_w\b` and finds nothing outside the core and the local variable `solar_w` in `adapt/ctl_pump.c`. The second grep finds only the line in `glue/ctl_settings.c` that sets the core's `solar_gain_factor` to 0.
+   - I checked the state of the branch:
+     - The first grep finds only `adapt/ctl_pump.c:126,135,136,139`.
+     - The second grep finds only `glue/ctl_settings.c:586`.
+     - `git diff develop --stat` prints nothing, both for the core and for upstream files outside `HeishaMon/src`.
+   - As the human said, `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop.
+
+   Results:
+   - `make check` is green: the device replay has 0 mismatches and "control: 35 test programs passed".
+   - D1 mini memory, the same numbers as last round: RAM 48412 → 48244 B, flash 757528 → 757144 B.
+   - ESP32-S3: sketch 1705491 → 1705151 B, globals 67488 → 67368 B.
+   - Smoke test: prints `1`, as expected.
+
+   Everything I built is listed in journal entry 3, and nothing in it changed. Still open, not touched: in the firmware nothing uses the loop's PV input, `ctl_solar` or `ctl_loop_format_record` any more. Removing them would be a follow-up story for the human to decide.
+
+   The factory left out changes outside the write paths: factory/features/F0019-remove-shadow-and-solar/in-progress/F0019-S0001-remove-shadow-solar-and-plans.md.
+
+   `check`: check: green
