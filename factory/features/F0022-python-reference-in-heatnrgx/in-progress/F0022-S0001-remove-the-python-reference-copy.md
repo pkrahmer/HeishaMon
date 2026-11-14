@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T19:15:16.792378Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-14T19:15:16.792378Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T19:15:56.235536Z'
+  stage: review
+  run: a4078be479764a759036826a03893d54
 ---
 
 # Remove the Python reference copy
@@ -97,3 +99,16 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD -- . ':!factory'` against the work item. I ran criteria 1, 2, 4 and 5 again myself, and each printed nothing. `git diff --name-status` shows only M/D under `docs/control/`. No C, header or test file is touched. The journal says the factory's `make check` was green.
+
+   Findings:
+
+   1. `docs/control/core.md:147`: the sentence "It is not in the Python reference." is now false. This diff's new opening (`core.md:6-8`) defines "the Python reference" as the one that lives only in heatnrgx. The decision entry this diff adds (`decisions.md`, "The copy of the Python reference is removed") says heatnrgx has the integral term. So the fork's documents now contradict each other, and a reader of core.md would wrongly think the integral is a fork-only extension. The traces themselves carry no integral term: `zcat tests/control/data/*.trace.gz | grep -ci integral` finds 0 in every one. Fix: reword the sentence so it states what the fork can check, e.g. "The golden traces carry no integral term." The rest of the paragraph (operand order with the term off, bit-for-bit replay) can stay as written.
+
+   Checklist groups with nothing to report:
+   - Group 1, acceptance criteria: every criterion is a git or grep command, or the existing `tests/control/test_traces.c` (criterion 3), which is unchanged. The Interface's rules ("comments only", "no upstream change") are guarded by criteria 4 and 5.
+   - Group 2, architecture: no file outside the three fork folders changed, and no hook line changed.
+   - Group 3, embedded safety: no code changed.
+   - Group 4, quality: nothing to report.
+   - Group 5, docs: the `golden-traces.md` "Source." paragraph and the `decisions.md` entry match the docs criterion. The earlier entries in `decisions.md` are untouched. The `[A-n]` references in `golden-traces.md` were already there on `develop` and point to `algorithm-plan.md`, not to a removed file.
+   - Group 6, earlier tests: the diff changes, renames or deletes no test file.
