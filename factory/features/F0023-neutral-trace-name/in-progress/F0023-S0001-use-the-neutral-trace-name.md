@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T19:21:59.631917Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-14T19:21:59.626039Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:21:59.631917Z'
+  stage: doing
+---
+
 # Use the neutral trace name
 
 ## Description
@@ -32,3 +59,6 @@ make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l
 Expect: `1`
 
 ## Journal
+
+1. 2026-11-14 human: created.
+2. factory: started doing as heishamon.
