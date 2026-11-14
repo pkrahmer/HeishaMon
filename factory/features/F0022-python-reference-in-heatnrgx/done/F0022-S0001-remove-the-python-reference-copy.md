@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-14T19:20:34.555078Z'
   stage: review
   run: 1a32267c84d84a4cae521374aa63dbc3
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-14T19:21:22.857717Z'
+  stage: approval
 ---
 
 # Remove the Python reference copy
@@ -166,3 +171,4 @@ Expect: `1`
    - Group 4 (quality): nothing to report. The remaining mentions of "the Python reference" (`core.md:91`, `:318`, `:369`) explain why the C computes as it does, and the story allows that.
    - Group 5 (work item hygiene): the journal gives the main decision and what was rejected. The Description matches what was built. The opening of `core.md`, the **Source.** paragraph in `golden-traces.md` and the new `decisions.md` entry (decision, reason, rejected: keeping the copy in sync by hand) match criterion 7. The earlier entries in `decisions.md` are untouched.
    - Group 6 (earlier tests): the diff changes, renames or deletes no test file.
+10. factory: done (pull request merged); cost: 4 runs, 5.8 min, 22 turns, 114498 tokens in (450072 more from cache), 8765 out, $0.84
