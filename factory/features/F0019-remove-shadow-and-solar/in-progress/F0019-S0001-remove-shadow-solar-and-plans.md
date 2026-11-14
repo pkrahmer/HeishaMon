@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 1
+round: 2
 attempts: 0
 crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T10:41:50.968255Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,6 +69,12 @@ journal:
   kind: started
   at: '2026-11-14T10:41:50.968255Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T10:42:43.589747Z'
+  stage: review
+  run: 572ad74bc1af4b7896b365b46c811b0e
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -242,3 +244,25 @@ Expect: `1`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: Review, round 1. All three findings from round 0 are fixed. In round 1 the builder changed only `docs/control/firmware.md` and the comment in `glue/ctl_settings.h`. One new problem came with the fix for my own finding 3, and it fails criterion 1.
+
+    Findings:
+    1. `HeishaMon/src/control/glue/ctl_settings.h:85`: the comment I asked for in round 0 (finding 3) contains the literal name `solar_gain_factor`. Criterion 1's second grep, `git grep -n solar_gain_factor -- HeishaMon/src/control/glue docs/control/settings.md`, now finds two lines: this comment and `glue/ctl_settings.c:586`. The human's reading in entry 4 allows only the one line in `glue/ctl_settings.c` that sets the core's field to 0. Fix: say the same thing without the name, for example "and a solar gain of 0, since the board has no solar input", so the grep again finds only `ctl_settings.c:586`. I should have asked for wording that keeps the grep clean.
+
+    Earlier tests (group 6). These are unchanged since round 0, and each was changed or deleted under the leave that the story's Interface gives with the human's word:
+    - `tests/control/test_dispatch.c` (M): PV rows deleted.
+    - `tests/control/test_form.c` (M): the removed name is replaced by `room.0.topic`, and one index shifts.
+    - `tests/control/test_form_rows.c` (M): the removed name is replaced by `room.0.topic`.
+    - `tests/control/test_html.c` (M): the removed name is replaced by `room.0.topic`.
+    - `tests/control/test_settings.c` (M): rows for the removed settings deleted and counts and indexes shifted. Kept checks moved to `internal_w` or `room.0.topic`, and none was loosened.
+    - `tests/control/test_settings_remote.c` (M): the kept-setting pair `pv_topic` is now `desired_indoor_c`.
+    - `tests/control/test_telemetry.c` (M): the `inputs/solar_w` row and its fixture line deleted, and counts shifted.
+    - `tests/control/test_shadow.c` and `tests/control/device/test_shadow.py` (D): shadow-only tests, which the story allows deleting.
+    - `tests/control/device/shadow_host.c`, `shadow.py`, `shadow/shadow.ino`, `shadow.example.json` and `data/shadow_capture.jsonl` (D): the shadow tool and its data, which the Description names.
+
+    Checked and found right:
+    - `firmware.md` now says "8 entries, plus 3 for each configured room" and "four input values". Both match `put_fixed_input` in `glue/ctl_telemetry.c` (cases 0 to 7 with no `solar_w`).
+    - `firmware.md` says the loader skips the old names and the next save drops them. This matches `load_settings` (it logs and skips a non-`OK` status) and `write_settings` (it writes only the listed names).
+    - The first grep, with the human's pattern `(^|[^_])solar_w\b`, finds only the local `solar_w` in `adapt/ctl_pump.c`. `ctl_shadow`, `pv_topic`, `algorithm-plan` and `firmware-design` appear nowhere in scope. Any other "shadow" text is CSS in upstream's `htmlcode.h`.
+    - The factory's `make check` after the builder was green (entry 10).
+    - Information only, not a finding: the builder's rewrite of criterion 1 in round 0b was left out by the factory, because the work item is outside the builder's write paths. The `## Description` therefore still shows the original criterion 1. The human's reading of it is in journal entry 4.
