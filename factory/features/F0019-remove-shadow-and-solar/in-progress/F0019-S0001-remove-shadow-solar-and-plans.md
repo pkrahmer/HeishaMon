@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T10:35:10.173864Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -42,6 +46,11 @@ journal:
   at: '2026-11-14T10:35:05.019628Z'
   stage: doing
   run: 45553d0457ea48428e1e4de11c7cd0ad
+- number: 7
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:35:10.173864Z'
+  stage: review
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -162,3 +171,4 @@ Expect: `1`
    The factory left out changes outside the write paths: factory/features/F0019-remove-shadow-and-solar/in-progress/F0019-S0001-remove-shadow-solar-and-plans.md.
 
    `check`: check: green
+7. factory: started review as heishamon.
