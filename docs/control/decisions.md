@@ -963,3 +963,23 @@ offset back by itself. Adding the integral to `p_net_w` unconditionally: `x + 0.
 into `0.0`, and the traces compare signed zeros. Paying for the RAM by raising its cap, or by
 writing the telemetry's topic prefixes once, which would touch code beyond the term and still
 might not reach it.
+
+## 2026-11-14: The learned integral is kept in a file of its own
+
+**Decision.** The board keeps the learned integral term in `/control_integral.txt`, one number in
+W with three decimals. It writes the file at most every 6 hours, and only when the term moved by
+10 W or more since the value last written or loaded; a reset over `integral_reset` writes 0 at
+once. It reads the file once at boot, after the settings, and clamps the value to
+`integral_limit_w`; a missing or unreadable file starts at 0 and writes nothing. The value it
+compares against after a load is the clamped start value, the one the core holds. A failed write
+counts as a write for the 6 hours, so it is retried at the first check 6 hours later. The rules,
+and the value last saved and the time of the last attempt that they work on, are pure
+(`glue/ctl_integral_store.c`), so that the host tests the retry and the load as well; the file is written with the same temporary-file-and-rename
+helper as `/control.json`. `status/integral_saved_w` is published by the glue beside the
+telemetry's status entries, not as one of them, so that the telemetry's fixed status list stays
+as it is.
+**Reason.** The term learns over about a day, and a restart would throw that away; the flash
+wears with every write, so the file is written rarely, and a move below 10 W is not worth a write.
+**Rejected.** A retained MQTT copy: the broker may be down at boot, and the board would start
+without its term. A field in `/control.json`: a settings file should change only when a setting
+does. Retrying a failed write at every tick, which would hammer a failing flash.

@@ -20,15 +20,15 @@ extern "C" {
 }
 
 /* Loads /control.json, or the defaults when there is no valid file, and starts the loop cold at
- * the board's clock. Keeps both functions for the commands and the log lines. Refuses nothing: a
- * refused setting or an invalid file is logged and gives the defaults for what it would have
- * set. */
+ * the board's clock with the integral of /control_integral.txt, or 0 without a valid one. Keeps
+ * both functions for the commands and the log lines. Refuses nothing: a refused setting or an
+ * invalid file is logged and gives the defaults for what it would have set. */
 void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(char *));
 
 /* Passes the thermostat state of the emulated frame as the pump's confirmation and ticks the loop
- * at the board's clock; after a decision publishes the telemetry under <base>/control/ and sends
- * the commands when they may reach the pump. Returns at once when no tick is due, and does
- * nothing before ctl_firmware_setup. */
+ * at the board's clock; after a decision saves the integral when its store says so, publishes the
+ * telemetry under <base>/control/ and sends the commands when they may reach the pump. Returns at
+ * once when no tick is due, and does nothing before ctl_firmware_setup. */
 void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, bool listen_only);
 
 /* Hands outdoor temperature, produced heat, valve and defrost state of a decoded main data frame
