@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T19:16:01.948214Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-14T19:15:56.235536Z'
   stage: review
   run: a4078be479764a759036826a03893d54
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:16:01.948214Z'
+  stage: doing
 ---
 
 # Remove the Python reference copy
@@ -112,3 +121,4 @@ Expect: `1`
    - Group 4, quality: nothing to report.
    - Group 5, docs: the `golden-traces.md` "Source." paragraph and the `decisions.md` entry match the docs criterion. The earlier entries in `decisions.md` are untouched. The `[A-n]` references in `golden-traces.md` were already there on `develop` and point to `algorithm-plan.md`, not to a removed file.
    - Group 6, earlier tests: the diff changes, renames or deletes no test file.
+6. factory: started doing as heishamon.
