@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T09:01:31.186076Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-14T09:01:24.151335Z'
   stage: doing
   run: c17842868c684d36b32e84aedc590420
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-14T09:01:31.186076Z'
+  stage: review
 ---
 
 # The integral survives a restart
@@ -118,3 +127,4 @@ Expect: `1`
    - The control page does not show `integral_saved_w`; the story didn't ask for it.
 
    `check`: check: green
+4. factory: started review as heishamon.
