@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 33
 comments_read: [6875586408]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T10:01:19.841167Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -30,6 +34,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-14T10:01:16.723208Z'
+  stage: doing
+- number: 5
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:01:19.841167Z'
   stage: doing
 ---
 
@@ -88,3 +97,4 @@ Expect: `1`
 4. 2026-11-14 human: (a). You may delete line 131 of `tests/control/test_payload_first.c` (the `handle_frame_log` check); the `handle_setting` check stays as it is, and the senders list stays as you said. No other change to that file.
 
    The RAM and flash numbers are good, thank you.
+5. factory: started doing as heishamon.
