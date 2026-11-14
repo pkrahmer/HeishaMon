@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-14T09:13:39.040049Z'
   stage: review
   run: 4420bfe0ba1240959a4f309a4d40cb9a
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-14T09:14:27.020829Z'
+  stage: approval
 ---
 
 # The integral survives a restart
@@ -252,3 +257,4 @@ Expect: `1`
    - **Docs:** `firmware.md`, `settings.md` (one sentence) and the one `decisions.md` entry match the code: the names, the 32-byte limit, three decimals in the file and one in the telemetry, and the retry after 6 h. One prose line in `decisions.md` and two in `firmware.md` run past the wrap width. Other lines in these files already do, and it does not change the meaning, so I did not raise it.
 
    **Earlier tests:** none. The diff adds `tests/control/test_integral_store.c` (status A) and changes, renames or deletes no test file that `develop` holds.
+10. factory: done (pull request merged); cost: 4 runs, 17.9 min, 51 turns, 179911 tokens in (1947831 more from cache), 47859 out, $2.25
