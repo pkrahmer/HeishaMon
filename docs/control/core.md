@@ -3,10 +3,10 @@
 The control core is the part of the fork that decides, from five input signals, whether the
 heat pump should heat, cool or do neither. It lives in `HeishaMon/src/control/core/` as plain
 C99 that takes values and returns values: no input or output, no clock, no logger, no hidden
-state. It is a port of the Python reference beside this document
-(`docs/control/python-reference/`, described in `reference.md`), and the golden traces exported
-from that reference are the measure the port is compared against, bit for bit. Where the port differs from the reference on purpose,
-`decisions.md` says why.
+state. It is a port of the Python reference, which lives only in the owner's separate repository
+heatnrgx; the fork keeps no copy of it. The golden traces exported from heatnrgx
+(`golden-traces.md`) are the reference the core is held to: the core replays every one of them
+bit for bit. Where the port differs from the reference on purpose, `decisions.md` says why.
 
 ## Enums (`ctl_types.h`)
 
@@ -144,7 +144,7 @@ unclamped one lies within the limit, a deviation equal to a limit included.
 
 The trim is proportional: a model error of some watts leaves the house steadily that many watts
 divided by `adjustment_w_per_k` off its target. The integral term `p_integral_w` removes that
-offset. It is not in the Python reference. `ctl_energy_balance` leaves it at 0, and
+offset. The golden traces carry no integral term. `ctl_energy_balance` leaves it at 0, and
 `ctl_balance_add_integral` sets it and adds it to `p_net_w` last; an integral of exactly 0
 leaves `p_net_w` untouched, so that with the term off the operations are the reference's and the
 golden traces replay bit for bit. Its sign is the trim's: a house too warm makes it positive, a
@@ -330,7 +330,7 @@ or both NaN. A trace that does not follow the format is refused at the line of t
 
 | Trace | Calls | What it is there for |
 |---|---:|---|
-| `barbarastr_march` | 129,493 | the house model under measured weather, 10–14 March 2023 (120 h), indoor thermometer silent for 60 min from 101.9 h: real PV, a real building, HOLD during a heating pulse |
+| `house_march` | 129,493 | the house model under measured weather, 10–14 March 2023 (120 h), indoor thermometer silent for 60 min from 101.9 h: real PV, a real building, HOLD during a heating pulse |
 | `cold_snap_undersized` | 12,952 | library scenario, 12 h: a cold snap on an undersized heat pump |
 | `dhw_interruptions` | 14,033 | library scenario, 13 h: DHW diversion |
 | `edge_cases` | 3,236 | scripted, what the simulator never produces: NaN and infinite values and instants, a clock going backwards, a duplicate instant, a stale duplicate reading, a reading older than the integration reference, a gap over `max_step_s`, mask changes that re-clamp E; the one trace that reaches every demand, reason and phase and both values of the clamp flag |
