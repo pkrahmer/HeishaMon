@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T19:20:09.523081Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-14T19:20:09.523081Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T19:20:34.555078Z'
+  stage: review
+  run: 1a32267c84d84a4cae521374aa63dbc3
 ---
 
 # Remove the Python reference copy
@@ -148,3 +150,19 @@ Expect: `1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: no findings
+
+   Round 1 review of `git diff develop...HEAD -- . ':!factory'` against the work item. I re-read the code myself and did not rely on the builder's account.
+
+   - The round-0 finding is fixed. `docs/control/core.md:147` now says "The golden traces carry no integral term." That matches the traces, the new opening at `core.md:6-9` and the new `decisions.md` entry. The rest of the paragraph is unchanged.
+   - `git diff --name-status develop...HEAD` lists only M and D entries, all under `docs/control/`. Seven files are deleted under `python-reference/`, plus `reference.md`. `core.md`, `decisions.md` and `golden-traces.md` are modified.
+   - I re-ran criteria 1, 2, 4 and 5, and each printed nothing. The working tree is clean.
+   - I also searched `docs/control`, `HeishaMon/src/control` and `tests/control` (without `decisions.md`) for "API reference", "reference manual", "beside this" and `.py`. This was to catch any reference to a removed file by name rather than by path. Nothing in the fork points to them. What is left is all in heatnrgx (`heatnrgx/sim/golden.py`, `tests/test_golden.py` in `golden-traces.md`), and the story allows that.
+
+   Checklist:
+   - Group 1 (acceptance criteria): criteria 1, 2, 4 and 5 are git and grep commands, and each printed nothing. Criterion 3 is the existing `tests/control/test_traces.c`, which is unchanged. Criterion 6: the journal says the factory's `make check` was green after the builder (entry 7). Criterion 7: the docs say what it asks for.
+   - Group 2 (architecture): no file outside `docs/control/` changed. No upstream file, hook line, `Makefile` or `CLAUDE.md` changed.
+   - Group 3 (embedded safety): no code changed.
+   - Group 4 (quality): nothing to report. The remaining mentions of "the Python reference" (`core.md:91`, `:318`, `:369`) explain why the C computes as it does, and the story allows that.
+   - Group 5 (work item hygiene): the journal gives the main decision and what was rejected. The Description matches what was built. The opening of `core.md`, the **Source.** paragraph in `golden-traces.md` and the new `decisions.md` entry (decision, reason, rejected: keeping the copy in sync by hand) match criterion 7. The earlier entries in `decisions.md` are untouched.
+   - Group 6 (earlier tests): the diff changes, renames or deletes no test file.
