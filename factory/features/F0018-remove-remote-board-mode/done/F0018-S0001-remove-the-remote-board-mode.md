@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 0
 attempts: 0
@@ -53,6 +53,11 @@ journal:
   at: '2026-11-14T10:11:51.291943Z'
   stage: review
   run: 69edebb0d58b4abc938a327b8ce20e46
+- number: 9
+  speaker: factory
+  kind: done
+  at: '2026-11-14T10:13:44.253120Z'
+  stage: approval
 ---
 
 # Remove the remote-board mode
@@ -165,3 +170,4 @@ Expect: `1`
       - `tests/control/test_settings.c` (M): the Interface allows its changes; rows were removed and counts and indexes shifted.
       - `tests/control/test_telemetry.c` (M): the Interface allows its changes; the counter rows were removed and the counts shifted.
       - `tests/control/test_payload_first.c` (M): changed on the human's word in journal entry 4; only line 131 was deleted.
+9. factory: done (pull request merged); cost: 3 runs, 16.9 min, 60 turns, 190078 tokens in (3682576 more from cache), 32500 out, $2.34
