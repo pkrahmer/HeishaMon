@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T10:41:50.968255Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -64,6 +68,11 @@ journal:
   at: '2026-11-14T10:41:43.107479Z'
   stage: doing
   run: e64ca721483446a78d37036daa706621
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:41:50.968255Z'
+  stage: review
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -232,3 +241,4 @@ Expect: `1`
     Still open, as the human decided in entry 4: `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stay in the loop. Nothing in the firmware uses them any more. Removing them would be a follow-up story.
 
     `check`: check: green
+11. factory: started review as heishamon.
