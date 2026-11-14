@@ -67,6 +67,8 @@ static void test_rule(void)
         {"{\"ts\":5,\"v\":26.1,\"s\":0}", 22.0, CTL_DESIRED_SETTING},
         {"{\"ts\":6,\"v\":5.5,\"s\":0}", 22.0, CTL_DESIRED_SETTING},
         {"{\"ts\":7,\"v\":4.5,\"s\":0}", 22.0, CTL_DESIRED_SETTING},
+        {"{\"ts\":9,\"v\":1e999,\"s\":0}", 22.0, CTL_DESIRED_SETTING},
+        {"{\"ts\":10,\"v\":-1e999,\"s\":0}", 22.0, CTL_DESIRED_SETTING},
         {"{\"ts\":8,\"v\":", 22.0, CTL_DESIRED_SETTING},
         {"warm", 22.0, CTL_DESIRED_SETTING},
         {"", 22.0, CTL_DESIRED_SETTING},

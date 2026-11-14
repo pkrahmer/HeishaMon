@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T12:23:18.929350Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-14T12:23:18.929350Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-14T12:27:48.524320Z'
+  stage: doing
+  run: c12d49b025ec4261a3ee910d2b437859
 ---
 
 # The target from a thermostat's setpoint
@@ -192,3 +194,26 @@ Expect: `1`
    - `tests/control/test_settings.c` (M): changed under the leave the story gives `tests/control/test_settings*.c`. It adds rows and shifts counts and indexes; no check was removed or loosened.
    - `tests/control/test_telemetry.c` (M): changed under the leave the story gives `tests/control/test_telemetry*.c`. It adds rows and a case and shifts the count and the refused index; no check was removed or loosened.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's one finding and changed nothing else.
+
+   **What I changed**
+   - `tests/control/test_desired_topic.c` (`test_rule`): two new rows that offer a non-finite value after a held setpoint of 21.
+     - `{"ts":9,"v":1e999,"s":0}` overflows to +infinity.
+     - `{"ts":10,"v":-1e999,"s":0}` overflows to -infinity.
+     - Both expect 22 and `CTL_DESIRED_SETTING`. That covers the failing side of the "finite" part of the rule.
+   - The code did not need to change, and the new rows passed on the first run. `ctl_payload_parse` in `HeishaMon/src/control/adapt/ctl_payload.c` already refuses a non-finite `strtod` result, and `ctl_desired_offer` clears the held setpoint when the parse fails.
+
+   **Decisions**
+   - I added the negative overflow as well as the one the reviewer suggested, so that both infinities are tested.
+   - I placed the rows next to the other out-of-range rows. Their `ts` values are not in order with the rows around them, but the rule does not read `ts`, so this changes nothing.
+
+   **Results**
+   - `make check` is green. The firmware numbers are the same as in round 0:
+     - D1 mini: global RAM 48596 bytes, flash 758184 bytes.
+     - ESP32-S3: sketch 1706155 bytes, globals 67608 bytes.
+   - Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` printed `1`, as expected.
+
+   **Open**
+   - Nothing new. The gap the reviewer noted in the story stands: criterion 1 does not list a non-finite row. The test now covers that case anyway.
+
+   `check`: check: green
