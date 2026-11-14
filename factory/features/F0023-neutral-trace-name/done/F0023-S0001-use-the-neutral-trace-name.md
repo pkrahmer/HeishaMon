@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 0
 attempts: 0
@@ -36,6 +36,11 @@ journal:
   at: '2026-11-14T19:29:19.145892Z'
   stage: review
   run: d2de0602d365451586c2a324297cc896
+- number: 6
+  speaker: factory
+  kind: done
+  at: '2026-11-14T19:31:11.769156Z'
+  stage: approval
 ---
 
 # Use the neutral trace name
@@ -100,3 +105,4 @@ Expect: `1`
    - `tests/control/test_traces.c` (M): the human approved the change in the story's Interface. Only the name changed.
    - `tests/control/test_integral.c` (M): the human approved the change in the story's Interface. Only the name changed.
    - `tests/control/data/barbarastr_march.trace.gz` (D): test data. The Description and Interface name its removal, and `house_march.trace.gz` holds the same data.
+6. factory: done (pull request merged); cost: 2 runs, 5.3 min, 13 turns, 23996 tokens in (198442 more from cache), 4743 out, $0.25
