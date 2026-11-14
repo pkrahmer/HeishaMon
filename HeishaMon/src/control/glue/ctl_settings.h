@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 17 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 18 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -29,6 +29,7 @@ typedef struct {
     double room_weight[CTL_ROOMS_MAX];
     double room_timeout_s;
     double desired_indoor_c;
+    char desired_topic[CTL_SETTINGS_TOPIC_MAX + 1]; /* a thermostat's setpoint; empty: none */
     double transmission_w_per_k;
     double adjustment_w_per_k;
     double hysteresis_wh;
@@ -52,7 +53,7 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, and the core's and the router's defaults, the thermostat rather than Smart Grid
+ * topic and weight 1), no desired_topic, a room timeout of 1800 s, and the core's and the router's defaults, the thermostat rather than Smart Grid
  * mode among them. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
 

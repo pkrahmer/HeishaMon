@@ -13,6 +13,7 @@ extern "C" {
 #include "../loop/ctl_clock.h"
 #include "../loop/ctl_loop.h"
 #include "../route/ctl_router.h"
+#include "ctl_desired.h"
 #include "ctl_dispatch.h"
 #include "ctl_gate.h"
 #include "ctl_integral_store.h"
@@ -57,6 +58,8 @@ static PubSubClient *control_client;
 static const char *topic_base;
 
 static ctl_settings settings;
+// The thermostat's setpoint, held apart from the settings so that it is never saved.
+static ctl_desired desired;
 static ctl_loop_config config;
 static ctl_loop loop_state;
 static ctl_clock board_clock;
@@ -68,6 +71,8 @@ static ctl_gate last_gate;
 static bool decided;
 static double decision_s;
 static ctl_gate decision_gate;
+static double decision_desired_c;
+static ctl_desired_source decision_desired_source;
 
 static ctl_integral_store integral_store;
 static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
@@ -217,6 +222,15 @@ static void save_settings()
                  "the change is lost at the next start");
 }
 
+// The loop's configuration from the settings, with the target the held setpoint gives; a new
+// desired_topic forgets the setpoint of the old one first.
+static void configure_loop()
+{
+    ctl_settings_to_loop(&settings, &config);
+    ctl_desired_follow(&desired, &settings);
+    ctl_desired_apply(&desired, &settings, &config);
+}
+
 // --- The integral file ---------------------------------------------------------------------
 
 static void load_integral(double now)
@@ -335,6 +349,9 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
+    if (settings.desired_topic[0] != '\0') {
+        subscribe_one(settings.desired_topic, subscribe);
+    }
 }
 
 static bool ends_with(const char *text, const char *suffix)
@@ -344,10 +361,12 @@ static bool ends_with(const char *text, const char *suffix)
     return length > suffix_length && strcmp(text + length - suffix_length, suffix) == 0;
 }
 
-// The names whose change moves the set of input topics: the count of rooms and a room's topic.
+// The names whose change moves the set of input topics: the count of rooms, a room's topic and
+// the thermostat's.
 static bool moves_topics(const char *name)
 {
-    return strcmp(name, "rooms") == 0 || ends_with(name, ".topic");
+    return strcmp(name, "rooms") == 0 || ends_with(name, ".topic")
+           || strcmp(name, "desired_topic") == 0;
 }
 
 // A change begun here ends with ctl_firmware_change_end; between them only the settings move.
@@ -390,7 +409,7 @@ void ctl_firmware_change_end()
 {
     if (change_any) {
         save_settings();
-        ctl_settings_to_loop(&settings, &config);
+        configure_loop();
         if (settings.cooling != change_cooling) {
             ctl_set_allowed(&loop_state.state, config.allowed, now_s(), &config.core);
         }
@@ -426,6 +445,22 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
     }
     ctl_firmware_change_end();
     publish_setting(name);
+}
+
+// The payload is parsed before the log line overwrites the client's buffer.
+static void handle_desired(const byte *payload, unsigned int length)
+{
+    double before_c = config.core.desired_indoor_c;
+    bool taken = ctl_desired_offer(&desired, (const char *)payload, length);
+    ctl_desired_apply(&desired, &settings, &config);
+    if (config.core.desired_indoor_c != before_c || !taken) {
+        double target_c;
+        ctl_desired_source source = ctl_desired_target(&desired, &settings, &target_c);
+        if (ctl_format_fixed(target_c, 2, value_text, sizeof value_text)) {
+            log_text("control: setpoint %s, target %s from the %s", taken ? "taken" : "refused",
+                     value_text, ctl_desired_source_name(source));
+        }
+    }
 }
 
 // --- Commands ------------------------------------------------------------------------------
@@ -488,7 +523,8 @@ void ctl_firmware_setup(bool (*send_command)(byte *, int), void (*log_message)(c
     log_function = log_message;
     ctl_clock_init(&board_clock);
     load_settings();
-    ctl_settings_to_loop(&settings, &config);
+    ctl_desired_init(&desired, &settings);
+    configure_loop();
     double now = now_s();
     ctl_loop_init(&loop_state, &config, now);
     load_integral(now);
@@ -516,6 +552,7 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     decided = true;
     decision_s = now;
     decision_gate = current;
+    decision_desired_source = ctl_desired_target(&desired, &settings, &decision_desired_c);
     if (mqtt.connected()) {
         publish_telemetry();
     }
@@ -574,6 +611,9 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
     case CTL_TOPIC_SETTING:
         handle_setting(target.name, payload, length);
         return true;
+    case CTL_TOPIC_DESIRED:
+        handle_desired(payload, length);
+        return true;
     case CTL_TOPIC_INTEGRAL_RESET:
         // A command, not a setting: the payload means nothing, and only the integral's own file is
         // written, at once.
@@ -603,6 +643,8 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source)
     source->uptime_s = decision_s;
     source->enabled = decision_gate == CTL_GATE_OPEN;
     source->gate = decision_gate;
+    source->desired_c = decision_desired_c;
+    source->desired_source = decision_desired_source;
     return true;
 }
 

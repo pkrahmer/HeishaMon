@@ -1030,3 +1030,22 @@ under `tests/control/data/bad/` stay, since the trace runner replays them.
 production board now runs the core, and the host replay of the golden traces, built with
 `-ffp-contract=off`, keeps the proof.
 **Rejected.** Keeping it as an optional tool: nothing would build or run it, so it would rot.
+
+## 2026-11-14: The target from a thermostat's setpoint
+
+**Decision.** The setting `desired_topic` names a room thermostat's setpoint topic. The board holds
+the last valid setpoint from it, a finite value from 16 to 26 °C, both included, parsed as the room
+temperatures are, and that setpoint is the core's `desired_indoor_c`; an invalid message (outside
+the range, empty or unparsable) clears it, and the setting `desired_indoor_c` is the target again.
+A held setpoint never goes stale, and it is not stored: neither in `/control.json` nor in the
+setting. A change of `desired_topic` forgets it. A message is not checked for a replayed timestamp,
+unlike a room's: a replayed setpoint is the same setpoint. A room whose topic equals
+`desired_topic` keeps the messages, since the rooms are matched first. `status/desired_c` is
+written with 2 decimals, as the room values are.
+**Reason.** The owner sets the target where they live, on the thermostat, and the CCU publishes the
+setpoint retained and on change, so the last one holds until the next and returns after a restart;
+16 to 26 °C keeps a thermostat's frost or boost setting (such as 4.5 or 30.5) from becoming the
+house's target.
+**Rejected.** The heat pump's curve shift: it also shifts the water temperature. Clamping an
+out-of-range setpoint to the range: a frost setting means the thermostat is off, not a target of
+16 °C. A timeout like a room's: a setpoint is published only when it changes.

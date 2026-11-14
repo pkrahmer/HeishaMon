@@ -112,6 +112,8 @@ static void set_fixture(fixture *f)
     f->source.uptime_s = 612.7;
     f->source.enabled = true;
     f->source.gate = CTL_GATE_OPEN;
+    f->source.desired_c = 21.5;
+    f->source.desired_source = CTL_DESIRED_TOPIC;
 }
 
 static void check_entry(const char *file, int line, const ctl_telemetry_source *source,
@@ -168,7 +170,7 @@ static void test_counts(void)
     fixture f;
     set_fixture(&f);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 20u);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 12u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 14u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
 
@@ -209,6 +211,8 @@ static void test_entries(void)
         {"status/enabled", "1"},
         {"status/p_integral_w", "12.3"},
         {"status/integral_wh", "-45.7"},
+        {"status/desired_c", "21.50"},
+        {"status/desired_source", "topic"},
     };
     static const entry_row outputs[] = {
         {"outputs/router", "WAITING"},
@@ -247,6 +251,16 @@ static void test_blocked(void)
     CHECK_VALUE(&f.source, CTL_GROUP_OUTPUTS, "outputs/blocked", "-");
     f.source.gate = CTL_GATE_DISABLED;
     CHECK_VALUE(&f.source, CTL_GROUP_OUTPUTS, "outputs/blocked", "disabled");
+}
+
+static void test_desired_from_the_setting(void)
+{
+    fixture f;
+    set_fixture(&f);
+    f.source.desired_c = 22.0;
+    f.source.desired_source = CTL_DESIRED_SETTING;
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/desired_c", "22.00");
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/desired_source", "setting");
 }
 
 static void test_without_inputs(void)
@@ -378,7 +392,7 @@ static void test_refusals(void)
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 22,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 12,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 14,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, (ctl_group)3, 0,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
@@ -440,6 +454,7 @@ int main(void)
     test_entries();
     test_unhealthy_and_flags();
     test_blocked();
+    test_desired_from_the_setting();
     test_without_inputs();
     test_thermostat_state_and_commands();
     test_settings();

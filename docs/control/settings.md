@@ -17,7 +17,8 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `room.<i>.topic` | empty | a topic; one per room `i` below `rooms` | MQTT topic of room `i`'s temperature. Empty: the room never receives a value. |
 | `room.<i>.weight` | `1` | 0 to 1000; one per room `i` below `rooms`; the weights of all rooms together above 0 | Weight of room `i` in the indoor average; 0 = watched, not counted. |
 | `room_timeout_s` | `1800` | s, above 0 | Seconds after which a room's last value counts as too old. |
-| `desired_indoor_c` | `22` | °C, 5 to 30 | Target for the indoor average. |
+| `desired_indoor_c` | `22` | °C, 5 to 30 | Target for the indoor average, while no setpoint from `desired_topic` is held. |
+| `desired_topic` | empty | a topic | MQTT topic of a room thermostat's setpoint. A setpoint of 16 to 26 °C is the target in place of `desired_indoor_c` until a message outside that range, or one that does not parse, clears it. Empty: the target is always `desired_indoor_c`. |
 | `transmission_w_per_k` | `155` | W/K, above 0 | The house's heat loss per kelvin between inside and outside. |
 | `adjustment_w_per_k` | `805` | W/K, 0 or more | Extra power per kelvin the indoor average is off its target. |
 | `hysteresis_wh` | `1500` | Wh, above 0 | The energy balance at which the pump is switched on: heating at minus this, cooling at plus this; it is switched off when the balance is back at 0. |
@@ -30,6 +31,27 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `retry_interval_s` | `120` | s, 0 or more | Seconds before a command that was not confirmed is sent again. |
 | `max_retries` | `3` | whole, 0 to 10 | Repeats of an unconfirmed command before the router reports a fault. |
 | `smart_grid` | `0` | `0` or `1` | How the pump is switched: 1 = Smart Grid mode (0 for heating or cooling demand, 1 = Capacity 1 for no demand), 0 = the external thermostat input. |
+
+## The target from a room thermostat
+
+With `desired_topic` set, the house's target is set on a room thermostat. The board takes the
+thermostat's setpoint in the form the room temperatures use, a bare number or a JSON object such
+as `{"ts":1794646372801,"v":21,"s":0}`. For a Homematic thermostat behind a CCU, the topic is its
+setpoint's, such as
+
+    ccu/device/status/000A9D89A7961A/1/SET_POINT_TEMPERATURE
+
+- A setpoint from 16 to 26 °C, both included, is the target from the next interval on, and stays
+  the target until the next message: it never goes stale, since the thermostat publishes its
+  setpoint only when it changes.
+- A message outside that range, or one that is empty or does not parse, clears the setpoint: the
+  target falls back to `desired_indoor_c` until a valid setpoint arrives.
+- The setpoint is not saved. After a restart, the CCU's retained message sets it again; until it
+  arrives, and whenever `desired_topic` is changed or emptied, the target is `desired_indoor_c`.
+- `desired_indoor_c` keeps its own value throughout; the integral term is not touched.
+
+The target in use is published on `<base>/control/status/desired_c`, and where it comes from on
+`<base>/control/status/desired_source`: `setting` or `topic`.
 
 ## The integral term
 
