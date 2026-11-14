@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T10:29:34.039080Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -30,6 +34,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-14T10:29:31.738994Z'
+  stage: doing
+- number: 5
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:29:34.039080Z'
   stage: doing
 ---
 
@@ -129,3 +138,4 @@ Expect: `1`
 4. 2026-11-14 human: (a). My criterion was aimed at the telemetry name and the settings, not at the core's `p_solar_w` or locals that use it. Read criterion 1 as: `(^|[^_])solar_w\b` finds nothing outside the core and the local in `adapt/ctl_pump.c`, and the second grep accepts the one line in `glue/ctl_settings.c` that sets the core's field to 0, which the Description asks for.
 
    Your decision on `CTL_INPUT_PV`, `ctl_solar` and `ctl_loop_format_record` stands; leave them for now.
+5. factory: started doing as heishamon.
