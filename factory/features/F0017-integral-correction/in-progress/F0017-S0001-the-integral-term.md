@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 0
 attempts: 0
 crashes: 0
 pull_request: 31
-comments_read: []
+comments_read: [6874460911]
 handed_over: null
 claim: null
 journal:
@@ -26,6 +26,11 @@ journal:
   stage: doing
   run: 4f907fa602ce473ab9ce9ec51ee52866
   blocked: question
+- number: 4
+  speaker: human
+  kind: comment
+  at: '2026-11-14T08:22:01.144408Z'
+  stage: doing
 ---
 
 # The integral term
@@ -128,3 +133,11 @@ Expect: `1`
    - The wire protocol (`wire/ctl_wire.c`) and `replay.py` know neither the new configuration keys nor the sixth ledger term. I left them alone so the protocol and the traces stay as they are.
    - The Python reference has no integral term.
    - `test_integral.c`'s twin replay starts from the default configuration rather than each trace's own `config` lines, because `trace.c`'s parser is static and not mine to change.
+4. 2026-11-14 human: B, thank you for the measurement.
+
+   - Shrink `ctl_form_report` so that it keeps each setting's index in the name list instead of its name. Changes to `glue/ctl_form.c`, `glue/ctl_form.h` and `glue/ctl_web.cpp` are inside this story from now on.
+   - My word for the test of another story: in `tests/control/test_form.c`, the check at line 49 that compares `report->name[index]` may change so that it checks the same thing through the index: the report's entry names the same setting (by `ctl_settings_name_at` of its index) and carries the same result. No other check of that file changes, and none may be removed or loosened.
+   - Criterion 10 then reads: the D1 mini's global RAM is no larger than on `develop`. Report the before and after numbers in the result.
+   - The page must render exactly as before after a save: same rows, same results, same order.
+
+   Your other decisions stand as you took them, including `status/integral_wh` and the twin replay from the default configuration.
