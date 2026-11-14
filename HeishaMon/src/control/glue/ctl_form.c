@@ -69,10 +69,13 @@ void ctl_form_keep(ctl_form *form, const char *name, const char *value, size_t l
     form->last = index;
 }
 
-static void report_name(ctl_form_report *report, const char *name, ctl_save_result result)
+/* An index of the settings list must fit the byte a report entry keeps of it. */
+typedef char ctl_form_names_fit_a_byte[CTL_SETTINGS_NAMES_MAX <= UINT8_MAX ? 1 : -1];
+
+static void report_setting(ctl_form_report *report, size_t index, ctl_save_result result)
 {
     if (report->count < CTL_FORM_FIELDS_MAX) {
-        strcpy(report->name[report->count], name);
+        report->setting[report->count] = (uint8_t)index;
         report->result[report->count] = (uint8_t)result;
         report->count++;
     }
@@ -110,6 +113,7 @@ bool ctl_form_apply(const ctl_form *form, const ctl_settings *settings, ctl_form
     char name[CTL_SETTINGS_NAME_MAX];
     bool any_changed = false;
     report->count = 0;
+    report->settings = settings;
     // The setter changes the settings, so the count is read again after every field.
     for (size_t i = 0; i < CTL_FORM_FIELDS_MAX && i < ctl_settings_name_count(settings); i++) {
         if (!ctl_settings_name_at(settings, i, name, sizeof name)) {
@@ -120,21 +124,50 @@ bool ctl_form_apply(const ctl_form *form, const ctl_settings *settings, ctl_form
             continue;
         }
         ctl_save_result result = apply_field(&form->field[index], name, set, context);
-        report_name(report, name, result);
+        report_setting(report, i, result);
         any_changed = any_changed || result == CTL_SAVE_SAVED;
     }
+    // Only `rooms` moves the names after it, and it is applied before them, so every index
+    // kept above already names its setting in the list as the save left it.
+    report->names = (uint8_t)ctl_settings_name_count(settings);
     return any_changed;
 }
 
 void ctl_form_report_start(ctl_form_report *report)
 {
     report->count = 0;
+    report->settings = NULL;
+    report->names = 0;
+}
+
+static bool report_current(const ctl_form_report *report)
+{
+    return report->settings != NULL
+           && ctl_settings_name_count(report->settings) == report->names;
+}
+
+static ctl_save_result report_result_at(const ctl_form_report *report, size_t index)
+{
+    if (!report_current(report)) {
+        return CTL_SAVE_UNCHANGED;
+    }
+    for (size_t i = 0; i < report->count && i < CTL_FORM_FIELDS_MAX; i++) {
+        if (report->setting[i] == index) {
+            return (ctl_save_result)report->result[i];
+        }
+    }
+    return CTL_SAVE_UNCHANGED;
 }
 
 ctl_save_result ctl_form_report_result(const ctl_form_report *report, const char *name)
 {
+    char listed[CTL_SETTINGS_NAME_MAX];
+    if (!report_current(report)) {
+        return CTL_SAVE_UNCHANGED;
+    }
     for (size_t i = 0; i < report->count && i < CTL_FORM_FIELDS_MAX; i++) {
-        if (strcmp(report->name[i], name) == 0) {
+        if (ctl_settings_name_at(report->settings, report->setting[i], listed, sizeof listed)
+            && strcmp(listed, name) == 0) {
             return (ctl_save_result)report->result[i];
         }
     }
@@ -171,7 +204,7 @@ bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, s
         || !ctl_settings_get(settings, name, value, sizeof value)) {
         return true;
     }
-    ctl_save_result result = ctl_form_report_result(report, name);
+    ctl_save_result result = report_result_at(report, index);
     ctl_html_setting row;
     row.name = name;
     row.value = editable ? value : NULL;

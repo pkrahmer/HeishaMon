@@ -41,20 +41,23 @@ static void check_setting(const ctl_settings *settings, const char *name, const 
     CHECK_TEXT(value, expected);
 }
 
+static ctl_form form;
+static ctl_form_report report;
+static setter_context target;
+
 static void check_report_entry(const ctl_form_report *report, size_t index, const char *name,
                                ctl_save_result result)
 {
     CHECK_TRUE(index < report->count);
     if (index < report->count) {
-        CHECK_TEXT(report->name[index], name);
+        char listed[CTL_SETTINGS_NAME_MAX];
+        CHECK_TRUE(ctl_settings_name_at(&target.settings, report->setting[index], listed,
+                                        sizeof listed));
+        CHECK_TEXT(listed, name);
         CHECK_UINT(report->result[index], result);
         CHECK_UINT(ctl_form_report_result(report, name), result);
     }
 }
-
-static ctl_form form;
-static ctl_form_report report;
-static setter_context target;
 
 static void start(void)
 {

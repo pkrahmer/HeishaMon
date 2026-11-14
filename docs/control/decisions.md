@@ -947,7 +947,11 @@ the settings, so that nothing is stored. The term and its ledger term are publis
 `status/p_integral_w` and `status/integral_wh`; the other ledger terms are not published, so
 there was no ledger topic to follow. `status/p_integral_w` is `-` without inputs, as
 `status/p_net_w` is, because it is read from the decision's balance: a field of its own in the
-decision would cost RAM in every copy the loop keeps.
+decision would cost RAM in every copy the loop keeps. To pay for the two settings, the control
+page's save report keeps each setting's index in the settings list instead of its 32-byte name,
+with the settings it saved and their count of names after the save; once that count differs (a
+`rooms` changed since the save), the indexes may name other settings and the report shows no
+result. The D1 mini's global RAM ends below the one before the term.
 **Reason.** The trim is proportional: a model error leaves the house steadily off its target by
 the error divided by the gain; the owner's house sat about 0.4 K too warm. An integral learns the
 missing power and removes the offset. Off by default, and with an integral of exactly 0 leaving
@@ -956,4 +960,6 @@ missing power and removes the offset. Off by default, and with an integral of ex
 it pushes the loop towards swinging. Learning in every interval, which would wind the integral up
 on a stuck sensor or while the energy is clamped. A decay of the integral, which would bring the
 offset back by itself. Adding the integral to `p_net_w` unconditionally: `x + 0.0` turns a `-0.0`
-into `0.0`, and the traces compare signed zeros.
+into `0.0`, and the traces compare signed zeros. Paying for the RAM by raising its cap, or by
+writing the telemetry's topic prefixes once, which would touch code beyond the term and still
+might not reach it.

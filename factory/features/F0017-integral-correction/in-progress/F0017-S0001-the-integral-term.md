@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T08:22:03.730633Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -40,6 +36,12 @@ journal:
   kind: started
   at: '2026-11-14T08:22:03.730633Z'
   stage: doing
+- number: 6
+  speaker: builder
+  kind: result
+  at: '2026-11-14T08:32:33.002845Z'
+  stage: doing
+  run: 8e466ba76faf4a0d8a329f466df47d1b
 ---
 
 # The integral term
@@ -151,3 +153,34 @@ Expect: `1`
 
    Your other decisions stand as you took them, including `status/integral_wh` and the twin replay from the default configuration.
 5. factory: started doing as heishamon.
+6. builder: Built option B from the human's answer: the control page's save report now stores each setting's index instead of its name. The rest of the story is unchanged from entry 3. `make check` is green and the smoke test prints `1`.
+
+   **Criterion 10, before and after (D1 mini, global RAM, from `make firmware`):** `develop` 50628 bytes (built from `git archive develop` in a scratch folder). The working tree is 49260 bytes, which is 1368 below `develop`. Both boards build. Criterion 11 also holds: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+
+   **What I built this run:**
+   - `HeishaMon/src/control/glue/ctl_form.h`: each `ctl_form_report` entry keeps `uint8_t setting[]` (its index in `ctl_settings_name_at`) instead of `char name[][32]`. The report also keeps a pointer to the settings it saved (`settings`) and their count of names after the save (`names`). The comment on `ctl_form_report_result` now says it returns no result once the count of names has changed.
+   - `HeishaMon/src/control/glue/ctl_form.c`:
+     - `report_setting` stores the index. A compile-time check makes sure `CTL_SETTINGS_NAMES_MAX` fits in a byte.
+     - `ctl_form_report_result` looks names up through `ctl_settings_name_at`.
+     - `ctl_form_row` looks the result up directly by the row's index, so a row is no longer found by comparing names.
+     - `ctl_form_report_start` clears the new fields.
+   - `HeishaMon/src/control/glue/ctl_web.cpp`: no change was needed. Its `last_report` is a zeroed static and it calls the same functions as before.
+   - `tests/control/test_form.c`: only the check the human named (formerly line 49) changed. It now gets the name from `ctl_settings_name_at(&target.settings, report->setting[index], …)` and compares it with the expected name; the result checks beside it are as before. I moved the three static declarations (`form`, `report`, `target`) above `check_report_entry` so it can reach `target`. No check was removed or loosened.
+   - New `tests/control/test_form_report.c`:
+     - A save that raises `rooms` together with fields after it still reports each result under the right name, including on the rendered row.
+     - When `rooms` changes after the save, the report shows no result.
+     - A report that has been reset (`ctl_form_report_start`) holds no result.
+   - `test_form_rows.c` and `test_lean_page.c` pass unchanged. They check that after a save the page shows the same rows, results and order as before.
+   - `docs/control/decisions.md`: I added the report change, its reason and the rejected options A and C to this story's single entry, so the docs criterion still has one entry.
+
+   **Decisions I took:**
+   - **Indexes stay valid through a save.** Only `rooms` moves the names that follow it, and `ctl_form_apply` applies `rooms` before those names. So every index recorded during the save already matches the list as the save leaves it.
+   - **When the count of names changes after a save, the report shows nothing.** This can happen if `rooms` is changed over MQTT between the save and the page that follows. Without this check, results would land on the wrong rows. I chose that blank results are safer than misplaced ones; it costs 5 bytes (pointer plus count).
+   - **Rejected:** passing the settings into `ctl_form_report_result`. That would have meant changing calls in `test_form.c` and `test_form_rows.c`, which the human's permission does not cover.
+
+   **Open:**
+   - I tried to rewrite criterion 10 and the Interface in the work item's Description to match the human's answer in entry 4, as R5 says to. The tool's permission check refused the edit, so the Description still reads "no more than 64 bytes". The answer in entry 4 is the criterion I worked to, and it is met.
+
+   **Noticed, not touched:** the same as entry 3. The wire protocol and `replay.py` do not know the new configuration keys or the sixth ledger term, and the Python reference has no integral term.
+
+   `check`: check: green
