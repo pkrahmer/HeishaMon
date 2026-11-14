@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T19:15:16.792378Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-14T19:15:11.004515Z'
   stage: doing
   run: cf9217c2ff034f62a812f70feb0ceefa
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:15:16.792378Z'
+  stage: review
 ---
 
 # Remove the Python reference copy
@@ -87,3 +96,4 @@ Expect: `1`
    Noticed, not touched: `docs/control/core.md` (the paragraph on the integral term `p_integral_w`) says "It is not in the Python reference." That was true of the removed copy, but heatnrgx now has the integral term, so the sentence is out of date. The story only asked to reword lines that name a removed path, so I left it; the human may want it reworded in a later story. `golden-traces.md` also names heatnrgx's own `tests/test_golden.py`; that is a path in heatnrgx, not in the fork, so it stays.
 
    `check`: check: green
+4. factory: started review as heishamon.
