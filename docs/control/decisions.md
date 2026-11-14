@@ -935,7 +935,7 @@ the texts in `ctl_web.cpp` alone, where no host test can check the link.
 
 ## 2026-11-14: An integral term against the steady offset
 
-**Decision.** The balance gets a fourth power, the integral term `p_integral_w`, which the
+**Decision.** The balance gets a fifth power, the integral term `p_integral_w`, which the
 controller keeps in its state and adds to `p_net_w` last. It is off by default
 (`integral_w_per_kh` 0), capped at `integral_limit_w` either way (300 W by default), and it learns
 only while it can be trusted: in an integrated interval whose start had every required signal

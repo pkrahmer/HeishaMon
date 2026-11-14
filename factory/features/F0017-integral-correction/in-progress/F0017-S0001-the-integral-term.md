@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 31
 comments_read: [6874460911]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T08:35:13.751748Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,13 @@ journal:
   kind: started
   at: '2026-11-14T08:35:13.751748Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: question
+  at: '2026-11-14T08:39:37.753304Z'
+  stage: doing
+  run: 72b8a89ab4f9433e8f8c91b9950fb3a4
+  blocked: question
 ---
 
 # The integral term
@@ -227,3 +230,32 @@ Expect: `1`
 
    Not verified by me: the RAM numbers for criterion 10 (49260 against 50628 bytes on `develop`) are the builder's measurement. No stage check compares `make firmware` against `develop`.
 9. factory: started doing as heishamon.
+10. builder: Round 1. I fixed findings 1 to 3 from the review. Finding 4 is still open: I could not write the work item's Description, so I am asking.
+
+    `make check` is green with the changes below, and the smoke test prints `1`.
+
+    **Fixed:**
+    1. `HeishaMon/src/control/core/ctl_controller.h`
+       - The header comment now says "five functions" and "the other four call it first". It also says `ctl_advance` is where the integral term learns, and its lines are reflowed.
+       - The comment on the state struct says "the five functions".
+
+       `docs/control/core.md`
+       - The Controller introduction says five functions, the other four, and that only `ctl_advance` and `ctl_reset_integral` change the integral term.
+       - The heading is now "The five functions".
+       - "The order of calls" gains step 4: `ctl_reset_integral` whenever the owner asks to clear the integral, with the instant of the request. The steps after it are renumbered (advance is 5, evaluate is 6).
+    2. `docs/control/settings.md`: the pointer now names `core.md` (*Controller*, *The five functions*) instead of *Energy balance*. I reflowed the paragraph.
+    3. `docs/control/decisions.md`: "a fourth power" is now "a fifth power".
+
+    **Not done (finding 4):** I tried to rewrite the Description of `factory/features/F0017-integral-correction/in-progress/F0017-S0001-the-integral-term.md` to match entry 4. The tool's permission check refused the write again (it classed it as undermining oversight), as it did in entry 6. I did not try to get around that.
+
+    **Question:** could you apply these three changes to that file's `## Description` yourself, or allow me to write it? The text I would use:
+    - **Interface**, a new bullet before "No upstream file changes…": "The save report of the control page: `glue/ctl_form.h` and `glue/ctl_form.c` keep each setting's index in the settings list instead of its 32-byte name, and `glue/ctl_web.cpp` may change with them, so that the two new settings cost no RAM. A new host test `tests/control/test_form_report.c` covers the report. The leave for one check of another story: in `tests/control/test_form.c`, the check that compared `report->name[index]` checks the same thing through the index (the entry names the same setting by `ctl_settings_name_at` of its index and carries the same result). No other check of that file changes, and none is removed or loosened."
+    - **Criterion 10:** "`make firmware` builds both boards; the D1 mini's global RAM is no larger than on `develop`, with the before and after numbers reported." Entry 6 measured `develop` at 50628 bytes and the branch at 49260.
+    - **A new criterion 12**, before the two closing ones: "After a save, the control page renders exactly as before: the same rows, the same results, the same order." The current 12 and 13 become 13 and 14.
+
+    **Options:**
+    - **(a)** You edit the Description by hand. I would choose this, since the factory blocks my edit.
+    - **(b)** You allow the write, and I make the edit on the next run.
+    - **(c)** You accept entry 4 as the record of the changed criteria and leave the Description as it is.
+
+    No code changed this round, and nothing else is open.

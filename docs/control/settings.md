@@ -39,10 +39,10 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 
 The adjustment alone leaves the house steadily off its target by whatever the model gets wrong,
 divided by `adjustment_w_per_k`. The integral term learns that missing power slowly and removes
-the offset; `core.md` (*Energy balance*) says when it learns. It is off by default. A start
-value of `25` for `integral_w_per_kh` at an `adjustment_w_per_k` of `600` is a suggestion, not a
-default: it takes some hours to learn an offset of a few tenths of a kelvin, slowly enough that
-it does not swing against the house's own inertia.
+the offset; `core.md` (*Controller*, *The five functions*) says when it learns. It is off by
+default. A start value of `25` for `integral_w_per_kh` at an `adjustment_w_per_k` of `600` is a
+suggestion, not a default: it takes some hours to learn an offset of a few tenths of a kelvin,
+slowly enough that it does not swing against the house's own inertia.
 
 A message to `<base>/control/set/integral_reset`, with any payload, sets the term to 0. It is a
 command, not a setting: nothing is stored in `/control.json` and nothing comes back on

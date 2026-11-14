@@ -193,10 +193,11 @@ otherwise, so a NaN passes through unchanged.
 
 ## Controller (`ctl_controller.h`)
 
-The controller is the state the control loop remembers and four functions that change it in
+The controller is the state the control loop remembers and five functions that change it in
 place. Time handling is the algorithm here, so it is concentrated in `ctl_advance`: it is the
 only function that moves the integration reference and the only one that changes the energy
-integral; the other three call it first. Only `ctl_evaluate` changes the demand and the phase.
+integral; the other four call it first. Only `ctl_evaluate` changes the demand and the phase.
+Besides `ctl_advance`, only `ctl_reset_integral` changes the integral term.
 
 ### The state
 
@@ -219,7 +220,7 @@ integral; the other three call it first. Only `ctl_evaluate` changes the demand 
 
 A value behind an unset flag is 0.0 and means nothing.
 
-### The four functions
+### The five functions
 
 `ctl_advance(state, t, config, &dt_s)` moves the reference to `t` and returns whether it
 integrated; `dt_s` gets the length of the interval it closed, or 0.0. An interval is integrated
@@ -301,9 +302,11 @@ A host makes the calls on one monotonic clock, from one thread:
 2. `ctl_observe` as each reading arrives, at any rate, with the reading's sample instant, not its
    arrival instant.
 3. `ctl_set_allowed` whenever the supervisor changes the permitted directions.
-4. `ctl_advance` on the fast tick (`integration_interval_s`, 10 s): the integral is exact either
+4. `ctl_reset_integral` whenever the owner asks to clear the integral term, with the instant of
+   the request.
+5. `ctl_advance` on the fast tick (`integration_interval_s`, 10 s): the integral is exact either
    way, but a finer grid takes a step in power into account sooner.
-5. `ctl_evaluate` on the decision tick (`tick_interval_s`, 60 s), whether or not anything was
+6. `ctl_evaluate` on the decision tick (`tick_interval_s`, 60 s), whether or not anything was
    observed: nothing else moves the demand, and a quiet system that is never evaluated never
    engages. Observe everything that has arrived before the evaluate of a tick.
 

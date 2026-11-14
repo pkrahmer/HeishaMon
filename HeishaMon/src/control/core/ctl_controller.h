@@ -1,9 +1,10 @@
 /*
- * The controller: the state the control loop remembers and the four functions that move it.
+ * The controller: the state the control loop remembers and the five functions that move it.
  * Time handling is the algorithm here, so it is concentrated in ctl_advance, the only function
- * that moves the integration reference and changes the energy integral; the other three call it
- * first; it is also where the integral term learns. A reading closes the open interval with the old held values before it takes effect,
- * because a reading describes the world from its own instant onward and never before it.
+ * that moves the integration reference and changes the energy integral, and where the integral
+ * term learns; the other four call it first. A reading closes the open interval with the old
+ * held values before it takes effect, because a reading describes the world from its own instant
+ * onward and never before it.
  */
 #ifndef CTL_CONTROLLER_H
 #define CTL_CONTROLLER_H
@@ -16,7 +17,7 @@
 #include "ctl_signals.h"
 #include "ctl_types.h"
 
-/* The caller owns the state; the four functions change it in place. */
+/* The caller owns the state; the five functions change it in place. */
 typedef struct {
     ctl_phase phase;
     double energy_wh;
