@@ -32,7 +32,7 @@ typedef struct {
 } ctl_telemetry_source;
 
 /* Returns the number of entries of the group: 9 inputs, 3 more for each configured room (up to
- * CTL_ROOMS_MAX) and the 2 frame counters after them, 10 status entries and 4 outputs; 0 for a
+ * CTL_ROOMS_MAX) and the 2 frame counters after them, 12 status entries and 4 outputs; 0 for a
  * group that is no member. */
 size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group);
 

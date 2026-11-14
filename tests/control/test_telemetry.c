@@ -87,6 +87,8 @@ static void set_record(ctl_loop_record *record)
     record->decision.inputs.p_solar_w = 20.4;
     record->decision.inputs.p_internal_w = 550.0;
     record->decision.balance.p_net_w = -2735.4;
+    record->decision.balance.p_integral_w = 12.34;
+    record->decision.ledger.integral_wh = -45.67;
     record->decision.clamped = true;
     record->decision.unhealthy = 0u;
     record->decision.substituted =
@@ -169,7 +171,7 @@ static void test_counts(void)
     fixture f;
     set_fixture(&f);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 23u);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 10u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 12u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
 
@@ -211,6 +213,8 @@ static void test_entries(void)
         {"status/skipped_s", "10"},
         {"status/uptime_s", "613"},
         {"status/enabled", "1"},
+        {"status/p_integral_w", "12.3"},
+        {"status/integral_wh", "-45.7"},
     };
     static const entry_row outputs[] = {
         {"outputs/router", "WAITING"},
@@ -265,6 +269,8 @@ static void test_without_inputs(void)
         CHECK_VALUE(&f.source, CTL_GROUP_INPUTS, dashed[i], "-");
     }
     CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/p_net_w", "-");
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/p_integral_w", "-");
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/integral_wh", "-45.7");
     CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/energy_wh", "-1523.4");
 }
 
@@ -379,7 +385,7 @@ static void test_refusals(void)
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 23,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 10,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 12,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, (ctl_group)3, 0,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);

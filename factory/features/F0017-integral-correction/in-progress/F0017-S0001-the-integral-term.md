@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 31
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T08:04:45.790500Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,13 @@ journal:
   kind: started
   at: '2026-11-14T08:04:45.790500Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: question
+  at: '2026-11-14T08:20:09.816570Z'
+  stage: doing
+  run: 4f907fa602ce473ab9ce9ec51ee52866
+  blocked: question
 ---
 
 # The integral term
@@ -83,3 +86,45 @@ Expect: `1`
 
 1. 2026-11-14 human: created.
 2. factory: started doing as heishamon.
+3. builder: Stopped at criterion 10. Everything else is built, `make check` is green and the smoke test prints `1`. But the D1 mini's global RAM grows by 272 bytes against `develop` (50628 → 50900), and the cap is 64. The story's own required fields make this unreachable without a change outside its scope.
+
+   **Where the 272 bytes go** (measured with nm on both ELF files, built from `git archive develop` and from the working tree):
+   - `.bss` +136. The global `settings` grows by 16 (two doubles), `config` by 16, `loop_state` by 16 (the integral and the ledger's `integral_wh`) and `record` by 16 (the decision's `balance.p_integral_w` and `ledger.integral_wh`). The rest, +68, is `last_report` in `ctl_web.cpp`: `ctl_form_report` keeps a 32-byte name plus one result byte for each of `CTL_SETTINGS_NAMES_MAX` settings, so every new setting costs about 34 bytes there.
+   - `.rodata` +136 (it sits in RAM on the ESP8266). This is the two setting names and their `FIXED_NAMES` entries, `status/p_integral_w`, `status/integral_wh`, `integral_reset` and the log line `control: integral reset`.
+   - The two settings alone, through the settings struct, the loop config and the form report, already pass 64.
+
+   **The options I see:**
+   - **A.** Raise the cap in criterion 10 to about 300 bytes and accept the growth. Nothing else changes.
+   - **B.** Keep 64 and pay it back by shrinking `ctl_form_report`. It would keep each setting's index in the name list instead of its 32-byte name, saving about 31 × 51 ≈ 1.5 KB, so the firmware ends well below `develop`. This changes `glue/ctl_form.c`, `ctl_form.h` and `ctl_web.cpp`, plus one check in `tests/control/test_form.c` (line 49 compares `report->name[index]`). That check belongs to another story, so I need your word to change it.
+   - **C.** Keep 64 and claw bytes back elsewhere: write `status/`, `inputs/` and `outputs/` once in `ctl_telemetry.c` instead of in every subtopic (about 180 bytes) and drop the reset log line (24). It touches telemetry code beyond the story, and it is not certain to reach 64.
+
+   I would choose **B**: this owner's board has already restarted from RAM pressure on the control page, and B pays back far more than this story costs. If you choose B, name the `test_form.c` check change. Whatever the answer, the rest stays as it is.
+
+   **What is built (working tree):**
+   - Core:
+     - `core/ctl_config.{h,c}`: `integral_w_per_kh` (default 0, allowed 0 to 200) and `integral_limit_w` (default 300, above 0 up to 2000), with problem bits `CTL_CONFIG_BAD_INTEGRAL_GAIN` (1<<13) and `CTL_CONFIG_BAD_INTEGRAL_LIMIT` (1<<14).
+     - `core/ctl_balance.{h,c}`: the balance gets `p_integral_w` and the ledger `integral_wh`; `ctl_ledger_total_wh` adds `integral_wh` last. New functions: `ctl_balance_add_integral`, `ctl_trim_deviation` (previously a static helper) and `ctl_trim_within_limit`.
+     - `core/ctl_controller.{h,c}`: the state gets `p_integral_w`. The learning happens in `integrate()`, called from `ctl_advance`. New function: `ctl_reset_integral(state, t, config)`, which advances to `t` and then sets the integral to 0.
+   - Glue:
+     - `glue/ctl_settings.{h,c}`: the two settings, listed right after `trim_limit_k`; `CTL_SETTINGS_FIXED_NAMES` goes to 21. Their ranges are the core's, so a value out of range is refused as `INVALID_SET`.
+     - `glue/ctl_dispatch.{h,c}`: a new topic kind `CTL_TOPIC_INTEGRAL_RESET` for `<base>/control/set/integral_reset`.
+     - `glue/ctl_firmware.cpp`: that kind calls `ctl_reset_integral` and saves nothing.
+     - `glue/ctl_telemetry.{h,c}`: two more status entries, `status/p_integral_w` and `status/integral_wh`, at indexes 10 and 11.
+   - Tests:
+     - New `tests/control/test_integral.c` covers criteria 2 to 6 and 8. For criterion 1 it also replays every golden trace on two controllers, one with the defaults and one with `integral_limit_w` 50, and requires them to match bit for bit. `test_traces.c` proves the default one against the traces.
+     - `tests/control/test_settings.c` gains default rows, accept and refuse rows, `to_loop` checks and a check that a file without the two settings keeps their defaults. Its name-list indexes and counts shift by 2.
+     - `tests/control/test_telemetry.c` gains the two status rows; the status count goes from 10 to 12, and the refused index from 10 to 12.
+   - Docs: `docs/control/settings.md`, `docs/control/core.md`, and one new entry in `docs/control/decisions.md`.
+
+   **Decisions I took:**
+   - The integral is added to `p_net_w` only when it is not exactly 0. Adding `+0.0` unconditionally would turn a `-0.0` into `0.0`, and the traces compare signed zeros.
+   - "The energy was not clamped" means the energy lay strictly between the bounds of the current mask at the interval's start. I rejected using the `clamped` flag alone, because `ctl_set_allowed` clamps the energy without setting it.
+   - "Inside the trim limit" includes a deviation equal to the limit.
+   - The integral is clamped to the limit in every interval `ctl_advance` closes, skipped ones included, so that a lowered limit takes effect at once.
+   - Nothing publishes the other ledger terms today, so there was no ledger topic to follow. I chose `status/integral_wh`.
+   - `status/p_integral_w` shows `-` without inputs, as `status/p_net_w` does, because it is read from the decision's balance; a separate decision field would cost RAM in every copy.
+
+   **Noticed, not touched:**
+   - The wire protocol (`wire/ctl_wire.c`) and `replay.py` know neither the new configuration keys nor the sixth ledger term. I left them alone so the protocol and the traces stay as they are.
+   - The Python reference has no integral term.
+   - `test_integral.c`'s twin replay starts from the default configuration rather than each trace's own `config` lines, because `trace.c`'s parser is static and not mine to change.

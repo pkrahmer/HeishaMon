@@ -38,6 +38,8 @@ typedef enum {
     SETTING_ADJUSTMENT,
     SETTING_HYSTERESIS,
     SETTING_TRIM_LIMIT,
+    SETTING_INTEGRAL_GAIN,
+    SETTING_INTEGRAL_LIMIT,
     SETTING_SOLAR_GAIN,
     SETTING_INTERNAL,
     SETTING_HEAT_COOL,
@@ -66,6 +68,8 @@ static const fixed_name FIXED_NAMES[] = {
     {"adjustment_w_per_k", SETTING_ADJUSTMENT},
     {"hysteresis_wh", SETTING_HYSTERESIS},
     {"trim_limit_k", SETTING_TRIM_LIMIT},
+    {"integral_w_per_kh", SETTING_INTEGRAL_GAIN},
+    {"integral_limit_w", SETTING_INTEGRAL_LIMIT},
     {"solar_gain_factor", SETTING_SOLAR_GAIN},
     {"internal_w", SETTING_INTERNAL},
     {"heat_cool_heat_value", SETTING_HEAT_COOL},
@@ -355,6 +359,10 @@ static double *number_field(ctl_settings *settings, setting_key key)
         return &settings->adjustment_w_per_k;
     case SETTING_HYSTERESIS:
         return &settings->hysteresis_wh;
+    case SETTING_INTEGRAL_GAIN:
+        return &settings->integral_w_per_kh;
+    case SETTING_INTEGRAL_LIMIT:
+        return &settings->integral_limit_w;
     case SETTING_SOLAR_GAIN:
         return &settings->solar_gain_factor;
     case SETTING_INTERNAL:
@@ -503,6 +511,8 @@ void ctl_settings_defaults(ctl_settings *settings)
     settings->hysteresis_wh = core.hysteresis_wh;
     settings->trim_limit_enabled = core.trim_limit_enabled;
     settings->trim_limit_k = core.trim_limit_k;
+    settings->integral_w_per_kh = core.integral_w_per_kh;
+    settings->integral_limit_w = core.integral_limit_w;
     settings->solar_gain_factor = core.solar_gain_factor;
     settings->internal_w = core.fallback_w[CTL_SIGNAL_P_INTERNAL];
     settings->heat_cool_heat_value = router.heat_cool_heat_value;
@@ -589,6 +599,8 @@ void ctl_settings_to_loop(const ctl_settings *settings, ctl_loop_config *config)
     config->core.hysteresis_wh = settings->hysteresis_wh;
     config->core.trim_limit_enabled = settings->trim_limit_enabled;
     config->core.trim_limit_k = settings->trim_limit_k;
+    config->core.integral_w_per_kh = settings->integral_w_per_kh;
+    config->core.integral_limit_w = settings->integral_limit_w;
     config->core.solar_gain_factor = settings->solar_gain_factor;
     config->core.fallback_w[CTL_SIGNAL_P_INTERNAL] = settings->internal_w;
 

@@ -22,6 +22,7 @@ void ctl_state_init(ctl_state *state)
     state->skipped_s = 0.0;
     ctl_ledger_init(&state->ledger);
     state->clamped = false;
+    state->p_integral_w = 0.0;
 }
 
 static double clamp_to_allowed(double energy_wh, uint8_t allowed, const ctl_config *config)
@@ -32,15 +33,41 @@ static double clamp_to_allowed(double energy_wh, uint8_t allowed, const ctl_conf
     return ctl_clamp(energy_wh, low, high);
 }
 
+/* A clamped energy means the house has drifted further than the model can book, and an error
+ * outside the trim limit means a disturbance the trim is not meant for: the integral would learn
+ * a wrong offset from either, so it learns only when neither holds. */
+static bool may_learn(const ctl_state *state, const ctl_inputs *inputs, const ctl_config *config)
+{
+    double low;
+    double high;
+    ctl_clamp_bounds(state->allowed, config, &low, &high);
+    return state->energy_wh > low && state->energy_wh < high &&
+           ctl_trim_within_limit(inputs->t_indoor_c, config);
+}
+
+static double learned_integral(double p_integral_w, const ctl_inputs *inputs,
+                               const ctl_config *config, double hours)
+{
+    const double deviation = ctl_trim_deviation(inputs->t_indoor_c, config);
+    return p_integral_w + config->integral_w_per_kh * deviation * hours;
+}
+
+static double clamp_integral(double p_integral_w, const ctl_config *config)
+{
+    return ctl_clamp(p_integral_w, -config->integral_limit_w, config->integral_limit_w);
+}
+
 static void integrate(ctl_state *state, double t, double dt, const ctl_inputs *inputs,
                       const ctl_config *config)
 {
+    const bool learning = may_learn(state, inputs, config);
     ctl_balance balance;
     double hours;
     double raw;
     double energy;
 
     ctl_energy_balance(inputs, config, &balance);
+    ctl_balance_add_integral(&balance, state->p_integral_w);
     hours = dt / seconds_per_hour;
     raw = state->energy_wh + balance.p_net_w * hours;
     energy = clamp_to_allowed(raw, state->allowed, config);
@@ -49,6 +76,9 @@ static void integrate(ctl_state *state, double t, double dt, const ctl_inputs *i
     state->integrated_s = state->integrated_s + dt;
     ctl_ledger_accumulate(&state->ledger, inputs, &balance, hours);
     state->clamped = energy != raw;
+    if (learning) {
+        state->p_integral_w = learned_integral(state->p_integral_w, inputs, config, hours);
+    }
 }
 
 bool ctl_advance(ctl_state *state, double t, const ctl_config *config, double *dt_s)
@@ -71,6 +101,8 @@ bool ctl_advance(ctl_state *state, double t, const ctl_config *config, double *d
         return false;
     }
     *dt_s = dt;
+    /* A lowered limit takes effect at once, whether this interval integrates or not. */
+    state->p_integral_w = clamp_integral(state->p_integral_w, config);
     /* Zero-order hold: the inputs at the interval's start held throughout it. Time nobody
      * observed adds no energy, but the reference still moves past it. */
     if (!ctl_signals_resolve(&state->signals, state->t_last, config, &inputs) ||
@@ -80,6 +112,7 @@ bool ctl_advance(ctl_state *state, double t, const ctl_config *config, double *d
         return false;
     }
     integrate(state, t, dt, &inputs, config);
+    state->p_integral_w = clamp_integral(state->p_integral_w, config);
     return true;
 }
 
@@ -112,6 +145,14 @@ void ctl_set_allowed(ctl_state *state, uint8_t allowed, double t, const ctl_conf
     }
     state->allowed = new_allowed;
     state->energy_wh = clamp_to_allowed(state->energy_wh, new_allowed, config);
+}
+
+void ctl_reset_integral(ctl_state *state, double t, const ctl_config *config)
+{
+    double dt_s;
+
+    (void)ctl_advance(state, t, config, &dt_s);
+    state->p_integral_w = 0.0;
 }
 
 /* Fills the fields every decision reads from the state, after the state has moved. */
@@ -236,6 +277,7 @@ void ctl_evaluate(ctl_state *state, double t, const ctl_config *config, ctl_deci
         decision->has_inputs = true;
         decision->inputs = inputs;
         ctl_energy_balance(&inputs, config, &decision->balance);
+        ctl_balance_add_integral(&decision->balance, state->p_integral_w);
         decision->substituted = inputs.substituted;
     }
     decision->unhealthy = ctl_signals_unhealthy(&state->signals, t, config);

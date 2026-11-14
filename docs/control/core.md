@@ -59,6 +59,8 @@ of an optional signal. `ctl_config_energy_limit_wh` returns
 | `hysteresis_wh` | Energy debt or surplus at which heating or cooling engages, in Wh; release is at 0. | 1500.0 | > 0 |
 | `trim_limit_enabled` | Whether the deviation feeding the trim is clamped. | true | — |
 | `trim_limit_k` | Clamp on the deviation feeding the trim, in K; bounds a stuck sensor. | 3.0 | > 0 when `trim_limit_enabled`, not checked otherwise |
+| `integral_w_per_kh` | How fast the integral term learns, in W per kelvin of deviation and hour; 0 freezes it. | 0.0 (off) | 0.0 to 200.0, both included |
+| `integral_limit_w` | Clamp on the integral term, in W, either way. | 300.0 | above 0.0 up to 2000.0 |
 | `solar_gain_factor` | Share of PV DC power that the adapter counts as solar gain into the house; the core never reads it. | 0.02 | ≥ 0 |
 | `energy_clamp_factor` | Anti-windup bound on the energy accumulator, as a multiple of `hysteresis_wh`. | 2.0 | ≥ 1.0 |
 | `max_step_s` | Longest interval, in s, still trusted for integration; longer gaps are skipped. | 300.0 | > 0 |
@@ -83,6 +85,8 @@ of an optional signal. `ctl_config_energy_limit_wh` returns
 | `CTL_CONFIG_BAD_INPUT_HOLD` | `1u << 10` | `input_hold_s` breaks its rule |
 | `CTL_CONFIG_BAD_MAX_AGE` | `1u << 11` | at least one entry of `max_age_s` breaks its rule |
 | `CTL_CONFIG_BAD_FALLBACK` | `1u << 12` | at least one entry of `fallback_w` is not finite |
+| `CTL_CONFIG_BAD_INTEGRAL_GAIN` | `1u << 13` | `integral_w_per_kh` breaks its rule |
+| `CTL_CONFIG_BAD_INTEGRAL_LIMIT` | `1u << 14` | `integral_limit_w` breaks its rule |
 
 The three timing fields bound each other, and a bound is compared as the Python reference
 compares it: `tick_interval_s` is refused when it is greater than `max_step_s / 2`, so a
@@ -128,19 +132,32 @@ reference's operand order, sums from left to right:
 | `p_transmission_w` | `transmission_w_per_k * (t_outdoor_c - t_indoor_c)` |
 | `p_model_w` | `p_produced_w + p_solar_w + p_internal_w + p_transmission_w` |
 | `p_trim_w` | `adjustment_w_per_k * deviation`, with `deviation = t_indoor_c - desired_indoor_c` |
-| `p_net_w` | `p_model_w + p_trim_w` |
+| `p_integral_w` | the state's integral term, set by `ctl_balance_add_integral` |
+| `p_net_w` | `p_model_w + p_trim_w + p_integral_w` |
 
 `p_model_w` is the prediction and `p_trim_w` the correction for what the prediction gets wrong.
 With `trim_limit_enabled`, the deviation, not the power, is clamped to `-trim_limit_k` below and
 `trim_limit_k` above, so the limit stays in kelvin when `adjustment_w_per_k` is retuned; a
 deviation equal to a limit is unchanged. A negative `p_net_w` is a deficit, a positive one a
-surplus.
+surplus. `ctl_trim_deviation` returns that deviation, and `ctl_trim_within_limit` whether the
+unclamped one lies within the limit, a deviation equal to a limit included.
 
-`ctl_ledger` integrates each term on its own, in Wh: `ctl_ledger_init` sets all five to 0, and
+The trim is proportional: a model error of some watts leaves the house steadily that many watts
+divided by `adjustment_w_per_k` off its target. The integral term `p_integral_w` removes that
+offset. It is not in the Python reference. `ctl_energy_balance` leaves it at 0, and
+`ctl_balance_add_integral` sets it and adds it to `p_net_w` last; an integral of exactly 0
+leaves `p_net_w` untouched, so that with the term off the operations are the reference's and the
+golden traces replay bit for bit. Its sign is the trim's: a house too warm makes it positive, a
+surplus, and the pump heats less. The controller keeps it in its state and teaches it in
+`ctl_advance` (below). It is off by default: `integral_w_per_kh` is 0, and then it stays at
+exactly 0.0.
+
+`ctl_ledger` integrates each term on its own, in Wh: `ctl_ledger_init` sets all six to 0, and
 `ctl_ledger_accumulate` adds to each its power times `hours`: `p_produced_w`, `p_solar_w` and
-`p_internal_w` from the inputs, `p_transmission_w` and `p_trim_w` from the balance.
-`ctl_ledger_total_wh` returns `produced_wh + solar_wh + internal_wh + transmission_wh + trim_wh`,
-summed from left to right.
+`p_internal_w` from the inputs, `p_transmission_w`, `p_trim_w` and `p_integral_w` from the
+balance. `ctl_ledger_total_wh` returns
+`produced_wh + solar_wh + internal_wh + transmission_wh + trim_wh + integral_wh`, summed from left
+to right.
 
 ## Relay and clamp (`ctl_relay.h`)
 
@@ -198,6 +215,7 @@ integral; the other three call it first. Only `ctl_evaluate` changes the demand 
 | `skipped_s` | Seconds of elapsed time advanced over without integration, over the lifetime. Diagnostics only. | 0.0 |
 | `ledger` | Each term of the balance integrated on its own, in Wh; it keeps accumulating past the clamp. | zero |
 | `clamped` | Whether the last integration step hit the anti-windup bound. | false |
+| `p_integral_w` | The integral term, in W: positive is a surplus. Clamped to `integral_limit_w` either way. | 0.0 |
 
 A value behind an unset flag is 0.0 and means nothing.
 
@@ -211,6 +229,20 @@ at its start, which zero-order hold says was true throughout it. Then `hours = d
 `allowed`, the ledger accumulates over `hours`, `integrated_s` grows by `dt`, and `clamped`
 becomes whether the clamp changed `raw`. An interval that is not trustworthy adds no energy: the
 reference still moves, and `skipped_s` grows by `dt`.
+
+`ctl_advance` is also where the integral term learns. The power of an integrated interval holds
+the integral of its start. At the interval's end the integral grows by
+`integral_w_per_kh * deviation * hours`, with the trim's deviation, but only when, at the
+interval's start, the indoor error lay within the trim limit (or the limit is off) and the energy
+lay strictly between the bounds of `allowed`. An error beyond the limit is a disturbance or a
+broken sensor, and an energy at its bound means the house drifted further than the model books:
+the integral would learn a wrong offset from either. In every other interval, a skipped one
+included, it holds its value; it never decays on its own. Every interval `ctl_advance` closes
+clamps it to `-integral_limit_w` and `integral_limit_w`, so that a lowered limit takes effect at
+once.
+
+`ctl_reset_integral(state, t, config)` advances to `t` and then sets the integral to 0. It
+refuses nothing.
 
 | `ctl_advance` refuses | and returns |
 |---|---|
@@ -233,7 +265,8 @@ still applied.
 
 `ctl_evaluate(state, t, config, &decision)` advances to `t`, resolves the signals at `t`, moves
 the phase and the demand, and fills `ctl_decision`. The decision carries `dt_s` from the advance;
-`has_inputs`, `inputs`, `balance` and `substituted` from the resolution, with `has_inputs` false
+`has_inputs`, `inputs`, `balance` (with the state's integral term) and `substituted` from the
+resolution, with `has_inputs` false
 and `substituted` 0 when it refuses; `unhealthy` from `ctl_signals_unhealthy` at `t`; and the
 phase, energy, counters, ledger and `clamped` of the state after the step. It refuses a NaN or
 infinite `t`: the state stays as it is, and the decision carries the reason `INVALID_TIME`, the

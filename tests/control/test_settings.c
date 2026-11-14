@@ -65,6 +65,8 @@ static void test_defaults(void)
         {"adjustment_w_per_k", "805"},
         {"hysteresis_wh", "1500"},
         {"trim_limit_k", "3"},
+        {"integral_w_per_kh", "0"},
+        {"integral_limit_w", "300"},
         {"solar_gain_factor", "0.02"},
         {"internal_w", "550"},
         {"heat_cool_heat_value", "-1"},
@@ -79,7 +81,7 @@ static void test_defaults(void)
     size_t i;
     fresh_defaults(&settings);
     CHECK_TRUE(ctl_settings_valid(&settings));
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 19u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 21u);
     for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         check_get(__FILE__, __LINE__, &settings, rows[i].name, rows[i].text);
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
@@ -100,17 +102,17 @@ static void test_name_list(void)
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
     check_set(__FILE__, __LINE__, &settings, "room.0.topic", "house/room0");
     check_set(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
-    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 23u);
+    CHECK_UINT((uint32_t)ctl_settings_name_count(&settings), 25u);
     for (i = 0; i < sizeof expected / sizeof expected[0]; i++) {
         CHECK_TRUE(ctl_settings_name_at(&settings, i, name, sizeof name));
         CHECK_TEXT(name, expected[i]);
     }
-    CHECK_TRUE(ctl_settings_name_at(&settings, 20, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 22, name, sizeof name));
     CHECK_TEXT(name, "max_retries");
     strcpy(name, UNTOUCHED);
-    CHECK_TRUE(ctl_settings_name_at(&settings, 22, name, sizeof name));
+    CHECK_TRUE(ctl_settings_name_at(&settings, 24, name, sizeof name));
     CHECK_TEXT(name, "command_topic");
-    CHECK_TRUE(!ctl_settings_name_at(&settings, 23, name, sizeof name));
+    CHECK_TRUE(!ctl_settings_name_at(&settings, 25, name, sizeof name));
     CHECK_TRUE(!ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic")));
     CHECK_TRUE(ctl_settings_name_at(&settings, 3, name, strlen("room.0.topic") + 1));
 }
@@ -139,6 +141,14 @@ static void test_numbers(void)
         {"adjustment_w_per_k", "0", "-0.001", CTL_SETTING_INVALID_SET},
         {"hysteresis_wh", "0.001", "0", CTL_SETTING_INVALID_SET},
         {"trim_limit_k", "0.001", "0", CTL_SETTING_BAD_VALUE},
+        {"integral_w_per_kh", "25", "-1", CTL_SETTING_INVALID_SET},
+        {"integral_w_per_kh", "200", "201", CTL_SETTING_INVALID_SET},
+        {"integral_w_per_kh", "0", "nan", CTL_SETTING_BAD_VALUE},
+        {"integral_w_per_kh", "1", "inf", CTL_SETTING_BAD_VALUE},
+        {"integral_limit_w", "300", "0", CTL_SETTING_INVALID_SET},
+        {"integral_limit_w", "2000", "2001", CTL_SETTING_INVALID_SET},
+        {"integral_limit_w", "1", "nan", CTL_SETTING_BAD_VALUE},
+        {"integral_limit_w", "300", "1e999", CTL_SETTING_BAD_VALUE},
         {"solar_gain_factor", "0", "-0.001", CTL_SETTING_INVALID_SET},
         {"internal_w", "-100", "1e999", CTL_SETTING_BAD_VALUE},
         {"heat_cool_heat_value", "1", "2", CTL_SETTING_BAD_VALUE},
@@ -278,7 +288,7 @@ static void test_rooms(void)
 
     /* A lower count keeps what lies above it; the higher count lists it again. */
     check_set(__FILE__, __LINE__, &settings, "rooms", "1");
-    CHECK_UINT(ctl_settings_name_count(&settings), 21);
+    CHECK_UINT(ctl_settings_name_count(&settings), 23);
     CHECK_TRUE(!ctl_settings_get(&settings, "room.1.topic", value, sizeof value));
     check_refused(__FILE__, __LINE__, &settings, "room.1.topic", "a", CTL_SETTING_UNKNOWN);
     check_set(__FILE__, __LINE__, &settings, "rooms", "2");
@@ -375,6 +385,8 @@ static void check_core_equal(const ctl_config *actual, const ctl_config *expecte
     CHECK_DOUBLE(actual->hysteresis_wh, expected->hysteresis_wh);
     CHECK_TRUE(actual->trim_limit_enabled == expected->trim_limit_enabled);
     CHECK_DOUBLE(actual->trim_limit_k, expected->trim_limit_k);
+    CHECK_DOUBLE(actual->integral_w_per_kh, expected->integral_w_per_kh);
+    CHECK_DOUBLE(actual->integral_limit_w, expected->integral_limit_w);
     CHECK_DOUBLE(actual->solar_gain_factor, expected->solar_gain_factor);
     CHECK_DOUBLE(actual->energy_clamp_factor, expected->energy_clamp_factor);
     CHECK_DOUBLE(actual->max_step_s, expected->max_step_s);
@@ -442,6 +454,8 @@ static void test_to_loop_fields(void)
     check_set(__FILE__, __LINE__, &settings, "adjustment_w_per_k", "700");
     check_set(__FILE__, __LINE__, &settings, "hysteresis_wh", "1200");
     check_set(__FILE__, __LINE__, &settings, "trim_limit_k", "none");
+    check_set(__FILE__, __LINE__, &settings, "integral_w_per_kh", "25");
+    check_set(__FILE__, __LINE__, &settings, "integral_limit_w", "500");
     check_set(__FILE__, __LINE__, &settings, "solar_gain_factor", "0.03");
     check_set(__FILE__, __LINE__, &settings, "heat_cool_heat_value", "0");
     check_set(__FILE__, __LINE__, &settings, "min_change_interval_s", "400");
@@ -458,12 +472,27 @@ static void test_to_loop_fields(void)
     CHECK_DOUBLE(config.core.adjustment_w_per_k, 700.0);
     CHECK_DOUBLE(config.core.hysteresis_wh, 1200.0);
     CHECK_TRUE(!config.core.trim_limit_enabled);
+    CHECK_DOUBLE(config.core.integral_w_per_kh, 25.0);
+    CHECK_DOUBLE(config.core.integral_limit_w, 500.0);
     CHECK_DOUBLE(config.core.solar_gain_factor, 0.03);
     CHECK_UINT((uint32_t)config.router.heat_cool_heat_value, 0u);
     CHECK_DOUBLE(config.router.min_change_interval_s, 400.0);
     CHECK_DOUBLE(config.router.retry_interval_s, 90.0);
     CHECK_UINT((uint32_t)config.router.max_retries, 5u);
     CHECK_TRUE(ctl_loop_config_valid(&config));
+}
+
+/* A file written before the integral settings existed holds none of them: the loader sets only
+ * what the file names onto the defaults, so the integral stays off. */
+static void test_file_without_integral(void)
+{
+    ctl_settings settings;
+    fresh_defaults(&settings);
+    check_set(__FILE__, __LINE__, &settings, "hysteresis_wh", "1200");
+    check_set(__FILE__, __LINE__, &settings, "trim_limit_k", "2");
+    check_get(__FILE__, __LINE__, &settings, "integral_w_per_kh", "0");
+    check_get(__FILE__, __LINE__, &settings, "integral_limit_w", "300");
+    CHECK_TRUE(ctl_settings_valid(&settings));
 }
 
 static void test_unknown(void)
@@ -494,6 +523,7 @@ int main(void)
     test_formatting();
     test_to_loop();
     test_to_loop_fields();
+    test_file_without_integral();
     test_unknown();
     return check_result();
 }

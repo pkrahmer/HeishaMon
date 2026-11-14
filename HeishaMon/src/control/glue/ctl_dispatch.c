@@ -10,6 +10,7 @@
 #include <string.h>
 
 #define SETTING_PATH "/control/set/"
+#define INTEGRAL_RESET "integral_reset"
 
 /* Returns the rest of topic after prefix, or NULL when topic does not start with it. */
 static const char *after_prefix(const char *topic, const char *prefix)
@@ -71,6 +72,10 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
         result.kind = CTL_TOPIC_FRAME_LOG;
     } else if (is_setting(base, topic, result.name)) {
         result.kind = CTL_TOPIC_SETTING;
+        if (strcmp(result.name, INTEGRAL_RESET) == 0) {
+            result = none;
+            result.kind = CTL_TOPIC_INTEGRAL_RESET;
+        }
     }
     return result;
 }

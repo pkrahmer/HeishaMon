@@ -932,3 +932,28 @@ more than a table cell.
 serving the document from the board, which costs flash and the same RAM; a function in a `.c`
 file that writes the opening text, whose string constant would sit in RAM on the ESP8266; leaving
 the texts in `ctl_web.cpp` alone, where no host test can check the link.
+
+## 2026-11-14: An integral term against the steady offset
+
+**Decision.** The balance gets a fourth power, the integral term `p_integral_w`, which the
+controller keeps in its state and adds to `p_net_w` last. It is off by default
+(`integral_w_per_kh` 0), capped at `integral_limit_w` either way (300 W by default), and it learns
+only while it can be trusted: in an integrated interval whose start had every required signal
+fresh, an indoor error within the trim limit and an energy strictly between its bounds. The
+energy counts as at its bound when it equals or passes the bound of the current mask, not only
+when the last step clamped it, so that a mask that clamps the energy also stops the learning.
+The reset is the command topic `<base>/control/set/integral_reset`, which the dispatch tells from
+the settings, so that nothing is stored. The term and its ledger term are published as
+`status/p_integral_w` and `status/integral_wh`; the other ledger terms are not published, so
+there was no ledger topic to follow. `status/p_integral_w` is `-` without inputs, as
+`status/p_net_w` is, because it is read from the decision's balance: a field of its own in the
+decision would cost RAM in every copy the loop keeps.
+**Reason.** The trim is proportional: a model error leaves the house steadily off its target by
+the error divided by the gain; the owner's house sat about 0.4 K too warm. An integral learns the
+missing power and removes the offset. Off by default, and with an integral of exactly 0 leaving
+`p_net_w` untouched, the core still replays every golden trace bit for bit.
+**Rejected.** A higher proportional gain alone: it shrinks the offset but never removes it, and
+it pushes the loop towards swinging. Learning in every interval, which would wind the integral up
+on a stuck sensor or while the energy is clamped. A decay of the integral, which would bring the
+offset back by itself. Adding the integral to `p_net_w` unconditionally: `x + 0.0` turns a `-0.0`
+into `0.0`, and the traces compare signed zeros.
