@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 31
 comments_read: [6874460911]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T08:35:13.751748Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -53,6 +57,11 @@ journal:
   at: '2026-11-14T08:35:04.767558Z'
   stage: review
   run: bae5f485c231438cb4b021e088808198
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-14T08:35:13.751748Z'
+  stage: doing
 ---
 
 # The integral term
@@ -217,3 +226,4 @@ Expect: `1`
    - **Embedded safety:** no dynamic memory, no recursion, no unbounded loop. The firmware's reset handler calls `ctl_reset_integral` with `now_s()`, the same way the existing `ctl_set_allowed` call does.
 
    Not verified by me: the RAM numbers for criterion 10 (49260 against 50628 bytes on `develop`) are the builder's measurement. No stage check compares `make firmware` against `develop`.
+9. factory: started doing as heishamon.
