@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 35
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T10:58:05.594947Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-14T10:58:00.290293Z'
   stage: doing
   run: 15e61d2a59c14208bcbac8b641eadee0
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:58:05.594947Z'
+  stage: review
 ---
 
 # Remove the device replay
@@ -98,3 +107,4 @@ Expect: `1`
    - Upstream's rules suite prints compiler warnings in `rules.cpp` and `settimer.cpp`. They are upstream's files and the suite still passes.
 
    `check`: check: green
+4. factory: started review as heishamon.
