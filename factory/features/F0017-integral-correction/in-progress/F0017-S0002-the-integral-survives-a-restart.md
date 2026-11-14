@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T09:12:05.415528Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-14T09:11:58.654690Z'
   stage: doing
   run: 4fc6ec95fde0494b8fbd9609c461a5f9
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-14T09:12:05.415528Z'
+  stage: review
 ---
 
 # The integral survives a restart
@@ -206,3 +215,4 @@ Expect: `1`
    **Noticed, not touched:** as before, the shared rename helper's fallback (remove the target, then rename again) could lose the old integral file if the second rename also fails. `/control.json` already behaves the same way.
 
    `check`: check: green
+8. factory: started review as heishamon.
