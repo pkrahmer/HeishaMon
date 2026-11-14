@@ -1,7 +1,7 @@
 """Controller configuration.
 
 Five parameters come from the concept brief; the rest exist to make the time
-dimension safe and are defaulted to be near-inert. See docs/algorithm-plan.md 4.
+dimension safe and are defaulted to be near-inert. See docs/control/core.md.
 """
 
 from __future__ import annotations

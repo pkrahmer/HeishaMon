@@ -35,12 +35,12 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
  * to the loop at the board's clock. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_frame(char *data);
 
-/* Subscribes to the configured room and PV topics and to <base>/control/set/+,
+/* Subscribes to the configured room topics and to <base>/control/set/+,
  * then publishes every setting retained under <base>/control/config/. Keeps the client and the
  * base for the messages that follow. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base);
 
-/* Returns true when the topic is a room, the PV, a setting of the loop or the integral reset and
+/* Returns true when the topic is a room, a setting of the loop or the integral reset and
  * the message was handled here.
  * Returns false, touching nothing, for every other topic, which upstream then handles as before,
  * and for every topic before ctl_firmware_setup and ctl_firmware_subscribe. */

@@ -7,7 +7,7 @@
 
 ``p_model`` is the prediction, ``p_trim`` the correction for whatever the
 prediction got wrong. They are summed in watts and integrated once -- never
-blended or arbitrated. See docs/algorithm-plan.md 1.1.
+blended or arbitrated. See docs/control/core.md.
 """
 
 from __future__ import annotations

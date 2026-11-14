@@ -84,7 +84,6 @@ static void set_record(ctl_loop_record *record)
     record->decision.inputs.t_indoor_c = 22.456;
     record->decision.inputs.t_outdoor_c = 5.0;
     record->decision.inputs.p_produced_w = 3200.0;
-    record->decision.inputs.p_solar_w = 20.4;
     record->decision.inputs.p_internal_w = 550.0;
     record->decision.balance.p_net_w = -2735.4;
     record->decision.balance.p_integral_w = 12.34;
@@ -168,7 +167,7 @@ static void test_counts(void)
 {
     fixture f;
     set_fixture(&f);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 21u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 20u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 12u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
@@ -179,7 +178,6 @@ static void test_entries(void)
         {"inputs/indoor_c", "22.46"},
         {"inputs/outdoor_c", "5.00"},
         {"inputs/produced_w", "3200"},
-        {"inputs/solar_w", "20"},
         {"inputs/internal_w", "550"},
         {"inputs/substituted", "P_SOLAR,P_INTERNAL"},
         {"inputs/unhealthy", "-"},
@@ -254,8 +252,7 @@ static void test_blocked(void)
 static void test_without_inputs(void)
 {
     static const char *const dashed[] = {
-        "inputs/indoor_c", "inputs/outdoor_c", "inputs/produced_w", "inputs/solar_w",
-        "inputs/internal_w",
+        "inputs/indoor_c", "inputs/outdoor_c", "inputs/produced_w", "inputs/internal_w",
     };
     fixture f;
     size_t i;
@@ -379,7 +376,7 @@ static void test_refusals(void)
                         value_fits - 1);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_OUTPUTS, 4,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 23,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 22,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 12,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
@@ -414,8 +411,8 @@ static void test_longest_subtopic_fits(void)
     set_fixture(&f);
     f.rooms_config.count = CTL_ROOMS_MAX;
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
-               (uint32_t)(9 + 3 * CTL_ROOMS_MAX));
-    CHECK_TRUE(ctl_telemetry_entry(&f.source, CTL_GROUP_INPUTS, 9 + 3 * CTL_ROOMS_MAX - 3,
+               (uint32_t)(8 + 3 * CTL_ROOMS_MAX));
+    CHECK_TRUE(ctl_telemetry_entry(&f.source, CTL_GROUP_INPUTS, 8 + 3 * CTL_ROOMS_MAX - 3,
                                    subtopic, sizeof subtopic, value, sizeof value));
     CHECK_TEXT(subtopic, "inputs/room/15/value_c");
 }
@@ -427,7 +424,7 @@ static void test_room_count_is_capped(void)
     set_fixture(&f);
     f.rooms_config.count = CTL_ROOMS_MAX + 1;
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
-               (uint32_t)(9 + 3 * CTL_ROOMS_MAX));
+               (uint32_t)(8 + 3 * CTL_ROOMS_MAX));
 }
 
 static void test_no_group_has_no_entries(void)

@@ -136,8 +136,8 @@ void ctl_loop_confirm(ctl_loop *loop, bool known, int state)
     loop->confirmed_state = state;
 }
 
-/* A shadow sends nothing to a pump, so nothing would ever confirm its commands; assuming that
- * each one landed keeps its router from repeating and faulting on commands nobody sent. */
+/* A caller that sends nothing to the pump never sees its commands confirmed; assuming that
+ * each one landed keeps the router from repeating and faulting on commands nobody sent. */
 static void step_router(ctl_loop *loop, const ctl_loop_config *config, ctl_demand demand,
                         double now, ctl_commands *commands)
 {

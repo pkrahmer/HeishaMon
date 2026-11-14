@@ -999,3 +999,22 @@ only the mode.
 empty; nothing used the mode, and the firmware should carry only what it uses.
 **Rejected.** Keeping the mode for testing: the host tests and the device replay cover the core,
 and the dev board can still be flashed as a plain board.
+
+## 2026-11-14: The shadow, the solar input and the two planning documents are removed
+
+**Decision.** The shadow is removed: the module `ctl_shadow`, its sketch, script, host twin, example
+configuration, capture and tests, and `shadow.md`. The solar input leaves the board: the settings
+`pv_topic` and `solar_gain_factor`, the subscription to the PV topic and its dispatch, and the
+telemetry `inputs/solar_w`. The glue sets the core's `solar_gain_factor` to 0 and never feeds
+`P_SOLAR`, which therefore stays at its fallback of 0 W, as it did with `pv_topic` empty. A
+`/control.json` that still holds either name loads: the setter answers `UNKNOWN`, the loader skips
+it, every other setting applies, and the next save drops it. The planning documents
+`algorithm-plan.md` and `firmware-design.md` are removed; the links to them now point to `core.md`,
+`firmware.md` or this log, or are gone. The loop keeps its `CTL_INPUT_PV` input, the solar adapter
+and `ctl_loop_format_record`: they are the loop's own interface, tested as such, and cost the
+firmware nothing it does not call.
+**Reason.** Nothing on the production board uses them: the shadow is off, the house gains too
+little from the sun to model and the proportional and integral terms absorb what it gains, and
+`core.md`, `firmware.md` and this log replaced the two documents.
+**Rejected.** Removing the solar signal from the core: the golden traces are compared bit for bit
+and nobody edits them, so the core keeps the signal and its field.

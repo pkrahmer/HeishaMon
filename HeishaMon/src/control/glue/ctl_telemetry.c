@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define INPUTS_FIXED 9
+#define INPUTS_FIXED 8
 #define ENTRIES_PER_ROOM 3
 #define STATUS_COUNT 12
 #define OUTPUTS_COUNT 4
@@ -78,22 +78,18 @@ static void put_fixed_input(ctl_text *subtopic, ctl_text *value,
         ctl_text_put_input(value, has_inputs, inputs->p_produced_w, 0);
         break;
     case 3:
-        ctl_text_put(subtopic, "inputs/solar_w");
-        ctl_text_put_input(value, has_inputs, inputs->p_solar_w, 0);
-        break;
-    case 4:
         ctl_text_put(subtopic, "inputs/internal_w");
         ctl_text_put_input(value, has_inputs, inputs->p_internal_w, 0);
         break;
-    case 5:
+    case 4:
         ctl_text_put(subtopic, "inputs/substituted");
         put_signals(value, decision->substituted);
         break;
-    case 6:
+    case 5:
         ctl_text_put(subtopic, "inputs/unhealthy");
         put_signals(value, decision->unhealthy);
         break;
-    case 7:
+    case 6:
         ctl_text_put(subtopic, "inputs/rooms_fresh");
         put_count(value, record->rooms.fresh_count);
         break;

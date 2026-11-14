@@ -335,9 +335,6 @@ static void subscribe_inputs(bool subscribe)
             subscribe_one(settings.room_topic[i], subscribe);
         }
     }
-    if (settings.pv_topic[0] != '\0') {
-        subscribe_one(settings.pv_topic, subscribe);
-    }
 }
 
 static bool ends_with(const char *text, const char *suffix)
@@ -347,11 +344,10 @@ static bool ends_with(const char *text, const char *suffix)
     return length > suffix_length && strcmp(text + length - suffix_length, suffix) == 0;
 }
 
-// The names whose change moves the set of input topics: the count of rooms, a room's topic and
-// every other topic setting.
+// The names whose change moves the set of input topics: the count of rooms and a room's topic.
 static bool moves_topics(const char *name)
 {
-    return strcmp(name, "rooms") == 0 || ends_with(name, ".topic") || ends_with(name, "_topic");
+    return strcmp(name, "rooms") == 0 || ends_with(name, ".topic");
 }
 
 // A change begun here ends with ctl_firmware_change_end; between them only the settings move.

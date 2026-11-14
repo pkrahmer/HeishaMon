@@ -38,7 +38,7 @@ class Demand(Enum):
 
 
 class Phase(Enum):
-    """Controller lifecycle. See docs/algorithm-plan.md 1.6/1.7."""
+    """Controller lifecycle. See docs/control/core.md."""
 
     UNINITIALIZED = "uninitialized"  # waiting for the first complete set of required inputs
     RUNNING = "running"  # inputs healthy, integrating

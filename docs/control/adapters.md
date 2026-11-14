@@ -81,7 +81,7 @@ configuration is valid with 1 to `CTL_ROOMS_MAX` (16) rooms, each weight accepte
 `CTL_BOUND_WEIGHT` (0 to 1000), a weight sum above 0, and a finite timeout above 0;
 `ctl_rooms_average_at` gives no average for a configuration that is not valid.
 
-The three consequences of `firmware-design.md` §3.1:
+The three consequences of averaging the rooms:
 
 1. The room timeout, not the core's 600 s limit on `T_INDOOR`, is the real staleness limit of the
    indoor signal, because the average keeps being emitted from held room values until the half
@@ -110,7 +110,7 @@ is outside its bound or not one of the values the function names, or the instant
 | `ctl_solar` | PV DC power | `CTL_BOUND_PV`; the gain finite and ≥ 0; the product finite | `P_SOLAR`, `pv * solar_gain_factor` |
 
 **The mask rule.** The produced heat is reported as 0 W while the valve is on the hot-water tank
-or the pump defrosts, because that heat does not enter the rooms (`algorithm-plan.md` [A-3]).
+or the pump defrosts, because that heat does not enter the rooms.
 `ctl_pump` keeps the last accepted heat before the mask, so that the end of a hot-water run or a
 defrost gives the stored heat back at once, not at the next power report. Only a switch of the
 mask itself gives a reading; a flag that changes while the other one still masks gives none. A
@@ -127,4 +127,4 @@ on one pump:
 
 **DC, not AC.** The solar gain is the PV array's DC power times `solar_gain_factor`, because the
 inverter's AC output is what remains after the battery has taken its share and so follows dispatch
-rather than sunshine (`algorithm-plan.md` §1.9).
+rather than sunshine. The firmware does not feed this adapter (`firmware.md`).

@@ -27,13 +27,11 @@ below, with the rooms' names after `rooms`.
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
-| `pv_topic` | text | empty | empty means no PV; see topics below |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
 | `adjustment_w_per_k` | number | the core's default | as the core validates it |
 | `hysteresis_wh` | number | the core's default | as the core validates it |
 | `trim_limit_k` | number or `none` | `3` | `none` disables the trim limit |
-| `solar_gain_factor` | number | the core's default | as the core validates it |
 | `internal_w` | number | `550` | the core's `fallback_w` of `P_INTERNAL`; finite |
 | `heat_cool_heat_value` | `-1`, `0` or `1` | `-1` | |
 | `min_change_interval_s` | number | `300` | as the router validates it |
@@ -59,8 +57,7 @@ that is not listed (a room at or above `rooms` included), `BAD_VALUE` for a text
 parse or breaks its own row's rule, and `INVALID_SET` when the value is fine alone but the loop's
 configuration made from the whole set would fail `ctl_loop_config_valid`, such as every room
 weight at 0. The value is applied to a copy first, so every answer but `OK` leaves the settings as
-they were: valid means apply, invalid means reject and keep the old value
-(`firmware-design.md` §6). The setter checks each row's own rule, as the table gives it: the flags,
+they were: valid means apply, invalid means reject and keep the old value. The setter checks each row's own rule, as the table gives it: the flags,
 the ranges of `rooms` and `heat_cool_heat_value`, the room weight, `room_timeout_s` above 0,
 `trim_limit_k` above 0, and the topics. Some of these the rooms check again; every rule the table
 leaves to the core, the rooms or the router is checked only there.
@@ -71,14 +68,19 @@ room of weight 1 that never receives a value: the core waits for its inputs (`WA
 and the glue publishes that, rather than refusing to start.
 
 The loop's configuration starts from `ctl_loop_config_defaults` and takes from the settings the
-core's tuning, with `internal_w` as the fallback of `P_INTERNAL`; the rooms' count, weights and
-timeout; the router's pacing, polarity and `smart_grid`; the allowed demands, heating and no demand, with
+core's tuning, with `internal_w` as the fallback of `P_INTERNAL` and a `solar_gain_factor` of 0;
+the rooms' count, weights and timeout; the router's pacing, polarity and `smart_grid`; the allowed demands, heating and no demand, with
 cooling when `cooling` is 1; and no assumed landing.
+
+**No solar input.** The board subscribes to no PV topic and feeds the loop no solar input, so the
+core's `P_SOLAR` stays at its fallback of 0 W. A settings file that still holds `solar_gain_factor`
+or the old PV topic's name loads; the setter answers `UNKNOWN` for both, the loader skips them, and
+the next save drops them. The core keeps its solar signal, so that the golden traces replay
+unchanged (`decisions.md`).
 
 ## The telemetry
 
-The board publishes every input, status, output and setting (`firmware-design.md` §6, decision
-F-7), so that the owner can see what the loop saw, what it decided and why, and what it sent. The
+The board publishes every input, status, output and setting, so that the owner can see what the loop saw, what it decided and why, and what it sent. The
 pure part (`glue/ctl_telemetry.h`) lists, for a decision record, the rooms and the settings, each
 subtopic with its value text; the glue prefixes `<mqtt_topic_base>/control/` and publishes them.
 The loop never reads them back.
@@ -93,14 +95,13 @@ whether commands are enabled. A subtopic, with its terminating zero, fits
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
 does not have is written `-`. A flag is `1` or `0`.
 
-**Inputs**, 9 entries, 3 for each configured room and the 2 frame counters:
+**Inputs**, 8 entries, 3 for each configured room and the 2 frame counters:
 
 | Subtopic | Value |
 |---|---|
 | `inputs/indoor_c` | the decision's indoor input, 2 decimals |
 | `inputs/outdoor_c` | outdoor input, 2 decimals |
 | `inputs/produced_w` | produced input, 0 decimals |
-| `inputs/solar_w` | solar input, 0 decimals |
 | `inputs/internal_w` | internal input, 0 decimals |
 | `inputs/substituted` | the substituted signals' names joined by `,`, such as `P_SOLAR,P_INTERNAL`, or `-` |
 | `inputs/unhealthy` | the unhealthy signals' names joined by `,`, or `-` |
@@ -227,7 +228,7 @@ on and outside listen-only mode.
 
 **While the gate is blocked, landing is assumed.** Before each tick the glue sets the loop's
 `assume_landed` to whether the gate is blocked: the router then counts each command as landed at
-the next decision, as a shadow does. A blocked board, such as one that only watches the house
+the next decision. A blocked board, such as one that only watches the house
 with `enabled` 0, sends nothing, so nothing could ever confirm; without the assumption its router
 would repeat its first send and end in `FAULT`, a fault of a link it never used. While the gate is
 open the confirmation is the frame's, as above, and a command that does not land is repeated and
@@ -297,7 +298,7 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
 allowed demands at once, a change of `smart_grid` reopens the router (*What reaches the pump*),
-so it sends the wanted state once, paced, and a change of `rooms`, a room's topic or `pv_topic`
+so it sends the wanted state once, paced, and a change of `rooms` or a room's topic
 unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
@@ -405,10 +406,10 @@ carry the page:
 ## First start on a board
 
 A board fresh from the flash, or one whose `/control.json` was lost, starts with the defaults:
-commands disabled, no rooms, no PV. It runs the loop and publishes, but sends nothing.
+commands disabled, no rooms. It runs the loop and publishes, but sends nothing.
 
 1. Set the rooms first: `control/set/rooms`, then each `control/set/room.<i>.topic` and, where it
-   is not 1, `control/set/room.<i>.weight`; `pv_topic` if there is PV. Check every answer under
+   is not 1, `control/set/room.<i>.weight`. Check every answer under
    `control/config/`.
 2. Make sure the optional PCB emulation is on and listen-only mode is off in HeishaMon's settings.
 3. Watch `control/inputs/` until every room and the pump's values arrive, and `control/status/`

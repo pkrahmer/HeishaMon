@@ -22,7 +22,7 @@ typedef struct {
 static const file_pair FILE_PAIRS[] = {
     {"enabled", "1", CTL_SETTING_OK},
     {OLD_LOG_NAME, "jeisha/log", CTL_SETTING_UNKNOWN},
-    {"pv_topic", "house/pv", CTL_SETTING_OK},
+    {"desired_indoor_c", "21.5", CTL_SETTING_OK},
     {OLD_COMMAND_NAME, "panasonic_heat_pump", CTL_SETTING_UNKNOWN},
     {"hysteresis_wh", "1200", CTL_SETTING_OK},
 };

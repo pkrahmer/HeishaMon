@@ -4,9 +4,8 @@ Lookup manual for engineers building against the decision core: writing an adapt
 controller in a runtime, or calling it from a replay tool. Everything the core exports is listed
 here with its exact signature, units, ranges and failure behaviour.
 
-This document says **what** the core does. `algorithm-plan.md` says **why** — it is the design
-contract, with 25 numbered assumptions. `test-harness.md` covers the simulator. Rationale is
-cross-referenced, never restated.
+This document says **what** the core does. `core.md` describes its C port, and `decisions.md`
+records why the fork's choices were made. `test-harness.md` covers the simulator.
 
 Python 3.10+ (`dataclass(slots=True)`). No third-party dependencies. Verified against the code on
 Python 3.14.
@@ -24,8 +23,7 @@ heat produced, solar gain, internal gain — are combined into an instantaneous 
 `p_net` in watts: negative means the house is losing charge. `p_net` is integrated over elapsed
 time into one scalar `E`, the *energy deviation* in Wh. A tri-state relay reads `E`: engage heating
 at `E ≤ -H`, engage cooling at `E ≥ +H`, release either at `E = 0`. Everything else in the core
-exists to make that integral safe when readings arrive late, out of order, or not at all. See
-algorithm-plan.md §1.1–§1.3.
+exists to make that integral safe when readings arrive late, out of order, or not at all.
 
 ```python
 from heatnrgx.core import Config, Controller, Demand, Signal
@@ -369,8 +367,7 @@ Moves the time reference to `t`, integrating the interval that just closed. Retu
 | otherwise | integrates, clamps, `(state', dt, True)` |
 
 Interval validity is judged **at the interval start** (`t_last`), because that is what zero-order
-hold says was true throughout it. Output health is judged at the interval end. See
-algorithm-plan.md §1.2.
+hold says was true throughout it. Output health is judged at the interval end.
 
 ```python
 observe(state: ControllerState, reading: Reading, cfg: Config) -> ControllerState
@@ -462,7 +459,7 @@ valid. It is not called automatically — call it yourself at startup.
 
 ### 3.1 Tuning fields
 
-Defaults are the legacy system's live field-tuned values, not guesses. See algorithm-plan.md §4.
+Defaults are the legacy system's live field-tuned values, not guesses.
 
 | Field | Type | Unit | Default | Valid range | Controls | `validate()` message |
 |---|---|---|---|---|---|---|
@@ -471,7 +468,7 @@ Defaults are the legacy system's live field-tuned values, not guesses. See algor
 | `adjustment_w_per_k` | `float` | W/K | `805.0` | `>= 0`, finite | trim stiffness: watts of model error tolerated per kelvin of standing offset. `0` disables the trim | `adjustment_w_per_k must be >= 0` |
 | `hysteresis_wh` | `float` | Wh | `1500.0` | `> 0`, finite | `H`: engage at `∓H`, release at `0` | `hysteresis_wh must be > 0` |
 | `trim_limit_k` | `float \| None` | K | `3.0` | `> 0` and finite, or `None` to disable | clamp on the **deviation** feeding the trim; bounds a stuck sensor | `trim_limit_k must be finite and > 0, or None to disable` |
-| `solar_gain_factor` | `float` | — | `0.02` | `>= 0`, finite | adapter multiplies PV **DC** power by this to estimate solar gain — DC rather than inverter AC, so the battery's charge and discharge cannot corrupt it (algorithm-plan.md §1.9). **The core never reads it** | `solar_gain_factor must be >= 0` |
+| `solar_gain_factor` | `float` | — | `0.02` | `>= 0`, finite | adapter multiplies PV **DC** power by this to estimate solar gain — DC rather than inverter AC, so the battery's charge and discharge cannot corrupt it. **The core never reads it** | `solar_gain_factor must be >= 0` |
 
 `ENERGY_UNIT: ClassVar[str] = "Wh"` is a class attribute, not a constructor field ([A-13]).
 
@@ -525,8 +522,7 @@ Partial maps are fine — missing keys fall through to the module defaults.
   dead` — infinite age on a required signal.
 - `fallback_w[{NAME}] must be finite, got {v!r}` — for every entry in `fallback_w`.
 
-Tightening `max_age_s` is the most common way to make this loop worse. See the measured table in
-algorithm-plan.md §4 before you touch it.
+Tightening `max_age_s` is the most common way to make this loop worse.
 
 ---
 
@@ -605,7 +601,7 @@ sooner and costs nothing ([A-24]).
 
 ## 5. Ports
 
-The interfaces an adapter satisfies. They are **specified in algorithm-plan.md §2.5 but not yet
+The interfaces an adapter satisfies. They are **specified but not yet
 implemented in code** — there is no `ports` module, no `adapters/` package and no `runtime/loop`
 in this repository. The shapes are stable enough to build against; the import path is not.
 
@@ -726,7 +722,7 @@ What to watch:
 | `dt` ≫ `tick_interval_s` | the heartbeat is late; if `dt > max_step_s` the interval is lost |
 | `skipped_s` rising while `RUNNING` | heartbeat too slow, or a source dying ([A-19]) |
 | `CLAMPED` for long stretches | the plant cannot follow the demand: undersized, defrosting, locked out, or masked |
-| `sub=` permanently non-empty | a gain source is not wired up; you are paying a standing offset of `p_model_error / a_trim` kelvin (algorithm-plan.md §1.9) |
+| `sub=` permanently non-empty | a gain source is not wired up; you are paying a standing offset of `p_model_error / a_trim` kelvin |
 | `stale=` at all | a required source has missed its `max_age_s`; the phase is `uninitialized`, `hold` or `fault`, never `running`. The listed names are the sources to chase |
 | `stale=` with `phase=running` | an optional signal is stale (harmless, it is on its fallback), or the required set went stale in the same tick that recovered |
 

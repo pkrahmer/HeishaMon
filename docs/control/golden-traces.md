@@ -4,7 +4,7 @@
 committed set in `golden/`.
 
 A golden trace is the exact stream of calls the simulator makes into the Python core, with the
-core's state after each call. A port of the core (the C core of `firmware-design.md`) passes a trace
+core's state after each call. A port of the core (the C core of `core.md`) passes a trace
 when, started cold and fed the same calls in the same order, it reproduces every recorded value.
 
 ```
@@ -30,7 +30,7 @@ throughout, the same operation order as the Python source, and no floating-point
 (`-ffp-contract=off`): a fused multiply-add rounds once where the core rounds twice. A port that
 cannot meet exact equality is wrong in a way worth finding, not a case for a tolerance.
 
-Traces start cold: the firmware never restores a snapshot (`firmware-design.md` **[F-5]**), so
+Traces start cold: the firmware never restores a snapshot (`decisions.md`, 2026-11-11), so
 `restore` and `snapshot` are not exercised.
 
 ## 2. The committed set

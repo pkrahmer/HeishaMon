@@ -1,7 +1,7 @@
 # The router
 
 The router stands between the core and the pump. It turns the core's demand into the commands of
-HeishaMon's optional PCB emulation, as `firmware-design.md` §4 describes, and it decides when to
+HeishaMon's optional PCB emulation, and it decides when to
 send them. It lives in `HeishaMon/src/control/route/` as plain C99: like the core and the
 adapters it takes values and returns values. The glue hands it the demand, the thermostat state
 the pump reports and an instant, and sends the commands it returns; the router sends nothing
@@ -64,7 +64,7 @@ the heat/cool mode included.
 
 | Setting | Default | Accepted | Why this default |
 |---|---|---|---|
-| `min_change_interval_s` | 300.0 | finite, 0 or more | Every write of a pump setting wears the pump's EEPROM, and upstream asks for a few changes per hour per setting at most (`firmware-design.md` §4). Five minutes caps the router at twelve changes an hour even if the core flips, and the core's hysteresis already paces it far below that. |
+| `min_change_interval_s` | 300.0 | finite, 0 or more | Every write of a pump setting wears the pump's EEPROM, and upstream asks for a few changes per hour per setting at most. Five minutes caps the router at twelve changes an hour even if the core flips, and the core's hysteresis already paces it far below that. |
 | `retry_interval_s` | 120.0 | finite, 0 or more | The emulated frame goes out every few seconds and the pump's state comes back with the next decoded frame, so two minutes is ample for a command to land; a repeat sooner would count as a second write of the same EEPROM setting. |
 | `max_retries` | 3 | 0 to 10 | A dropped command is rare; three repeats over six minutes ride out a busy link without writing the EEPROM again and again when something is truly wrong, which the fault then reports. |
 | `heat_cool_heat_value` | -1 (unset) | -1, 0 or 1 | See *The polarity setting*. |

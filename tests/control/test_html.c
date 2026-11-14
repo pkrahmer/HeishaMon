@@ -47,7 +47,7 @@ static void check_escape(void)
     "<td><input id=\"x&#39;y\" name=\"x&#39;y\" value=\"&lt;v&gt;\"></td>"                       \
     "<td>saved</td></tr>"
 #define REFUSED_EXPECTED                                                                        \
-    "<tr style='color:var(--orange)'><td>pv_topic</td><td>" CTL_HTML_TOO_LONG "</td>"           \
+    "<tr style='color:var(--orange)'><td>room.0.topic</td><td>" CTL_HTML_TOO_LONG "</td>"       \
     "<td>refused: &lt;why&gt;</td></tr>"
 
 static void check_row(void)
@@ -66,7 +66,7 @@ static void check_setting(void)
 {
     char out[256];
     ctl_html_setting setting = {"x'y", "<v>", "saved", false};
-    ctl_html_setting refused = {"pv_topic", NULL, "refused: <why>", true};
+    ctl_html_setting refused = {"room.0.topic", NULL, "refused: <why>", true};
     CHECK_TRUE(ctl_html_setting_row(&setting, out, sizeof out));
     CHECK_TEXT(out, SETTING_EXPECTED);
     CHECK_TRUE(ctl_html_setting_row(&setting, out, sizeof SETTING_EXPECTED));
