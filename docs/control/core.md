@@ -3,10 +3,10 @@
 The control core is the part of the fork that decides, from five input signals, whether the
 heat pump should heat, cool or do neither. It lives in `HeishaMon/src/control/core/` as plain
 C99 that takes values and returns values: no input or output, no clock, no logger, no hidden
-state. It is a port of the Python reference beside this document
-(`docs/control/python-reference/`, described in `reference.md`), and the golden traces exported
-from that reference are the measure the port is compared against, bit for bit. Where the port differs from the reference on purpose,
-`decisions.md` says why.
+state. It is a port of the Python reference, which lives only in the owner's separate repository
+heatnrgx; the fork keeps no copy of it. The golden traces exported from heatnrgx
+(`golden-traces.md`) are the reference the core is held to: the core replays every one of them
+bit for bit. Where the port differs from the reference on purpose, `decisions.md` says why.
 
 ## Enums (`ctl_types.h`)
 
@@ -144,7 +144,7 @@ unclamped one lies within the limit, a deviation equal to a limit included.
 
 The trim is proportional: a model error of some watts leaves the house steadily that many watts
 divided by `adjustment_w_per_k` off its target. The integral term `p_integral_w` removes that
-offset. It is not in the Python reference. `ctl_energy_balance` leaves it at 0, and
+offset. The golden traces carry no integral term. `ctl_energy_balance` leaves it at 0, and
 `ctl_balance_add_integral` sets it and adds it to `p_net_w` last; an integral of exactly 0
 leaves `p_net_w` untouched, so that with the term off the operations are the reference's and the
 golden traces replay bit for bit. Its sign is the trim's: a house too warm makes it positive, a
