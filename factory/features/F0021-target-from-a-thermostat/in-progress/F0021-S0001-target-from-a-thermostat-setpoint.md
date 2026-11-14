@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-14T12:27:54.288490Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-14T12:27:48.524320Z'
   stage: doing
   run: c12d49b025ec4261a3ee910d2b437859
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-14T12:27:54.288490Z'
+  stage: review
 ---
 
 # The target from a thermostat's setpoint
@@ -217,3 +226,4 @@ Expect: `1`
    - Nothing new. The gap the reviewer noted in the story stands: criterion 1 does not list a non-finite row. The test now covers that case anyway.
 
    `check`: check: green
+8. factory: started review as heishamon.
