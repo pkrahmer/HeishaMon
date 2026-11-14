@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 38
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T19:16:01.948214Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-14T19:16:01.948214Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-14T19:20:02.111754Z'
+  stage: doing
+  run: 395edf67ca524d32bb1044597a0e072a
 ---
 
 # Remove the Python reference copy
@@ -122,3 +124,17 @@ Expect: `1`
    - Group 5, docs: the `golden-traces.md` "Source." paragraph and the `decisions.md` entry match the docs criterion. The earlier entries in `decisions.md` are untouched. The `[A-n]` references in `golden-traces.md` were already there on `develop` and point to `algorithm-plan.md`, not to a removed file.
    - Group 6, earlier tests: the diff changes, renames or deletes no test file.
 6. factory: started doing as heishamon.
+7. builder: Round 1 fixes the reviewer's single finding.
+
+   - `docs/control/core.md` (paragraph on the integral term `p_integral_w`): I replaced "It is not in the Python reference." with "The golden traces carry no integral term." This is the reviewer's suggested wording. It is a fact the fork can check, and it no longer contradicts the new opening or the decision entry that says heatnrgx has the integral term. The rest of the paragraph is unchanged, including the operand order with the term off and the bit-for-bit replay.
+
+   Nothing else changed. No code, test or other document was touched in this round.
+
+   Checks:
+   - `make check` is green, ending with `firmware: green (85.9 s)` and `check: green`.
+   - Criterion 2 (`git grep` for the removed paths) still prints nothing.
+   - The smoke test printed `1`, which matches its Expect line.
+
+   Noticed, not touched: nothing new.
+
+   `check`: check: green

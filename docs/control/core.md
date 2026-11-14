@@ -144,7 +144,7 @@ unclamped one lies within the limit, a deviation equal to a limit included.
 
 The trim is proportional: a model error of some watts leaves the house steadily that many watts
 divided by `adjustment_w_per_k` off its target. The integral term `p_integral_w` removes that
-offset. It is not in the Python reference. `ctl_energy_balance` leaves it at 0, and
+offset. The golden traces carry no integral term. `ctl_energy_balance` leaves it at 0, and
 `ctl_balance_add_integral` sets it and adds it to `p_net_w` last; an integral of exactly 0
 leaves `p_net_w` untouched, so that with the term off the operations are the reference's and the
 golden traces replay bit for bit. Its sign is the trim's: a house too warm makes it positive, a
