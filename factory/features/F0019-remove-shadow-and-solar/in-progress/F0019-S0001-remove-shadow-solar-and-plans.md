@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T10:42:48.680300Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -75,6 +79,11 @@ journal:
   at: '2026-11-14T10:42:43.589747Z'
   stage: review
   run: 572ad74bc1af4b7896b365b46c811b0e
+- number: 13
+  speaker: factory
+  kind: started
+  at: '2026-11-14T10:42:48.680300Z'
+  stage: doing
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -266,3 +275,4 @@ Expect: `1`
     - The first grep, with the human's pattern `(^|[^_])solar_w\b`, finds only the local `solar_w` in `adapt/ctl_pump.c`. `ctl_shadow`, `pv_topic`, `algorithm-plan` and `firmware-design` appear nowhere in scope. Any other "shadow" text is CSS in upstream's `htmlcode.h`.
     - The factory's `make check` after the builder was green (entry 10).
     - Information only, not a finding: the builder's rewrite of criterion 1 in round 0b was left out by the factory, because the work item is outside the builder's write paths. The `## Description` therefore still shows the original criterion 1. The human's reading of it is in journal entry 4.
+13. factory: started doing as heishamon.
