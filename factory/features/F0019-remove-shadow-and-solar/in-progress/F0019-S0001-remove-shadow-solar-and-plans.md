@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 34
 comments_read: [6875920189]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T10:35:10.173864Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -51,6 +47,12 @@ journal:
   kind: started
   at: '2026-11-14T10:35:10.173864Z'
   stage: review
+- number: 8
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T10:36:34.238124Z'
+  stage: review
+  run: 5a377b0aa9f543a7ac8939a8ddfd48ab
 ---
 
 # Remove the shadow, the solar input and the planning documents
@@ -172,3 +174,29 @@ Expect: `1`
 
    `check`: check: green
 7. factory: started review as heishamon.
+8. reviewer: Review, round 0. The code, the tests and criteria 1 to 7 hold. Criterion 1 holds as the human now reads it (entry 4): the first grep finds only the local `solar_w` in `adapt/ctl_pump.c`, and the second finds only `glue/ctl_settings.c:586`. The core and the upstream files show no diff. The factory's `make check` after the builder was green. The findings below are about the docs (criterion 8) and one header comment.
+
+   Findings:
+   1. `docs/control/firmware.md:114` says "The five input values are `-` when the decision has no inputs". With `inputs/solar_w` gone, four value entries are left: `indoor_c`, `outdoor_c`, `produced_w` and `internal_w` (compare `tests/control/test_telemetry.c` `test_without_inputs`, which lists four). Fix: say "four".
+   2. `docs/control/firmware.md:98` says "8 entries, 3 for each configured room and the 2 frame counters". This line was edited by this diff, but `glue/ctl_telemetry.c` publishes no frame counter. Its 8 fixed entries are the table's first eight rows, `indoor_c` to `rooms_fresh_weight`. Criterion 8 asks `firmware.md` to describe only what remains. Fix: something like "8 entries, plus 3 for each configured room".
+   3. `HeishaMon/src/control/glue/ctl_settings.h:82-87`: the comment on `ctl_settings_to_loop` says it writes the loop's defaults with the core's tuning from the settings. It does not say that the function now forces the core's `solar_gain_factor` to 0 instead of the loop's default of 0.02, which a caller can see in the result (`test_settings.c` `test_to_loop` now has to patch `expected.core.solar_gain_factor`). Fix: add "and a solar_gain_factor of 0" to that comment, as `firmware.md:71` already says.
+
+   Earlier tests (group 6), each changed or deleted under the leave the story's Interface names with the human's word:
+   - `tests/control/test_dispatch.c` (M): rows for the removed PV topic deleted.
+   - `tests/control/test_form.c` (M): removed setting's name replaced by `room.0.topic`; one report index shifts.
+   - `tests/control/test_form_rows.c` (M): removed setting's name replaced by `room.0.topic`.
+   - `tests/control/test_html.c` (M): removed setting's name replaced by `room.0.topic`.
+   - `tests/control/test_settings.c` (M): rows for the removed settings deleted, counts and indexes shifted; kept checks moved to `internal_w` or `room.0.topic`, none loosened.
+   - `tests/control/test_settings_remote.c` (M): a kept-setting pair switched from `pv_topic` to `desired_indoor_c`. The Interface's `test_settings*.c` covers it.
+   - `tests/control/test_telemetry.c` (M): `inputs/solar_w` row and fixture line deleted, counts shifted by one.
+   - `tests/control/test_shadow.c` (D): shadow test, may be deleted.
+   - `tests/control/device/test_shadow.py` (D): a device test of only the shadow, may be deleted.
+   - `tests/control/device/shadow_host.c`, `shadow.py`, `shadow/shadow.ino`, `shadow.example.json` and `data/shadow_capture.jsonl` (D): the shadow tool and its data, named by the Description.
+
+   Checked and found right:
+   - Criterion 3's test, `tests/control/test_settings_solar.c`, uses the same pair pattern as `test_settings_remote.c`. The real loader, `load_settings` in `ctl_firmware.cpp`, needs LittleFS and ArduinoJson and cannot run on the host. The test does show both old names getting `UNKNOWN`, the other settings applied, the set valid, and `solar_gain_factor` 0 both from the file and from the defaults.
+   - The production board computes the same as before: the core's `fallback_w[P_SOLAR]` is 0, and nothing on the board fed `P_SOLAR` before or after.
+   - Dropping `_topic` from `moves_topics` is safe: no fixed name ends in `_topic` any more.
+   - The diff adds no dynamic memory, recursion or unbounded loop.
+   - `decisions.md` has the required entry, with the rejected option.
+   - `settings.md`, `loop.md` and `device-test.md` match the code.
