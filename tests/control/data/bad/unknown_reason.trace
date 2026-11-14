@@ -1,0 +1,8 @@
+heatnrgx-golden 1
+# An evaluate with a reason the core does not have.
+scenario unknown_reason
+config hysteresis_wh 1500.0
+begin
+evaluate 0.0 | demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=0.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+evaluate 0.0 | demand=NO_DEMAND reason=SLEEPING phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=0.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+end 2

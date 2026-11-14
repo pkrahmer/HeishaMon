@@ -1,0 +1,470 @@
+# The firmware
+
+The firmware's own code around the loop: what the board keeps, reads and publishes. It lives in
+`HeishaMon/src/control/glue/`; the parts there that are `.c` files are pure like the loop and are
+tested on the host.
+
+## The settings
+
+Everything the owner can set is one flat set of names, each with a text value
+(`glue/ctl_settings.h`). What each setting means, its default and its allowed values are in
+`settings.md`, written for the owner; this section gives the rules. The settings file, the MQTT
+setting topics and the control page all go through the same three functions:
+
+- `ctl_settings_set` parses and checks one value, then checks the whole set, and applies the value
+  only when both pass.
+- `ctl_settings_get` writes any value back as text, in the form the setter takes.
+- `ctl_settings_to_loop` turns the settings into the loop's configuration (`loop.md`).
+
+`ctl_settings_name_count` and `ctl_settings_name_at` list the names, in the order of the table
+below, with the rooms' names after `rooms`.
+
+| Name | Value text | Default | Rule |
+|---|---|---|---|
+| `enabled` | `0` or `1` | `0` | |
+| `cooling` | `0` or `1` | `0` | |
+| `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
+| `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
+| `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
+| `room_timeout_s` | number | `1800` | greater than 0 |
+| `desired_indoor_c` | number | the core's default | as the core validates it |
+| `desired_topic` | text | empty | see topics below and *The target from a thermostat* |
+| `transmission_w_per_k` | number | the core's default | as the core validates it |
+| `adjustment_w_per_k` | number | the core's default | as the core validates it |
+| `hysteresis_wh` | number | the core's default | as the core validates it |
+| `trim_limit_k` | number or `none` | `3` | `none` disables the trim limit |
+| `internal_w` | number | `550` | the core's `fallback_w` of `P_INTERNAL`; finite |
+| `heat_cool_heat_value` | `-1`, `0` or `1` | `-1` | |
+| `min_change_interval_s` | number | `300` | as the router validates it |
+| `retry_interval_s` | number | `120` | as the router validates it |
+| `max_retries` | decimal | `3` | as the router validates it |
+| `smart_grid` | `0` or `1` | `0` | `1` sends Smart Grid mode instead of the thermostat state; see *Smart Grid mode* |
+
+The values:
+
+- A number is a bare number as the payload parser reads it (`adapters.md`), never a JSON object.
+  It must have a magnitude below 10¹² and no more than three decimals, so that the getter writes
+  it back exactly: a value saved through the getter reads back as the same value. `trim_limit_k`
+  must also be greater than 0.
+- A decimal (`rooms`, `max_retries`, the flags and `heat_cool_heat_value`) is a number that is
+  whole and in its range.
+- A topic is empty, or 1 to 96 printable ASCII characters (0x21 to 0x7e) without the wildcards
+  `+` and `#`. An empty room topic is a room that never receives a value, and an empty
+  `desired_topic` is no thermostat.
+- The getter writes a whole number without decimals and any other number with its decimals, the
+  trailing zeros cut: `1500`, `0.02`, `22.5`.
+
+**A refused change keeps the old value.** The setter answers, in this order: `UNKNOWN` for a name
+that is not listed (a room at or above `rooms` included), `BAD_VALUE` for a text that does not
+parse or breaks its own row's rule, and `INVALID_SET` when the value is fine alone but the loop's
+configuration made from the whole set would fail `ctl_loop_config_valid`, such as every room
+weight at 0. The value is applied to a copy first, so every answer but `OK` leaves the settings as
+they were: valid means apply, invalid means reject and keep the old value. The setter checks each row's own rule, as the table gives it: the flags,
+the ranges of `rooms` and `heat_cool_heat_value`, the room weight, `room_timeout_s` above 0,
+`trim_limit_k` above 0, and the topics. Some of these the rooms check again; every rule the table
+leaves to the core, the rooms or the router is checked only there.
+
+**`rooms` 0 is valid.** A board fresh from the flash has no room topics yet, and its settings must
+still be a valid set, or the owner could not save the first one. With no rooms, the loop gets one
+room of weight 1 that never receives a value: the core waits for its inputs (`WAITING_FOR_INPUTS`),
+and the glue publishes that, rather than refusing to start.
+
+The loop's configuration starts from `ctl_loop_config_defaults` and takes from the settings the
+core's tuning, with `internal_w` as the fallback of `P_INTERNAL` and a `solar_gain_factor` of 0;
+the rooms' count, weights and timeout; the router's pacing, polarity and `smart_grid`; the allowed demands, heating and no demand, with
+cooling when `cooling` is 1; and no assumed landing.
+
+**No solar input.** The board subscribes to no PV topic and feeds the loop no solar input, so the
+core's `P_SOLAR` stays at its fallback of 0 W. A settings file that still holds `solar_gain_factor`
+or the old PV topic's name loads; the setter answers `UNKNOWN` for both, the loader skips them, and
+the next save drops them. The core keeps its solar signal, so that the golden traces replay
+unchanged (`decisions.md`).
+
+## The telemetry
+
+The board publishes every input, status, output and setting, so that the owner can see what the loop saw, what it decided and why, and what it sent. The
+pure part (`glue/ctl_telemetry.h`) lists, for a decision record, the rooms and the settings, each
+subtopic with its value text; the glue prefixes `<mqtt_topic_base>/control/` and publishes them.
+The loop never reads them back.
+
+The entries come one at a time, by index, so that the glue needs no buffer for all of them:
+`ctl_telemetry_count` gives a group's count and `ctl_telemetry_entry` the entry at an index of
+`CTL_GROUP_INPUTS`, `CTL_GROUP_STATUS` or `CTL_GROUP_OUTPUTS`. The source holds the record of the
+last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds,
+whether commands are enabled, and the target the decision was made with and its source. A subtopic, with its terminating zero, fits
+`CTL_TELEMETRY_SUBTOPIC_MAX` (48 bytes).
+
+A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
+does not have is written `-`. A flag is `1` or `0`.
+
+**Inputs**, 8 entries, plus 3 for each configured room:
+
+| Subtopic | Value |
+|---|---|
+| `inputs/indoor_c` | the decision's indoor input, 2 decimals |
+| `inputs/outdoor_c` | outdoor input, 2 decimals |
+| `inputs/produced_w` | produced input, 0 decimals |
+| `inputs/internal_w` | internal input, 0 decimals |
+| `inputs/substituted` | the substituted signals' names joined by `,`, such as `P_SOLAR,P_INTERNAL`, or `-` |
+| `inputs/unhealthy` | the unhealthy signals' names joined by `,`, or `-` |
+| `inputs/rooms_fresh` | the fresh rooms' count |
+| `inputs/rooms_fresh_weight` | the fresh rooms' weight, 1 decimal |
+| `inputs/room/<i>/value_c` | for each configured room `i`: its last value, 2 decimals, or `-` |
+| `inputs/room/<i>/fresh` | `1` when the room is fresh at the record's instant, else `0` |
+| `inputs/room/<i>/weight` | its weight, 1 decimal |
+
+The four input values are `-` when the decision has no inputs: the core resolved nothing then.
+
+**Status**, 14 entries:
+
+| Subtopic | Value |
+|---|---|
+| `status/demand` | the demand's name: `HEATING`, `COOLING` or `NO_DEMAND` |
+| `status/reason` | the reason's name, such as `WAITING_FOR_INPUTS` |
+| `status/phase` | the phase's name, such as `RUNNING` |
+| `status/energy_wh` | the energy, 1 decimal |
+| `status/p_net_w` | the net power, 0 decimals, or `-` without inputs |
+| `status/clamped` | `1` or `0` |
+| `status/integrated_s` | 0 decimals |
+| `status/skipped_s` | 0 decimals |
+| `status/uptime_s` | 0 decimals |
+| `status/enabled` | `1` or `0` |
+| `status/p_integral_w` | the integral term, 1 decimal, or `-` without inputs |
+| `status/integral_wh` | the integral term's energy in the ledger, 1 decimal |
+| `status/desired_c` | the target the decision was made with, 2 decimals |
+| `status/desired_source` | where the target came from: `setting` (`desired_indoor_c`) or `topic` (the setpoint held from `desired_topic`) |
+
+Beside the telemetry's status entries, the glue publishes `status/integral_saved_w` with them:
+the integral last written to or loaded from `/control_integral.txt` (*The integral file*), 1
+decimal.
+
+**Outputs**, 4 entries:
+
+| Subtopic | Value |
+|---|---|
+| `outputs/router` | `IDLE`, `WAITING` or `FAULT` |
+| `outputs/thermostat_state` | the record's `sent_state`, the state the router last sent (the Smart Grid mode while `smart_grid` is 1), or `-` before the first send |
+| `outputs/commands` | the record's commands as `name:value` joined by `,`, such as `SetExternalThermostat1State:2,SetHeatCoolMode:1`, or `-` |
+| `outputs/blocked` | why commands do not reach the pump: `disabled`, `listen_only` or `no_optional_pcb`, or `-` while the gate is open; see *What reaches the pump* |
+
+**Settings.** `ctl_telemetry_setting` gives, for index `i` of `ctl_settings_name_at`, the subtopic
+`config/<name>` and the value text of `ctl_settings_get`: `config/enabled`, `config/room.0.topic`,
+… `config/smart_grid`, in the order of the settings' table above. It returns false past the last
+name.
+
+**A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
+for an index past the end, for a buffer too small for the subtopic or the value with its
+terminating zero, and for a number the fixed format refuses: a text is never cut.
+
+## The glue
+
+`glue/ctl_firmware.cpp` is the only code of the loop that knows HeishaMon. It is Arduino C++,
+compiled only by `make firmware`; everything it decides is in the pure modules beside it, which
+the host tests cover. `glue/ctl_dispatch.h` is its pure half: which input or setting a topic is,
+and the thermostat state of the emulated frame. The glue never waits and never retries a publish
+within one call, its state is static, and it allocates nothing of its own after setup but the
+argument buffer of a save from the control page (below), freed once the save is applied. Upstream's
+decoder (`getDataValue`) returns an Arduino `String`; that allocation is upstream's.
+
+## The hooks
+
+Eight lines in upstream's `HeishaMon/HeishaMon.ino` call the glue, each ending with the comment
+`// control loop hook`, so that `grep -c "control loop hook" HeishaMon/HeishaMon.ino` gives 8 and a
+rebase onto upstream has eight lines to carry. The first six are these; the last two, and one
+line of `HeishaMon/htmlcode.h`, serve the control page and are described with it below.
+
+1. `#include "src/control/glue/ctl_firmware.h"`, beside the other includes of `src/`.
+2. `ctl_firmware_setup(send_command, log_message);` in `setup()`, right after
+   `setupConditionals()`. By then the file system is mounted and upstream's settings are loaded,
+   and the HTTP server and the MQTT client that `log_message` writes to exist, so the glue's
+   start-up log lines reach every place upstream's do.
+3. `ctl_firmware_loop(...)` in `loop()`, right after `mqtt_client.loop();`. Every pass of
+   upstream's loop reaches it, connected to the broker or not, so the clock is widened often and
+   the loop ticks on time; it comes after the client's own pass, so that a decision publishes on a
+   connection the client has just served. It returns at once when no tick is due.
+4. `ctl_firmware_frame(data);` right after the `decode_heatpump_data(data, ...)` of a main data
+   block, in `readSerial()`, which `readHeatpump()` calls. That is the one place a decoded main
+   frame passes, and it is not behind a test of the broker's connection, so the pump's values
+   reach the loop while the broker is down (decision F-3).
+5. `ctl_firmware_subscribe(...)` in `mqtt_reconnect()`, after upstream's subscriptions of a
+   successful connect: every new connection subscribes again to the loop's topics and publishes
+   the settings again.
+6. `if (ctl_firmware_mqtt(topic, payload, length)) return;` at the very start of
+   `mqtt_callback()`, before upstream's own guard and copies: a message of the loop's is handled
+   and never reaches upstream's parsing; every other message goes on untouched.
+
+## What reaches the pump
+
+Commands go to the pump only when the gate is open and the router has a command at this
+decision. The gate is `ctl_gate_state` (`HeishaMon/src/control/glue/ctl_gate.h`), computed on
+every pass. It is blocked for the first of these reasons that holds, in this order:
+
+- `disabled`: `enabled` is 0;
+- `listen_only`: HeishaMon is in listen-only mode, in which it sends nothing to the pump;
+- `no_optional_pcb`: HeishaMon's optional PCB emulation is off, and the thermostat state is a
+  field of the frame it emulates.
+
+Otherwise the gate is open. While it is blocked the loop still decides and publishes,
+`status/enabled` is `0` (it is `1` only while the gate is open, so that it says whether a command
+would reach the pump), and `outputs/blocked` names the reason (`ctl_gate_name`); it is `-` while
+the gate is open. The glue writes one log line on each change of the gate, at the first pass and
+whenever it changes: `control: commands go to the pump`, or `control: no commands to the pump:`
+with the reason (`enabled is 0`, `HeishaMon is in listen-only mode`, `the optional PCB emulation
+is off`).
+
+A command goes through upstream's `send_heatpump_command`, the path of the `commands/` topics and
+the rules engine, to this board's serial port. Two paths reach the
+pump through byte 6 of the optional PCB frame, which HeishaMon sends to the pump every second:
+
+- **The thermostat path** (`smart_grid` 0): `SetExternalThermostat1State` writes the state (2 heat,
+  1 cool, 0 no demand) into bits 2 and 3, and `SetHeatCoolMode` rides along when
+  `heat_cool_heat_value` is set.
+- **The Smart Grid path** (`smart_grid` 1): `SetSmartGridMode` alone writes the mode into bits 4
+  and 5: `0` for heating or cooling demand, `1` (Capacity 1, set on the owner's pump to a curve
+  that never heats) for no demand. Heating and cooling are the same
+  mode, so a change between them sends nothing. Pacing, repeats, the fault and the reopening are
+  those of the thermostat path.
+
+**The confirmation is the optional PCB frame itself.** On every pass the glue reads byte 6 of
+the frame (bits 2 and 3, `ctl_dispatch_thermostat_state`, or with `smart_grid` 1 bits 4 and 5,
+`ctl_dispatch_smart_grid_mode`) and hands the value to the router with `ctl_loop_confirm`: a
+command has landed when the frame carries the value sent. The frame is this board's emulated
+one, `optionalPCBQuery`, and the value counts as known only while it goes out, with the emulation
+on and outside listen-only mode.
+
+**While the gate is blocked, landing is assumed.** Before each tick the glue sets the loop's
+`assume_landed` to whether the gate is blocked: the router then counts each command as landed at
+the next decision. A blocked board, such as one that only watches the house
+with `enabled` 0, sends nothing, so nothing could ever confirm; without the assumption its router
+would repeat its first send and end in `FAULT`, a fault of a link it never used. While the gate is
+open the confirmation is the frame's, as above, and a command that does not land is repeated and
+then reported as `FAULT`.
+
+**Opening the gate reopens the router, paced.** While commands cannot go out, the router steps as
+if it sent them and counts them as landed, so it believes the pump holds a state it never got.
+When the gate opens again after the first pass, the glue reopens the router (`ctl_router_reopen`):
+it forgets what it sent and whether it gave up, but keeps the instant of its last send. The wanted state then goes to the pump once,
+and not sooner than `min_change_interval_s` after that last send, so reopening never sends more
+often than the router's pacing allows.
+
+## The settings file
+
+The settings live in `/control.json` on the board's file system: one JSON object of names to
+text values, the names and value texts of the settings' table above.
+
+    {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
+     "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
+
+At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
+the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
+the setter's answer and skipped; the rest of the file still applies. A name the settings no longer
+list, such as one an older firmware wrote, is such a refused pair, and the next write leaves it
+out. A missing file, one that cannot be opened or does not hold a JSON object, and a set that ends
+invalid give the defaults for every setting, and the reason is logged.
+
+The glue writes the file on every accepted setting over MQTT, and on a save from the control
+page that changed a value, every setting in the order of
+`ctl_settings_name_at`. It writes `/control.json.new` first and renames it over `/control.json`,
+so that a reset while writing leaves the old file. A failed write is logged; the change then
+holds until the next start.
+
+## The integral file
+
+The learned integral term (`core.md`) lives in `/control_integral.txt`, a file of its own: one
+number in W as text, such as `123.456`, written with three decimals. It is never part of
+`/control.json`, and nothing but the rules below writes it. The rules, and what the glue remembers
+between two writes (`ctl_integral_store`: the value last saved and the time of the last attempt),
+are pure, in `glue/ctl_integral_store.h`; the glue only reads and writes the file.
+
+**At boot**, after the settings, the glue reads the file once. `ctl_integral_store_parse` takes a
+bare number, white space around it allowed, and refuses an empty text, anything else and a number
+that is not finite (`nan`, `inf`, `1e999`); a file longer than 32 bytes is refused too.
+`ctl_integral_store_load` clamps an accepted value to `-integral_limit_w` and
+`integral_limit_w` (`ctl_integral_store_start`), and gives 0 for a missing or refused file; that
+value becomes the core's integral term and the value last loaded, and the boot counts as the last
+write. Nothing is written at boot. With `integral_w_per_kh` 0
+the loaded value is held as it is: 0 freezes the term, it does not clear it.
+
+**When it is written.** After every decision the glue asks `ctl_integral_store_begin`, which
+applies `ctl_integral_store_due` to the integral, the value last written or loaded, and the
+seconds since the last write (since boot before the first): it writes only when at least 6 hours (`CTL_INTEGRAL_STORE_INTERVAL_S`) have
+passed and the integral differs by 10 W (`CTL_INTEGRAL_STORE_MOVE_W`) or more. A message to
+`<base>/control/set/integral_reset` writes 0 at once, regardless of the 6 hours. So a day sees at
+most four writes, and a steady integral none, which spares the flash.
+
+**How it is written**, as `/control.json` is: to `/control_integral.txt.new` first, then renamed
+over the file, so that a power cut during a write leaves the old value or the new one. A failed
+write is logged and keeps the old file and, through `ctl_integral_store_end`, the old saved
+value; it counts as a write for the 6 hours, so it is tried again at the first check 6 hours later, not at every tick.
+
+## Changing a setting over MQTT
+
+A setting changes by a message to `<base>/control/set/<name>`, its payload the value text, such as
+`panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
+`ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
+without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
+allowed demands at once, a change of `smart_grid` reopens the router (*What reaches the pump*),
+so it sends the wanted state once, paced, and a change of `rooms`, a room's topic or
+`desired_topic` unsubscribes the old input topics and subscribes the new ones.
+
+In every case the glue answers with the setting's current value, retained, on
+`<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
+logged with the setter's answer. A name the settings do not list (a room at or above `rooms`
+included) has no value to answer with: it is logged, and nothing is published. A payload that
+does not fit a value text, or holds a zero byte, is refused like a bad value.
+
+The client has one buffer for what it receives and what it sends, so the glue reads or copies a
+message's topic and payload before it calls anything that can publish, subscribe, unsubscribe or
+log.
+
+Only `config/<name>` of the message's own name is answered. Every other setting is published at
+the next connect, when the glue publishes every listed setting retained. So after `rooms` is
+raised, the new rooms' `config/room.<i>.*` appear only at the next connect, and after it is
+lowered, the retained `config/room.<i>.*` of the dropped rooms stay on the broker until they are
+cleared by hand.
+
+## The target from a thermostat
+
+The setting `desired_topic` names a room thermostat's setpoint topic; `glue/ctl_desired.h` holds
+the rule, pure, and the glue subscribes to the topic with the room topics. The dispatch answers
+`CTL_TOPIC_DESIRED` for a message on it; a room with the same topic keeps it, since the rooms are
+matched first.
+
+- `ctl_desired_offer` takes the payload as the room temperatures' payloads are parsed
+  (`adapters.md`). A finite value from 16 to 26 °C, both included, is held as the setpoint; any
+  other message, an empty or unparsable one included, clears it. There is no replay check and no
+  timeout: the thermostat publishes its setpoint retained and only on change, so the last one is
+  meant until the next.
+- `ctl_desired_target` gives the target and its source: the held setpoint (`topic`), else the
+  setting `desired_indoor_c` (`setting`). `ctl_desired_apply` writes it into the core's
+  `desired_indoor_c` of the loop's configuration, after every `ctl_settings_to_loop` and after
+  every message, so the new target counts from the next interval, as a change of the setting
+  does. The integral term is not touched, and the core does not know where its target came from.
+- `ctl_desired_follow` runs after every change of settings: when `desired_topic` differs from the
+  topic the held setpoint came from, the setpoint is forgotten, so a new topic, or an empty one,
+  falls back to `desired_indoor_c` until a valid message arrives there.
+- Nothing of this is written to `/control.json`; `desired_indoor_c` keeps its own value. After a
+  restart, the broker's retained setpoint arrives with the subscription.
+
+The target and its source of the last decision are the telemetry's `status/desired_c` and
+`status/desired_source`.
+
+## The control page
+
+HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
+the root page. From top to bottom it shows:
+
+- the table *Status*, with the status and output entries of the telemetry of the last decision,
+  and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
+  carries them; before the first decision, a line saying that no decision has been made yet;
+- the form *Settings*: one line linking to `settings.md` on GitHub, *What the settings mean*, then
+  a table of one row per setting in the order of `ctl_settings_name_at`, and a button *Save*.
+
+The page writes no description of a setting; the link leads to them, so that the page stays as
+small as it can be: on the ESP8266 upstream's web server holds every piece of a page in RAM until
+the browser has fetched it. The settings table has three columns:
+
+1. **Setting**: the name.
+2. **Value**: a field prefilled with the value in force, as `ctl_settings_get` writes it.
+3. **Save result**: empty, except on the page that follows a save:
+   - `saved` when the save changed the setting's value;
+   - `refused: <reason>` when the setter refused the value: `not a valid value` (`BAD_VALUE`, or
+     a field too long for any setting), `conflicts with other settings` (`INVALID_SET`) or
+     `unknown setting` (`UNKNOWN`); the row is written in the page's warning colour, and the
+     field shows the value still in force;
+   - empty when the value was sent unchanged.
+
+The results belong to that one page: once it has been written out, the glue empties them, so a
+reload shows the third column empty.
+
+A value whose escaped row does not fit the page's 512-byte chunk, such as a topic full of quotes,
+shows its name and *too long to show here* instead of a field, with the save result, so
+that a save leaves it as it is; it can still be set over MQTT.
+
+**Saving.** The form posts to `/savecontrol`. The page keeps every field until the whole form has
+arrived, then walks the names of `ctl_settings_name_at` in their order, reading the count of
+names again after each one, and applies the field of each name it finds with `ctl_settings_set`.
+So `rooms` applies before the rooms' fields whatever order the browser sends, and a field the
+list does not hold (a room at or above the count) is ignored. Upstream's web server reads the
+body through a small buffer (128 bytes on the ESP8266) and hands a longer field over in pieces,
+one step each under the same name; the page joins the pieces again, so a long topic, whose every
+`/` the browser sends as `%2F`, arrives whole. A field whose joined value is too long for any
+setting, or holds a zero byte, is refused whole and never cut. When any value changed, the glue
+writes `/control.json` as above, and applies the settings as a setting topic does: from the next
+tick, without restarting the loop; a change of `cooling` sets the allowed demands at once with
+`ctl_set_allowed`. Since the form holds every topic, a save unsubscribes the input topics before
+it applies and subscribes the current ones after, and when anything changed it publishes every
+setting again under `control/config/`. The answer redirects to `/control`, which shows the result
+of each setting in its row, as above; a refusal is also logged with the setter's answer, and the
+refused setting keeps its old value. A save that only repeats the current values writes no file.
+
+The keeping, joining, ordering and applying of the fields, and the rows of the settings table,
+are the pure module `glue/ctl_form.c`, which `tests/control/test_form.c` and
+`tests/control/test_form_rows.c` cover on the host; it applies through a setter it is given, here
+the glue's `ctl_firmware_change`. The settings part's opening text, with the link, and its
+closing text are `CTL_HTML_SETTINGS_OPEN` and `CTL_HTML_SETTINGS_CLOSE` in `glue/ctl_html.h`,
+covered by `tests/control/test_lean_page.c`. `glue/ctl_web.cpp` only hands the module the web
+server's steps.
+
+**Adding rooms.** The form shows the fields of the rooms below the current count only. To add
+rooms, set `rooms` to the new count and save first; the page then shows the new rooms' topic and
+weight fields, which a second save sets. Lowering the count and saving drops the fields above it.
+
+**Memory.** Every piece of the page the glue builds fits one buffer of 512 bytes on the stack, and
+the page goes out one content step at a time, as upstream's Modbus page does. A save allocates
+one buffer for the names and values of every setting at their maximum lengths when the request
+for `/savecontrol` arrives and frees it right after applying it, before the answer goes out; a
+connection lost before that frees it at its close. What the last save did to each setting stays
+in a static list of every setting's name and one byte of result, `CTL_SETTINGS_NAMES_MAX` long,
+until the page that follows it has been written.
+
+**The hook lines.** Two lines of `HeishaMon/HeishaMon.ino` and one of `HeishaMon/htmlcode.h`
+carry the page:
+
+7. `#include "src/control/glue/ctl_web.h"`, beside the include of the glue.
+8. `{ int8_t result; if (ctl_web(client, dat, &result)) return result; }` as the first statement
+   of `webserver_cb`. Upstream's web server calls that one callback for every step of every
+   request (the method, the URI, each argument, the answer's header, each content step and the
+   close), and `client->route` is the only state that ties the steps of one request together.
+   `ctl_web` claims `/control` and `/savecontrol` at the URI step by setting routes of its own,
+   240 and 241, which no upstream route uses, and from then on recognizes every later step of
+   the request by that route. So one line at the very start serves both routes and every step,
+   and every other request passes on to upstream untouched. `/savecontrol` is claimed even after
+   the method step has set upstream's route for a POST.
+9. In `htmlcode.h`, the menu of the root page gets the link
+   `<a href="/control"><span class="nav-icon">&#9832;</span> Control</a>` after the link to
+   `/rules`.
+
+## First start on a board
+
+A board fresh from the flash, or one whose `/control.json` was lost, starts with the defaults:
+commands disabled, no rooms. It runs the loop and publishes, but sends nothing.
+
+1. Set the rooms first: `control/set/rooms`, then each `control/set/room.<i>.topic` and, where it
+   is not 1, `control/set/room.<i>.weight`. Check every answer under
+   `control/config/`.
+2. Make sure the optional PCB emulation is on and listen-only mode is off in HeishaMon's settings.
+3. Watch `control/inputs/` until every room and the pump's values arrive, and `control/status/`
+   until the phase runs and the demands it shows make sense for the house. The log says why no
+   command goes to the pump.
+4. Only then set `control/set/enabled` to `1`, and watch `control/outputs/` and the pump.
+
+## Smart Grid mode
+
+**The pump must obey Smart Grid mode.** The owner's pump ignores the external thermostat input of
+the optional PCB, so the thermostat path changes nothing there. With `smart_grid` 1 the router
+sends only `SetSmartGridMode`: `0` (normal operation) for heating or cooling demand, `1` for no
+demand; never `SetExternalThermostat1State` or `SetHeatCoolMode`. Whether the pump heats or
+cools stays as the pump is set.
+
+Value `1` is upstream's "Capacity 1" (`OptionalPCB.md`). It stops room heating on the owner's
+pump only because the owner set Capacity 1 on the pump itself to a heating curve that never
+heats, so hot water goes on; the owner's Node-RED history shows the pump stopping on it every
+time. Another pump needs the same installer setting before `smart_grid` is used, or value `1`
+only lowers its capacity. Value `2`, "heat pump and hot water off", is never sent, because it
+stops hot water too.
+
+**How to switch back.** `enabled` 0 stops the loop's commands at once. The board keeps the last
+Smart Grid mode it sent in its optional PCB frame: if that was `1`, the pump stays in Capacity 1
+until the owner sends `SetSmartGridMode` `0`, by HeishaMon's web page or its `commands/` topic, or
+Node-RED takes over again.

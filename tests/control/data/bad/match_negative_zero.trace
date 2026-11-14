@@ -1,0 +1,8 @@
+heatnrgx-golden 1
+# The core holds 0.0 where this trace records -0.0; the two are equal as doubles.
+scenario match_negative_zero
+begin
+evaluate 0.0 | demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED E=-0.0 dt=-0.0 int=-0.0 skip=0.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+advance 10.0 | E=-0.0 int=0.0 skip=10.0 clamped=0
+evaluate 20.0 | demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED E=-0.0 dt=10.0 int=0.0 skip=20.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=-0.0,-0.0,0.0,0.0,0.0
+end 3

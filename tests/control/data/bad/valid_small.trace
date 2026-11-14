@@ -1,0 +1,21 @@
+heatnrgx-golden 1
+# A correct trace: each kind of call, the trim limit disabled, and a blank line and a comment
+# in its body. The expected values come from replaying it.
+scenario valid_small
+config trim_limit_k none
+begin
+evaluate 0.0 | demand=NO_DEMAND reason=WAITING_FOR_INPUTS phase=UNINITIALIZED E=0.0 dt=0.0 int=0.0 skip=0.0 clamped=0 pnet=none unhealthy=P_PRODUCED,T_INDOOR,T_OUTDOOR substituted=- ledger=0.0,0.0,0.0,0.0,0.0
+observe 10.0 T_INDOOR 10.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+observe 10.0 T_OUTDOOR -5.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+observe 10.0 P_PRODUCED 1000.0 | E=0.0 int=0.0 skip=10.0 clamped=0
+observe 15.0 P_SOLAR 200.0 | E=-14.493055555555555 int=5.0 skip=10.0 clamped=0
+advance 20.0 | E=-28.708333333333336 int=10.0 skip=10.0 clamped=0
+advance 30.0 | E=-57.13888888888889 int=20.0 skip=10.0 clamped=0
+
+# The first decision with every required signal seeds the controller.
+evaluate 60.0 | demand=NO_DEMAND reason=SEEDED phase=RUNNING E=-142.43055555555557 dt=30.0 int=50.0 skip=10.0 clamped=0 pnet=-10235.0 unhealthy=- substituted=P_INTERNAL ledger=13.88888888888889,2.5,7.638888888888889,-32.29166666666667,-134.16666666666669
+allow 70.0 HEATING | E=-170.86111111111114 int=60.0 skip=10.0 clamped=0
+advance 80.0 | E=-199.29166666666669 int=70.0 skip=10.0 clamped=0
+observe 90.0 T_INDOOR 10.5 | E=-227.72222222222223 int=80.0 skip=10.0 clamped=0
+evaluate 120.0 | demand=NO_DEMAND reason=NORMAL phase=RUNNING E=-310.30555555555554 dt=30.0 int=110.0 skip=10.0 clamped=0 pnet=-9910.0 unhealthy=- substituted=P_INTERNAL ledger=30.555555555555557,5.833333333333333,16.805555555555557,-71.68750000000001,-291.81250000000006
+end 12
