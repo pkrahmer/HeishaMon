@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 0
 attempts: 0
@@ -36,6 +36,11 @@ journal:
   at: '2026-11-14T10:58:42.262083Z'
   stage: review
   run: 6ff65b2f99e849f0b8c0e7d7e0ccd65b
+- number: 6
+  speaker: factory
+  kind: done
+  at: '2026-11-14T11:00:32.769049Z'
+  stage: approval
 ---
 
 # Remove the device replay
@@ -127,3 +132,4 @@ Expect: `1`
       - `tests/control/test_wire.c` (D): named by the story's Interface as deletable.
       - `tests/control/test_frame.c` (D): named by the story's Interface as deletable.
       - `tests/control/device/test_replay.py`, `garbling_twin.py`, `host_server.c`, `replay.py`, `replay/replay.ino` (D): everything under `tests/control/device/` is named by the story's Description as removed.
+6. factory: done (pull request merged); cost: 2 runs, 5.1 min, 20 turns, 70975 tokens in (500952 more from cache), 7969 out, $0.61
