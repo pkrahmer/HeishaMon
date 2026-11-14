@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T09:01:31.186076Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-14T09:01:31.186076Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T09:03:17.564652Z'
+  stage: review
+  run: 8cdd3d1f38a1406f8643b3ae9c715067
 ---
 
 # The integral survives a restart
@@ -128,3 +130,36 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Review, round 0. I read the diff and the code it calls (`ctl_payload.c`, `ctl_format.h`, `ctl_controller.c`, `ctl_signals.c`, `ctl_config.c`). The factory's `make check` after the builder was green (journal entry 3).
+
+   1. `tests/control/test_integral_store.c` `test_start_is_held_without_gain`: the test claims to show that with `integral_w_per_kh` 0 the loaded value is held. It cannot show this.
+      - No signal is observed, so `ctl_signals_resolve` refuses.
+      - The step of 3600 s is above the default `max_step_s` of 300 (`ctl_controller.c:108-112`).
+      - So `ctl_advance` skips the interval, `integrate` never runs, and the test passes whatever the gain does.
+      - Fix: observe the required signals (indoor, outdoor, produced) with an indoor temperature that differs from the target. Then advance in steps of `max_step_s` or less, so that `integrate` runs with gain 0, and check the integral stays 120.0.
+   2. `HeishaMon/src/control/glue/ctl_integral_store.c:22-33`: `is_space` is a second copy of `is_space` in `ctl_payload.c:36`. The trailing-trim loop and the `length == 0` check repeat what `ctl_payload_parse` already does: it calls `skip_spaces` before and after the number, and a number with no digits fails to parse.
+      - Fix: remove `is_space`, the loop and the length test, and keep only the refusal of `{` and the `isfinite` check.
+   3. `HeishaMon/src/control/glue/ctl_integral_store.h:25-28` and `docs/control/firmware.md` (*The integral file*, "white space after it allowed"): both say only white space after the number is allowed. But `ctl_payload_parse` also skips white space before it, so `" 42"` is accepted.
+      - Fix: say "white space around it" in both places, or refuse leading white space.
+      - Either way, add a parse row for a leading space.
+   4. `HeishaMon/src/control/glue/ctl_integral_store.h:34-36`: the comment says `ctl_format_fixed` refuses NaN and the infinities. It does not: `ctl_format_fixed` writes them as `nan`/`inf` (`ctl_format.h:20`), and the refusal is the store's own `isfinite` check.
+      - Fix: correct the comment.
+      - Add `NAN` and `INFINITY` rows to `test_format_reads_back`. That refusal is the failing side of the rule, and no test covers it now.
+   5. `HeishaMon/src/control/glue/ctl_firmware.h:22-31`: the two edited comments were not rewrapped. Two lines now run far past the width the rest of the file wraps at. Fix: rewrap both comments.
+   6. Gap in the story (for the human): three rules of the Description have no criterion and no host test. They live only in `ctl_firmware.cpp`:
+      - a failed write is retried at the first check 6 h later, not sooner, and the old saved value is kept;
+      - nothing is written at boot for a missing or refused file;
+      - `status/integral_saved_w` is published.
+
+      The builder could move the bookkeeping (saved value, time of the last attempt, the outcome of a failed write) into a pure function in `ctl_integral_store.c` and test it. Otherwise the human accepts that these rules go untested.
+
+   Earlier tests: none. The diff adds `tests/control/test_integral_store.c` (status A) and changes, renames or deletes no test file that `develop` holds.
+
+   Checked, nothing to report:
+   - **Criteria 1, 2 and 3:** the rows are exact.
+   - **Boundaries:** both limits are tested on both sides: 6 h writes and 5 h 59 min does not; a move of 10 W writes and 9.9 W does not.
+   - **Upstream files:** none changed (criterion 6).
+   - **Includes and names:** they follow the *Architecture* rules.
+   - **Buffers:** every buffer is sized at compile time, and the file read is bounded by `sizeof text`.
+   - **`replace_file`:** a good reuse of the settings' rename logic.
+   - **Decision log:** the entry has the reason and both rejected options that criterion 8 names.
