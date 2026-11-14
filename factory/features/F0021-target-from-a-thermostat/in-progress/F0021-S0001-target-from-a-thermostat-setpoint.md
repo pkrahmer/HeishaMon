@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 36
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-14T12:21:53.991853Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-14T12:21:53.991853Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-14T12:23:13.875912Z'
+  stage: review
+  run: 6b6f50709a1e45549eeb65b43463d02b
 ---
 
 # The target from a thermostat's setpoint
@@ -138,3 +140,45 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD -- . ':!factory'` against the description and the ten criteria. I read the code, not the builder's account. The factory's `make check` after the builder was green, according to the journal.
+
+   **Findings**
+
+   1. `tests/control/test_desired_topic.c:59` (`test_rule`), against the story. The description says a setpoint is valid only when "its value is finite". `ctl_desired_offer` enforces this through `ctl_payload_parse` and `in_range`'s `isfinite` at `HeishaMon/src/control/glue/ctl_desired.c:35`. But no row offers a non-finite value, so this rule's failing side has no test. Criterion 1 does not list one either, which is a gap in the story. Fix: add a row to `test_rule`, such as `{"ts":9,"v":1e999,"s":0}`, which overflows to infinity. After a held 21 it should give 22 and `CTL_DESIRED_SETTING`.
+
+   **Checked, no finding**
+
+   - **Criteria 1–6:**
+     - The 16 and 26 boundaries are tested on both sides (15.9 and 26.1).
+     - Unparsable and empty payloads clear the setpoint. A valid setpoint after an invalid one is taken again.
+     - Two cases fall back to `desired_indoor_c` until a new message arrives: an empty topic, where dispatch gives NONE, and a changed topic, where `ctl_desired_follow` forgets the setpoint.
+     - The setting's refusals: `test_topics` in `test_settings.c` now runs every topic row for `desired_topic` too.
+     - Load without the setting: the pair-by-pair loader pattern of `test_settings_legacy.c`.
+     - List position: right after `desired_indoor_c`.
+     - Loop balance: `p_trim_w` equals the balance at 21 and differs from the one at 22.
+     - Telemetry rows for both sources.
+   - **Architecture:**
+     - Every change is under `HeishaMon/src/control/glue/`, `docs/control/` and `tests/control/`. The core and the upstream files are untouched.
+     - `ctl_desired.c` is pure C99 and does not touch the core.
+     - Every public name starts with `ctl_` or `CTL_`, and the helpers are `static`.
+   - **Embedded safety:**
+     - No dynamic memory, recursion or unbounded loop.
+     - `memcpy` copies between two buffers of the same size (`CTL_SETTINGS_TOPIC_MAX + 1`).
+     - The payload is read only up to `length`.
+     - The value text is written with `sizeof value_text`.
+     - The value from outside is checked by the parser and `isfinite`, and against its range.
+   - **Firmware glue:**
+     - `configure_loop` runs at setup and at the end of every change.
+     - `moves_topics` includes `desired_topic`, so a new topic unsubscribes the old one and subscribes the new one.
+     - `handle_desired` parses before it logs.
+     - The telemetry captures the target at the decision tick.
+   - **Docs:**
+     - `settings.md` has the range, the fallback and a Homematic `SET_POINT_TEMPERATURE` example.
+     - `firmware.md` has the rule and the telemetry. Its status table now has 14 rows, matching `STATUS_COUNT`.
+     - `decisions.md` has one entry with the curve shift rejected.
+     - Every claim I checked against the code holds.
+
+   **Earlier tests** (from `git diff --name-status develop...HEAD`)
+
+   - `tests/control/test_settings.c` (M): changed under the leave the story gives `tests/control/test_settings*.c`. It adds rows and shifts counts and indexes; no check was removed or loosened.
+   - `tests/control/test_telemetry.c` (M): changed under the leave the story gives `tests/control/test_telemetry*.c`. It adds rows and a case and shifts the count and the refused index; no check was removed or loosened.
