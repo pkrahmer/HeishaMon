@@ -18,7 +18,6 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `room.<i>.weight` | `1` | 0 to 1000; one per room `i` below `rooms`; the weights of all rooms together above 0 | Weight of room `i` in the indoor average; 0 = watched, not counted. |
 | `room_timeout_s` | `1800` | s, above 0 | Seconds after which a room's last value counts as too old. |
 | `pv_topic` | empty | a topic | MQTT topic of the PV power in W, for the solar gains. Empty: no PV. |
-| `frame_log_topic` | empty | a topic | Another HeishaMon's log topic to read the pump's frames from. Empty: this board's own pump. |
 | `desired_indoor_c` | `22` | °C, 5 to 30 | Target for the indoor average. |
 | `transmission_w_per_k` | `155` | W/K, above 0 | The house's heat loss per kelvin between inside and outside. |
 | `adjustment_w_per_k` | `805` | W/K, 0 or more | Extra power per kelvin the indoor average is off its target. |
@@ -33,7 +32,6 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 | `retry_interval_s` | `120` | s, 0 or more | Seconds before a command that was not confirmed is sent again. |
 | `max_retries` | `3` | whole, 0 to 10 | Repeats of an unconfirmed command before the router reports a fault. |
 | `smart_grid` | `0` | `0` or `1` | How the pump is switched: 1 = Smart Grid mode (0 for heating or cooling demand, 1 = Capacity 1 for no demand), 0 = the external thermostat input. |
-| `command_topic` | empty | a topic | Another HeishaMon's commands topic to send commands to. Empty: this board's own serial port. |
 
 ## The integral term
 
@@ -59,8 +57,6 @@ integral file*).
 The owner's production board is wired to the pump and switches it by Smart Grid mode:
 
 - `smart_grid` `1`;
-- `frame_log_topic` and `command_topic` empty: the board reads its own pump and sends to its own
-  serial port;
 - `enabled` `1`, once the rooms, `pv_topic` and the tuning are set.
 
 HeishaMon's optional PCB emulation must be on and listen-only mode off, or no command reaches the
@@ -69,16 +65,3 @@ pump (`firmware.md`, *What reaches the pump*).
 Smart Grid value 1 stops heating only on a pump whose Capacity 1 the installer set to a curve
 that never heats. On any other pump, value 1 does not stop heating, so the loop's "no demand"
 leaves the pump running.
-
-## Running a board without a pump
-
-A board that is not wired to a pump takes the pump's values from another HeishaMon's log and,
-when it controls the pump at all, sends its commands to that HeishaMon:
-
-- `frame_log_topic`: the other board's log topic, such as `jeisha/log` (`firmware.md`, *Frames
-  from another HeishaMon's log*);
-- `command_topic`: empty to only watch, or the other board's commands topic, such as
-  `jeisha/commands`, to control the pump through it (`firmware.md`, *Commands to another
-  HeishaMon*);
-- `enabled`: `0` to shadow the house and send nothing (`firmware.md`, *Shadowing another
-  HeishaMon*), or `1`, last, to send commands through `command_topic`.

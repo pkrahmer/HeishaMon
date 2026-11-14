@@ -28,7 +28,6 @@ below, with the rooms' names after `rooms`.
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
 | `pv_topic` | text | empty | empty means no PV; see topics below |
-| `frame_log_topic` | text | empty | another HeishaMon's log topic; see *Frames from another HeishaMon's log* |
 | `desired_indoor_c` | number | the core's default | as the core validates it |
 | `transmission_w_per_k` | number | the core's default | as the core validates it |
 | `adjustment_w_per_k` | number | the core's default | as the core validates it |
@@ -40,8 +39,7 @@ below, with the rooms' names after `rooms`.
 | `min_change_interval_s` | number | `300` | as the router validates it |
 | `retry_interval_s` | number | `120` | as the router validates it |
 | `max_retries` | decimal | `3` | as the router validates it |
-| `smart_grid` | `0` or `1` | `0` | `1` sends Smart Grid mode instead of the thermostat state; see *Commands to another HeishaMon* |
-| `command_topic` | text | empty | another HeishaMon's commands topic; see *Commands to another HeishaMon* |
+| `smart_grid` | `0` or `1` | `0` | `1` sends Smart Grid mode instead of the thermostat state; see *Smart Grid mode* |
 
 The values:
 
@@ -111,8 +109,6 @@ does not have is written `-`. A flag is `1` or `0`.
 | `inputs/room/<i>/value_c` | for each configured room `i`: its last value, 2 decimals, or `-` |
 | `inputs/room/<i>/fresh` | `1` when the room is fresh at the record's instant, else `0` |
 | `inputs/room/<i>/weight` | its weight, 1 decimal |
-| `inputs/frames_decoded` | the main data frames from `frame_log_topic` decoded since the start |
-| `inputs/frames_dropped` | the frames from `frame_log_topic` dropped since the start |
 
 The five input values are `-` when the decision has no inputs: the core resolved nothing then.
 
@@ -142,11 +138,11 @@ decimal.
 | `outputs/router` | `IDLE`, `WAITING` or `FAULT` |
 | `outputs/thermostat_state` | the record's `sent_state`, the state the router last sent (the Smart Grid mode while `smart_grid` is 1), or `-` before the first send |
 | `outputs/commands` | the record's commands as `name:value` joined by `,`, such as `SetExternalThermostat1State:2,SetHeatCoolMode:1`, or `-` |
-| `outputs/blocked` | why commands do not reach the pump: `disabled`, `listen_only`, `no_optional_pcb` or `no_frame_log`, or `-` while the gate is open; see *What reaches the pump* |
+| `outputs/blocked` | why commands do not reach the pump: `disabled`, `listen_only` or `no_optional_pcb`, or `-` while the gate is open; see *What reaches the pump* |
 
 **Settings.** `ctl_telemetry_setting` gives, for index `i` of `ctl_settings_name_at`, the subtopic
 `config/<name>` and the value text of `ctl_settings_get`: `config/enabled`, `config/room.0.topic`,
-… `config/command_topic`, in the order of the settings' table above. It returns false past the last
+… `config/smart_grid`, in the order of the settings' table above. It returns false past the last
 name.
 
 **A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
@@ -194,9 +190,7 @@ line of `HeishaMon/htmlcode.h`, serve the control page and are described with it
 
 Commands go to the pump only when the gate is open and the router has a command at this
 decision. The gate is `ctl_gate_state` (`HeishaMon/src/control/glue/ctl_gate.h`), computed on
-every pass. With `command_topic` set, the commands go to another HeishaMon and the gate is that
-of *Commands to another HeishaMon*. Otherwise it is blocked for the first of these reasons that
-holds, in this order:
+every pass. It is blocked for the first of these reasons that holds, in this order:
 
 - `disabled`: `enabled` is 0;
 - `listen_only`: HeishaMon is in listen-only mode, in which it sends nothing to the pump;
@@ -209,10 +203,10 @@ would reach the pump), and `outputs/blocked` names the reason (`ctl_gate_name`);
 the gate is open. The glue writes one log line on each change of the gate, at the first pass and
 whenever it changes: `control: commands go to the pump`, or `control: no commands to the pump:`
 with the reason (`enabled is 0`, `HeishaMon is in listen-only mode`, `the optional PCB emulation
-is off`, `command_topic is set, frame_log_topic is empty`).
+is off`).
 
 A command goes through upstream's `send_heatpump_command`, the path of the `commands/` topics and
-the rules engine, or with `command_topic` set over MQTT to another HeishaMon. Two paths reach the
+the rules engine, to this board's serial port. Two paths reach the
 pump through byte 6 of the optional PCB frame, which HeishaMon sends to the pump every second:
 
 - **The thermostat path** (`smart_grid` 0): `SetExternalThermostat1State` writes the state (2 heat,
@@ -227,14 +221,13 @@ pump through byte 6 of the optional PCB frame, which HeishaMon sends to the pump
 **The confirmation is the optional PCB frame itself.** On every pass the glue reads byte 6 of
 the frame (bits 2 and 3, `ctl_dispatch_thermostat_state`, or with `smart_grid` 1 bits 4 and 5,
 `ctl_dispatch_smart_grid_mode`) and hands the value to the router with `ctl_loop_confirm`: a
-command has landed when the frame carries the value sent. Without `command_topic` the frame is
-this board's emulated one, `optionalPCBQuery`, and the value counts as known only while it goes
-out, with the emulation on and outside listen-only mode; with it, the frame is the other board's,
-as its log shows it.
+command has landed when the frame carries the value sent. The frame is this board's emulated
+one, `optionalPCBQuery`, and the value counts as known only while it goes out, with the emulation
+on and outside listen-only mode.
 
 **While the gate is blocked, landing is assumed.** Before each tick the glue sets the loop's
 `assume_landed` to whether the gate is blocked: the router then counts each command as landed at
-the next decision, as a shadow does. A blocked board, such as a spare D1 that shadows the house
+the next decision, as a shadow does. A blocked board, such as one that only watches the house
 with `enabled` 0, sends nothing, so nothing could ever confirm; without the assumption its router
 would repeat its first send and end in `FAULT`, a fault of a link it never used. While the gate is
 open the confirmation is the frame's, as above, and a command that does not land is repeated and
@@ -303,8 +296,9 @@ A setting changes by a message to `<base>/control/set/<name>`, its payload the v
 `panasonic_heat_pump/control/set/hysteresis_wh` with `1500`. The glue hands it to
 `ctl_settings_set`. On `OK` it saves the file and applies the new settings from the next tick
 without restarting the loop: the core keeps its energy and phase, a change of `cooling` sets the
-allowed demands at once, and a change of `rooms`, a room's topic, `pv_topic` or
-`frame_log_topic` unsubscribes the old input topics and subscribes the new ones.
+allowed demands at once, a change of `smart_grid` reopens the router (*What reaches the pump*),
+so it sends the wanted state once, paced, and a change of `rooms`, a room's topic or `pv_topic`
+unsubscribes the old input topics and subscribes the new ones.
 
 In every case the glue answers with the setting's current value, retained, on
 `<base>/control/config/<name>`: the new value on `OK`, the old one on a refusal, which is also
@@ -422,118 +416,7 @@ commands disabled, no rooms, no PV. It runs the loop and publishes, but sends no
    command goes to the pump.
 4. Only then set `control/set/enabled` to `1`, and watch `control/outputs/` and the pump.
 
-## Shadowing another HeishaMon
-
-A board without a pump never decodes a frame of its own, so its loop never gets the pump's
-values. It takes them from another HeishaMon's log instead: with `frame_log_topic` set, it
-rebuilds the other board's frames and decodes them as if it were wired to the pump (*Frames from
-another HeishaMon's log*). There is no other way to feed it the pump's values; a board on a pump
-reads its own frames.
-
-To run the firmware on a spare board beside a production HeishaMon, whose base is `jeisha` here:
-
-1. Flash the spare board and give it its own MQTT base in HeishaMon's settings, such as
-   `jeisha_shadow`, so that its values, its `control/` topics and its setting topics never mix
-   with the production board's.
-2. Turn listen-only mode on in its HeishaMon settings: it has no pump to talk to, and it must send
-   nothing.
-3. Leave `control/set/enabled` at `0`, the default, so that no command is ever queued for a pump.
-4. Turn on hex dumps and log to MQTT on the production board, and set `frame_log_topic` on the
-   spare board to the production board's log topic, such as `jeisha/log`, by
-   `<its base>/control/set/frame_log_topic` (*Frames from another HeishaMon's log*). Check the
-   answer under `control/config/` and that `control/inputs/frames_decoded` grows.
-5. Set `rooms`, each `room.<i>.topic` to the same room topics the house's sensors publish, and
-   `pv_topic` if there is PV, as on a first start (*First start on a board*).
-6. Watch `control/inputs/` until every room and the pump's values arrive, and then compare the
-   spare board's `control/status/` and `control/outputs/` with what the production board does.
-
-## Frames from another HeishaMon's log
-
-A board that decodes the pump's frames itself publishes every value under its own `main/` and
-hands the loop the four it needs. With `frame_log_topic` set, a board without a pump rebuilds
-those frames from another HeishaMon's log and decodes them as if it were wired to the pump.
-
-**What the production board must have on.** In its HeishaMon settings: hex dumps (*Debug hexdump*,
-or its switch in the console) and log to MQTT (*Debug log to MQTT*). Its log then reaches
-`<its base>/log`, one message per line, and every frame it receives appears as a
-`Received <n> bytes data` line, the frame's `data:` lines of up to 32 hex bytes and a checksum line.
-Set `frame_log_topic` on the spare board to that topic, such as `jeisha/log`.
-
-**What the spare board does.** It subscribes to `frame_log_topic` and feeds each message, in the
-order it arrives, to the pure parser `ctl_framelog_line`
-(`HeishaMon/src/control/glue/ctl_framelog.c`). The parser reads the text after the first `): `,
-starts a frame at `Received <n> bytes data`, appends the bytes of each `data:` line and gives the
-frame when the announced count is reached and the sum of its bytes is 0 modulo 256, as upstream's
-own receive check. A frame the other board sends, logged as a
-`sent bytes: <n> including checksum value: <c>` line and the `data:` lines of all its bytes but the
-checksum, is rebuilt the same way, the checksum appended from the header, and given as `SENT`; it
-is never decoded, and only its optional PCB frame is kept (*Commands to another HeishaMon*). Any
-`sent bytes:` line ends a frame in progress, and one of another form starts none. A main data frame, 203 bytes with `0x71` first and `0x10` in byte 3
-(`ctl_framelog_is_main_data`), goes to upstream's `decode_heatpump_data` with the spare board's own
-globals, so the spare board publishes every decoded value under its own `<base>/main/`, as a board
-on the pump does, and then to `ctl_firmware_frame`, so its loop takes the outdoor temperature, the
-produced heat, the valve and the defrost flag from it.
-
-**The counters.** `control/inputs/frames_decoded` counts the main data frames handed to the
-decoder; `control/inputs/frames_dropped` counts the frames cut short (a missing line, a new
-`Received` line or a `sent bytes:` line before the end, more bytes than announced, a malformed
-byte) and the ones whose checksum fails, sent ones included: only frames that broke. A whole
-frame that is no main data frame (an optional PCB answer, the extra data block) and a whole frame
-the other board sent count as neither. Both count from the start and go out with
-the rest of the telemetry. A dropped count that grows as fast as the decoded one means the log
-loses lines: the broker drops messages, or the production board logs too much between them.
-
-**The risk on the production side.** HeishaMon drops its MQTT connection when a log publish
-fails, and with hex dumps on it publishes about ten log messages for every frame. A slow broker or
-a weak WiFi link on the production board can then make it reconnect often, which also delays its
-own values and commands. Turn hex dumps and log to MQTT off again on the production board when
-the spare board no longer needs them.
-
-## Commands to another HeishaMon
-
-A board without a pump of its own, such as the owner's dev board, can run the house's pump
-through the production board: it sends its commands as MQTT messages to the production board's
-command topics and confirms them from the production board's log.
-
-**What the dev board needs.** In its control settings:
-
-- `frame_log_topic`: the production board's log topic, such as `jeisha/log`, set up as in
-  *Frames from another HeishaMon's log*: it gives the pump's values and the confirmation;
-- `command_topic`: the production board's commands topic, `<its base>/commands`, such as
-  `jeisha/commands`;
-- `smart_grid`: `1` for a pump that obeys Smart Grid mode;
-- `enabled`: `1`, last, once the rest is set.
-
-The production board must have its optional PCB emulation on: its optional PCB frame carries the
-Smart Grid mode to the pump and into its log. Listen-only mode and the optional PCB setting of
-the dev board play no part; they concern its own serial port.
-
-**How a command goes out.** For each command of the router, the glue publishes one message, not
-retained, topic `<command_topic>/<name>` and payload the value, such as
-`jeisha/commands/SetSmartGridMode` with `1`, instead of calling `send_heatpump_command`.
-Upstream HeishaMon subscribes to `<base>/commands/#` and executes such a message as if it came
-from its own web page. A publish that succeeds writes the log line
-`control: published <topic> <value>`. A publish that the MQTT client refuses writes
-`control: publish failed <topic> <value>` instead, and a topic that does not fit the topic buffer
-is not published and writes `control: command topic too long for <name>, not published`.
-
-**How a command is confirmed.** The production board logs every optional PCB frame it sends; the
-dev board rebuilds it from the log (`CTL_FRAMELOG_SENT`, `ctl_framelog_is_optional_pcb`: 20
-bytes, `0xF1` first, `0x50` in byte 3) and keeps its byte 6 and the time it saw it. The
-reported value is known while such a frame was seen in the last 60 s, and is the Smart Grid mode
-of byte 6 (bits 4 and 5) with `smart_grid` 1, or the thermostat state (bits 2 and 3) with 0. A
-command has landed when the reported value equals the value sent; otherwise it is repeated and
-then reported as `FAULT`, as on the serial path. A change of any topic setting forgets the last
-frame, and a change of `smart_grid` or `command_topic` reopens the router (*What reaches the
-pump*), so it sends the wanted state once, paced.
-
-**The gate.** With `command_topic` set, it is blocked for the first of these reasons that holds:
-
-- `disabled`: `enabled` is 0;
-- `no_frame_log`: `frame_log_topic` is empty, so nothing could confirm a command; the router
-  would only repeat its first send and end in `FAULT`.
-
-Otherwise the gate is open. While blocked, landing is assumed, as on the serial path.
+## Smart Grid mode
 
 **The pump must obey Smart Grid mode.** The owner's pump ignores the external thermostat input of
 the optional PCB, so the thermostat path changes nothing there. With `smart_grid` 1 the router
@@ -548,8 +431,7 @@ time. Another pump needs the same installer setting before `smart_grid` is used,
 only lowers its capacity. Value `2`, "heat pump and hot water off", is never sent, because it
 stops hot water too.
 
-**How to switch back.** `enabled` 0 on the dev board stops its commands at once. The production
-board keeps the last Smart Grid mode it received: if that was `1`, the pump stays in Capacity 1
-until the owner sends `SetSmartGridMode` `0` to the production board, by its web page or its `commands/`
-topic, or Node-RED takes over again. Empty `command_topic` sends the dev board's commands to its
-own serial port again.
+**How to switch back.** `enabled` 0 stops the loop's commands at once. The board keeps the last
+Smart Grid mode it sent in its optional PCB frame: if that was `1`, the pump stays in Capacity 1
+until the owner sends `SetSmartGridMode` `0`, by HeishaMon's web page or its `commands/` topic, or
+Node-RED takes over again.

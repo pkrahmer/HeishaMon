@@ -983,3 +983,19 @@ wears with every write, so the file is written rarely, and a move below 10 W is 
 **Rejected.** A retained MQTT copy: the broker may be down at boot, and the board would start
 without its term. A field in `/control.json`: a settings file should change only when a setting
 does. Retrying a failed write at every tick, which would hammer a failing flash.
+
+## 2026-11-14: The remote-board mode is removed
+
+**Decision.** The mode in which a board without a pump read the pump's frames from another
+HeishaMon's log and sent its commands to that HeishaMon over MQTT is removed: the settings
+`frame_log_topic` and `command_topic`, the log parser, the subscription to the log, the reading of
+the other board's optional PCB frame as confirmation, the publishing of commands, the gate's
+reason `no_frame_log` and the telemetry `inputs/frames_decoded` and `inputs/frames_dropped`. The
+glue no longer reaches for upstream's decoder or its globals. A `/control.json` that still holds
+either name loads as before: the setter answers `UNKNOWN` for it, the loader skips it, every other
+setting applies, and the next save writes the file without it. No hook line changes: none served
+only the mode.
+**Reason.** The production board runs the loop itself, on its own serial port, with both topics
+empty; nothing used the mode, and the firmware should carry only what it uses.
+**Rejected.** Keeping the mode for testing: the host tests and the device replay cover the core,
+and the dev board can still be flashed as a plain board.

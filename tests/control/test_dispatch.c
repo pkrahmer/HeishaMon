@@ -126,32 +126,6 @@ static void test_empty_topics_match_nothing(void)
     check_row(__FILE__, __LINE__, &settings, &row);
 }
 
-static void test_frame_log_topic(void)
-{
-    static const struct {
-        const char *frame_log_topic;
-        const char *shared_name; /* NULL: no setting shares the topic */
-        topic_row row;
-    } rows[] = {
-        {"jeisha/log", NULL, {"jeisha/log", CTL_TOPIC_FRAME_LOG, CTL_INPUT_ROOM, 0, ""}},
-        {"", NULL, {"jeisha/log", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""}},
-        {"", NULL, {"", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""}},
-        {"jeisha/log", NULL, {"jeisha/log/x", CTL_TOPIC_NONE, CTL_INPUT_ROOM, 0, ""}},
-        {"jeisha/log", "room.1.topic", {"jeisha/log", CTL_TOPIC_INPUT, CTL_INPUT_ROOM, 1, ""}},
-        {"jeisha/log", "pv_topic", {"jeisha/log", CTL_TOPIC_INPUT, CTL_INPUT_PV, 0, ""}},
-    };
-    size_t i;
-    for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
-        ctl_settings settings;
-        two_rooms(&settings);
-        set_or_fail(&settings, "frame_log_topic", rows[i].frame_log_topic);
-        if (rows[i].shared_name != NULL) {
-            set_or_fail(&settings, rows[i].shared_name, "jeisha/log");
-        }
-        check_row(__FILE__, __LINE__, &settings, &rows[i].row);
-    }
-}
-
 static void check_none(const char *file, int line, ctl_topic actual)
 {
     check_uint(file, line, (uint32_t)actual.kind, (uint32_t)CTL_TOPIC_NONE);
@@ -188,7 +162,6 @@ int main(void)
     test_first_equal_room_wins();
     test_rooms_above_the_count_match_nothing();
     test_empty_topics_match_nothing();
-    test_frame_log_topic();
     test_null_arguments_give_none();
     test_thermostat_state();
     return check_result();

@@ -17,7 +17,7 @@
 #define CTL_SETTINGS_TOPIC_MAX 96  /* the longest topic, without its terminating zero */
 #define CTL_SETTINGS_VALUE_MAX 100 /* the longest value text any setting gives, with its zero */
 #define CTL_SETTINGS_NAME_MAX 32   /* the longest name, with its zero */
-#define CTL_SETTINGS_FIXED_NAMES 21 /* the names listed whatever the count of rooms */
+#define CTL_SETTINGS_FIXED_NAMES 19 /* the names listed whatever the count of rooms */
 /* The most names the list ever holds, for a caller that keeps one entry per setting. */
 #define CTL_SETTINGS_NAMES_MAX (CTL_SETTINGS_FIXED_NAMES + 2 * CTL_ROOMS_MAX)
 
@@ -29,8 +29,6 @@ typedef struct {
     double room_weight[CTL_ROOMS_MAX];
     double room_timeout_s;
     char pv_topic[CTL_SETTINGS_TOPIC_MAX + 1]; /* empty: no PV */
-    /* Another HeishaMon's log, whose received frames this board decodes; empty: none. */
-    char frame_log_topic[CTL_SETTINGS_TOPIC_MAX + 1];
     double desired_indoor_c;
     double transmission_w_per_k;
     double adjustment_w_per_k;
@@ -46,9 +44,6 @@ typedef struct {
     double retry_interval_s;
     int max_retries;
     bool smart_grid; /* the router sends Smart Grid mode instead of the thermostat state */
-    /* The base under which another HeishaMon takes commands, as <base>/commands; empty: the
-     * commands go to this board's serial port. */
-    char command_topic[CTL_SETTINGS_TOPIC_MAX + 1];
 } ctl_settings;
 
 typedef enum {
@@ -59,8 +54,7 @@ typedef enum {
 } ctl_setting_status;
 
 /* Writes every default: commands disabled, no cooling, no rooms (every room slot with an empty
- * topic and weight 1), a room timeout of 1800 s, no PV, no frame log topic, no
- * command topic, and the core's and the router's defaults, the thermostat rather than Smart Grid
+ * topic and weight 1), a room timeout of 1800 s, no PV, and the core's and the router's defaults, the thermostat rather than Smart Grid
  * mode among them. The result is valid. Refuses nothing. */
 void ctl_settings_defaults(ctl_settings *settings);
 

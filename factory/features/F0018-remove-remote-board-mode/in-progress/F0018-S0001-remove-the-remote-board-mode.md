@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 33
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-14T09:50:11.518649Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,13 @@ journal:
   kind: started
   at: '2026-11-14T09:50:11.518649Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: question
+  at: '2026-11-14T09:59:23.311782Z'
+  stage: doing
+  run: c1d5ac0edb8a4f968fc05187e12da8a3
+  blocked: question
 ---
 
 # Remove the remote-board mode
@@ -65,3 +68,15 @@ Expect: `1`
 
 1. 2026-11-14 human: created.
 2. factory: started doing as heishamon.
+3. builder: Question: may I delete one line of a test another story wrote, `tests/control/test_payload_first.c:131` (`check_payload_first("static void handle_frame_log(", senders, count);`)?
+
+   Why: the test holds, in the source of `glue/ctl_firmware.cpp`, that each MQTT handler reads its payload before anything that can send. `handle_frame_log` was the handler for the log lines and served only the remote-board mode, so it is gone and that check now fails ("expected true: static void handle_frame_log("). The story's leave for tests does not name this file, and the file is not a test of removed code alone: its other check (`handle_setting`) covers kept behaviour. Options: (a) delete only line 131 and keep the `handle_setting` check as it is (my choice); (b) keep a dead `handle_frame_log` in the glue only to satisfy the test (rejected: dead code that the story says goes); (c) something else you name. The test's senders list still names `decode_heatpump_data` and `ctl_firmware_frame`, which the glue now calls from no handler; I would leave them, since a name too many in a forbidden list does no harm.
+
+   Where I stopped: everything else is built and in the working tree. Once the answer comes, the work left is that one line, then `make check`, the smoke test and the final read of the diff.
+   - Removed: `glue/ctl_framelog.c/.h`; settings `frame_log_topic` and `command_topic` (`glue/ctl_settings.c/.h`, `CTL_SETTINGS_FIXED_NAMES` 21 → 19); `CTL_TOPIC_FRAME_LOG` (`glue/ctl_dispatch.c/.h`); `CTL_GATE_NO_FRAME_LOG` and the gate's `command_topic`/`frame_log_topic` arguments (`glue/ctl_gate.c/.h`; `ctl_gate_state(enabled, listen_only, optional_pcb)`); telemetry `inputs/frames_decoded`/`inputs/frames_dropped` and their source fields (`glue/ctl_telemetry.c/.h`). In `glue/ctl_firmware.cpp/.h`: the log subscription, `handle_frame_log`, the remote optional PCB frame and `REMOTE_PCB_FRESH_S`, `commands_remote`, `publish_command`, the remote branch of `confirm`, the router reopen on a `command_topic` change (a `smart_grid` change still reopens it), and, because nothing reaches them any more, the `extern`s of upstream's `actData`, `mqtt_client`, `heishamonSettings` and `log_message` and the `webfunctions.h` include.
+   - No upstream file changed and no hook line changed: none served only the mode. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` prints nothing. Criterion 1's grep prints nothing.
+   - Tests: new `tests/control/test_settings_remote.c` (criteria 2 and 3): the loader's pairs for a file holding `enabled`, `frame_log_topic`, `pv_topic`, `command_topic` and `hysteresis_wh`; both names give UNKNOWN, every other setting applies, every unlisted setting stays at its default, and neither name is listed or readable. Deleted `tests/control/test_framelog.c`, `test_framelog_sent.c` and `tests/control/data/framelog_sample.txt` (used only by them). In `test_gate.c` the rows are now the 8 combinations of the three kept inputs, with the same results as before (criterion 4), and the `no_frame_log` name check is gone (the out-of-range value is now 4). `test_settings.c`: two default rows and the frame-log test removed, counts and indexes shifted (21 → 19, 25 → 23, 23 → 21, the last name is now `smart_grid`), `command_topic` removed from the topic-rule loop. `test_dispatch.c`: the frame-log test removed. `test_telemetry.c`: the two counter rows removed, the input counts shifted by 2, the last setting is `config/smart_grid`.
+   - Checks: `make lint` green. `make test` fails only at the check above. To see the rest, I appended a disabled (`#if 0`) `handle_frame_log` stub to the glue for one run and then removed it (`grep -c handle_frame_log` gives 0): with it, `make test` ended `test: green`. So the smoke test would print `1` once the line goes; not run green yet.
+   - `make firmware` builds both boards (criterion 5). D1 mini RAM 49372 → 48412 B, flash 759224 → 757528 B. ESP32-S3 sketch 1707703 → 1705491 B, globals 68104 → 67488 B. The `develop` numbers come from `make firmware` on a `git archive develop` export.
+   - Docs: `docs/control/settings.md` (rows and the section on running a board without a pump removed), `docs/control/firmware.md` (rows, the telemetry counters, the gate's remote reason and its log text removed; the sections on shadowing, the frame log and commands to another board removed; their Smart Grid notes kept under a new section, *Smart Grid mode*, with the switch-back text rewritten for the board's own frame), and one new entry in `docs/control/decisions.md`.
+   - Noticed, not touched: in an earlier command I accidentally included a `git stash`; the permission layer denied the whole command, so it never ran.
