@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 32
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T09:03:22.506684Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-14T09:03:17.564652Z'
   stage: review
   run: 8cdd3d1f38a1406f8643b3ae9c715067
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-14T09:03:22.506684Z'
+  stage: doing
 ---
 
 # The integral survives a restart
@@ -163,3 +172,4 @@ Expect: `1`
    - **Buffers:** every buffer is sized at compile time, and the file read is bounded by `sizeof text`.
    - **`replace_file`:** a good reuse of the settings' rename logic.
    - **Decision log:** the entry has the reason and both rejected options that criterion 8 names.
+6. factory: started doing as heishamon.
