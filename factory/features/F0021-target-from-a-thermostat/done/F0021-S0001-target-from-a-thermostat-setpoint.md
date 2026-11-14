@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-14T12:28:47.648629Z'
   stage: review
   run: f25f35fc29094080865c5e89a42e5041
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-14T12:29:36.752674Z'
+  stage: approval
 ---
 
 # The target from a thermostat's setpoint
@@ -266,3 +271,4 @@ Expect: `1`
 
    Notes:
    - `tests/control/test_desired_topic.c:69`: the rows with `ts` 9 and 10 come before the row with `ts` 8. The rule does not read `ts`, so this changes nothing.
+10. factory: done (pull request merged); cost: 4 runs, 16.1 min, 55 turns, 210330 tokens in (3229651 more from cache), 41385 out, $2.53
