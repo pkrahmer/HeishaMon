@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-14T19:10:43.764065Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-14T19:10:43.758138Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-14T19:10:43.764065Z'
+  stage: doing
+---
+
 # Remove the Python reference copy
 
 ## Description
@@ -35,3 +62,6 @@ make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l
 Expect: `1`
 
 ## Journal
+
+1. 2026-11-14 human: created.
+2. factory: started doing as heishamon.
