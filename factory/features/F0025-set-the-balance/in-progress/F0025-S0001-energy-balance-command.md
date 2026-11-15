@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T22:36:50.843121Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-15T22:36:50.843121Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-15T22:42:15.677343Z'
+  stage: doing
+  run: df11629ae642480daccf58461b532829
 ---
 
 # The energy balance command
@@ -126,3 +128,28 @@ Expect: `1`
    Earlier tests:
    - `tests/control/test_dispatch.c` (M): three rows added to `test_topics`, under the leave the story gives by name. No earlier check was removed or loosened.
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's one finding (the bare-number parse existed in three copies) and nothing else.
+
+   What I changed:
+   - `HeishaMon/src/control/adapt/ctl_payload.{h,c}`: new public `ctl_payload_parse_number(text, length, &value)`. It reads one bare number with optional white space around it. It refuses everything `ctl_payload_parse` refuses, and it also refuses every JSON object. It reuses the parser's own `read_number`, so it needs no `memchr` for '{'. The two small private helpers `open_cursor` and `close_cursor` are now shared with `ctl_payload_parse`; that function's behaviour is unchanged.
+   - `HeishaMon/src/control/glue/ctl_dispatch.c`: `ctl_dispatch_energy_wh` keeps the NULL check and calls `ctl_payload_parse_number`. The `math.h` include is dropped because nothing uses it now.
+   - `HeishaMon/src/control/glue/ctl_integral_store.c`: `ctl_integral_store_parse` now calls the shared function. Its public name and contract stay the same, because its tests and the firmware glue use it. The unused `string.h` include is dropped.
+   - `HeishaMon/src/control/glue/ctl_settings.c`: the private `parse_bare_number` now calls the shared function. It still bounds the C string at CTL_PAYLOAD_MAX + 1, so a value that is too long is still refused.
+   - `tests/control/test_set_energy.c`: the payload rows are unchanged. I added `test_bare_number_parse`, which checks:
+     - the general parse takes the object `{"v": 12}` and the new function refuses it, leaving the value as it was;
+     - a number padded with white space is read;
+     - a length above CTL_PAYLOAD_MAX is refused.
+   - `docs/control/decisions.md`: the existing entry for this command now says that the command, a setting and the stored integral read their number through the one shared function. No new entry.
+
+   Decisions:
+   - I moved all three copies onto the shared function, not only the dispatch. That is what the finding asked for ("one shared function"), and each caller behaves as before: the old copies' `isfinite` check is already done by the parser.
+   - Rejected: renaming `ctl_integral_store_parse` and calling it from the dispatch. That would have changed a public name that other tests use.
+
+   Checks:
+   - `make check` is green: lint, test with 36 control programs, firmware for both boards.
+   - Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` printed `1`, as expected.
+   - `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+
+   Noticed but not touched: `docs/control/adapters.md` describes `ctl_payload_parse` but not the new `ctl_payload_parse_number`. I left it alone because the story's docs criterion does not name that document.
+
+   `check`: check: green

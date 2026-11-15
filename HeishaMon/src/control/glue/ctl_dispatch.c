@@ -5,7 +5,6 @@
 #include "../loop/ctl_loop.h"
 #include "ctl_settings.h"
 
-#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -85,14 +84,7 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
 
 bool ctl_dispatch_energy_wh(const char *payload, size_t length, double *energy_wh)
 {
-    ctl_payload parsed = {0.0, false, 0};
-    /* The payload parser also takes a JSON object, whose timestamp a command has no use for. */
-    if (payload == NULL || memchr(payload, '{', length) != NULL ||
-        !ctl_payload_parse(payload, length, &parsed) || !isfinite(parsed.value)) {
-        return false;
-    }
-    *energy_wh = parsed.value;
-    return true;
+    return payload != NULL && ctl_payload_parse_number(payload, length, energy_wh);
 }
 
 int ctl_dispatch_thermostat_state(uint8_t pcb_byte_6)

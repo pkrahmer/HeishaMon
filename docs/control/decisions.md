@@ -1100,7 +1100,9 @@ controller's energy balance once, through the core's `ctl_set_energy`, which fir
 message's instant and then clamps the value to the bounds of the directions permitted at that
 moment, the bounds of the integration itself. It is a command like `integral_reset`: it is not
 stored and changes no setting. The payload is a bare number only, as a setting's is; a JSON object
-is refused, since its timestamp would mean nothing to a command. A refused value changes nothing,
+is refused, since its timestamp would mean nothing to a command. The command, a setting and the
+stored integral read their bare number through one shared function, `ctl_payload_parse_number`
+beside the payload parser, instead of each refusing the object on its own. A refused value changes nothing,
 not even the integration reference. Setting the energy leaves the `clamped` flag alone, because the
 flag reports what the last integration step did. The log names the value after the clamp.
 **Reason.** A restart resets the balance to 0, and the pump then rests until the balance reaches

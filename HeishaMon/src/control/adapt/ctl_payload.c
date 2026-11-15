@@ -265,6 +265,21 @@ static bool read_bare_number(cursor *at, ctl_payload *payload)
     return true;
 }
 
+static void open_cursor(cursor *at, const char *text, size_t length)
+{
+    at->text = text;
+    at->position = 0;
+    at->end = length;
+    skip_spaces(at);
+}
+
+/* The parse is taken only when nothing but white space follows it. */
+static bool close_cursor(cursor *at, bool read)
+{
+    skip_spaces(at);
+    return read && at_end(at);
+}
+
 bool ctl_payload_parse(const char *text, size_t length, ctl_payload *payload)
 {
     cursor at;
@@ -273,19 +288,30 @@ bool ctl_payload_parse(const char *text, size_t length, ctl_payload *payload)
     if (length > CTL_PAYLOAD_MAX) {
         return false;
     }
-    at.text = text;
-    at.position = 0;
-    at.end = length;
-    skip_spaces(&at);
+    open_cursor(&at, text, length);
     if (!at_end(&at) && current(&at) == '{') {
         read = read_object(&at, &parsed);
     } else {
         read = read_bare_number(&at, &parsed);
     }
-    skip_spaces(&at);
-    if (!read || !at_end(&at)) {
+    if (!close_cursor(&at, read)) {
         return false;
     }
     *payload = parsed;
+    return true;
+}
+
+bool ctl_payload_parse_number(const char *text, size_t length, double *value)
+{
+    cursor at;
+    double parsed = 0.0;
+    if (length > CTL_PAYLOAD_MAX) {
+        return false;
+    }
+    open_cursor(&at, text, length);
+    if (!close_cursor(&at, read_number(&at, &parsed))) {
+        return false;
+    }
+    *value = parsed;
     return true;
 }

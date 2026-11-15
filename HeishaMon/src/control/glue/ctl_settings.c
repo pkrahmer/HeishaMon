@@ -164,14 +164,7 @@ static bool format_number(double value, char *text, size_t size)
 
 static bool parse_bare_number(const char *text, double *value)
 {
-    const size_t length = bounded_length(text, CTL_PAYLOAD_MAX + 1);
-    ctl_payload payload = {0.0, false, 0};
-    /* The payload parser also takes a JSON object; a setting is a bare number only. */
-    if (memchr(text, '{', length) != NULL || !ctl_payload_parse(text, length, &payload)) {
-        return false;
-    }
-    *value = payload.value;
-    return true;
+    return ctl_payload_parse_number(text, bounded_length(text, CTL_PAYLOAD_MAX + 1), value);
 }
 
 /* A number the getter can write back exactly: below the format's limit and with no more than

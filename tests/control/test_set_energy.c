@@ -1,5 +1,6 @@
 #include "check.h"
 
+#include "adapt/ctl_payload.h"
 #include "core/ctl_config.h"
 #include "core/ctl_controller.h"
 #include "core/ctl_relay.h"
@@ -192,6 +193,23 @@ static void test_payloads(void)
     }
 }
 
+/* The command, a setting and the stored integral share one bare-number parse, which must refuse
+ * the object the general payload parse takes. */
+static void test_bare_number_parse(void)
+{
+    static const char object[] = "{\"v\": 12}";
+    static const char padded[] = " \t-1200.5\r\n";
+    ctl_payload payload = {0.0, false, 0};
+    double value = 7.0;
+    CHECK_TRUE(ctl_payload_parse(object, strlen(object), &payload));
+    CHECK_TRUE(!ctl_payload_parse_number(object, strlen(object), &value));
+    CHECK_DOUBLE(value, 7.0);
+    CHECK_TRUE(ctl_payload_parse_number(padded, strlen(padded), &value));
+    CHECK_DOUBLE(value, -1200.5);
+    CHECK_TRUE(!ctl_payload_parse_number("1", CTL_PAYLOAD_MAX + 1, &value));
+    CHECK_DOUBLE(value, -1200.5);
+}
+
 int main(void)
 {
     test_rows_with_every_direction_allowed();
@@ -201,5 +219,6 @@ int main(void)
     test_next_decision_uses_the_value();
     test_topic_is_a_command();
     test_payloads();
+    test_bare_number_parse();
     return check_result();
 }
