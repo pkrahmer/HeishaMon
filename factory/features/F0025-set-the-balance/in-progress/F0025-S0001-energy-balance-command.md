@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T22:35:43.851471Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-15T22:35:43.851471Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T22:36:45.892307Z'
+  stage: review
+  run: 668f12a86f444c86878ee23f8109f546
 ---
 
 # The energy balance command
@@ -107,3 +109,10 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Reviewed `git diff develop...HEAD` against the story and checked it in the code: `ctl_set_energy` uses `ctl_advance`, then `clamp_to_allowed`/`ctl_clamp_bounds` (permitted direction ±factor·hysteresis, masked direction ±hysteresis, as settings.md says). The handler in the firmware glue saves nothing, and its refusal log uses the same form as `handle_setting`. Telemetry publishes `status/energy_wh` from the next decision after the next `ctl_loop_tick`, so the next publication shows the value that was set. Each criterion has a test: 1 is in the rows test plus the refusal test, 2 is checked against a twin clamped by `ctl_set_allowed`, 3 is checked against a twin that only advanced (integrated_s and ledger) plus the next interval from -1200, 4 checks the dispatch kind and that no `energy_wh` setting exists, and 5 and 6 pass because the factory's `make check` was green. The clamp is tested on both sides (-1200 inside, ±5000 outside). Non-finite energy and t are refused. The story's interface names the core, dispatch and firmware glue files, and no upstream file or hook line changed. The decision entry covers the main choice and what was rejected.
+
+   Findings:
+   1. `HeishaMon/src/control/glue/ctl_dispatch.c:86` (`ctl_dispatch_energy_wh`): copies the existing public `ctl_integral_store_parse` (`HeishaMon/src/control/glue/ctl_integral_store.c:23`). Both refuse a '{', both call `ctl_payload_parse` and both check `isfinite`, and the private `parse_bare_number` in `ctl_settings.c:165` is a third copy. The rule is "no second copy of an existing helper". Fix: move the bare-number parse into one shared function in `HeishaMon/src/control/adapt/ctl_payload.{h,c}` (refuse an object and a non-finite value) and call it from `ctl_dispatch_energy_wh`. The NULL check can stay in the dispatch. Alternatively, have the dispatch call the existing helper and give it a name that is not tied to the integral store. The payload rows in `tests/control/test_set_energy.c` stay as they are.
+
+   Earlier tests:
+   - `tests/control/test_dispatch.c` (M): three rows added to `test_topics`, under the leave the story gives by name. No earlier check was removed or loosened.
