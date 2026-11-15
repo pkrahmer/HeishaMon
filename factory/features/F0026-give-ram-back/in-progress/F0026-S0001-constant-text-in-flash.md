@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T23:24:48.195567Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-15T23:24:40.346333Z'
   stage: doing
   run: 313676d6918743abbcd5940be9af8c62
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:24:48.195567Z'
+  stage: review
 ---
 
 # Constant text in flash
@@ -102,3 +111,4 @@ Expect: `1`
    - ArduinoJson's error-message table (`DeserializationError::c_str`) sits in RAM through upstream's library.
 
    `check`: check: green
+4. factory: started review as heishamon.
