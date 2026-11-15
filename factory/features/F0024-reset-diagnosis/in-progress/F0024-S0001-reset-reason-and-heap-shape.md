@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T22:22:21.392851Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -65,6 +69,11 @@ journal:
   at: '2026-11-15T22:22:16.104133Z'
   stage: doing
   run: ac9a699dee074ea3aa264d082963580a
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:22:21.392851Z'
+  stage: review
 ---
 
 # The reset reason and the heap's shape
@@ -247,3 +256,4 @@ Expect: `1`
     Noticed, not touched: the ESP32 compiler crash has now hit the build in 3 runs, on different files. The factory's check can therefore fail on a tree that is fine. Retrying fixes it. A lasting fix would be in the toolchain or the `Makefile`, both outside this stage's write paths.
 
     `check`: check: green
+11. factory: started review as heishamon.
