@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T22:42:23.231365Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-15T22:42:23.231365Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T22:43:09.902984Z'
+  stage: review
+  run: 799f3d6f8bcd4fbbb23f4f8fa58b3be6
 ---
 
 # The energy balance command
@@ -163,3 +165,34 @@ Expect: `1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: Round 1 review. I read `git diff develop...HEAD`, excluding factory files, against the story and checked it in the code.
+
+   The fix for round 0's finding holds. `ctl_payload_parse_number` (`HeishaMon/src/control/adapt/ctl_payload.c:304`) uses the parser's own `read_number`, which already refuses a non-finite value through `isfinite` in `convert_number`. It also refuses a JSON object and a length above CTL_PAYLOAD_MAX. The dispatch, `ctl_integral_store_parse` and the private `parse_bare_number` in `ctl_settings.c` now all call it, so the three copies are gone. Each caller still accepts and refuses the same payloads as before. For example, "1{" was refused by `memchr` before and is now refused by the end-of-text check. The new `open_cursor`/`close_cursor` helpers leave `ctl_payload_parse` working exactly as it did. The dropped includes really are unused: `ctl_integral_store.c` still uses `math.h` for `fabs`, and `ctl_dispatch.c` and `ctl_settings.c` still need `string.h`.
+
+   1. Acceptance criteria:
+      - Criterion 1 is covered by the rows test (-1200, ±5000) plus the refusal of NaN and ±infinity, and the clamp is tested on both sides.
+      - Criterion 2 is checked against a twin state clamped by `ctl_set_allowed`.
+      - Criterion 3 is checked against a twin that only advanced (`integrated_s` and the ledger), and the next interval starts from -1200.
+      - Criterion 4 checks the dispatch kind, and that no `energy_wh` setting can be set or read.
+      - Criteria 5 to 8: the factory's `make check` after the builder was green.
+      - The failing side of each rule is tested: non-finite energy, non-finite t, an object payload, a NULL payload, and a length one above the maximum.
+   2. Architecture:
+      - The core keeps to its allowed includes and uses `double` throughout.
+      - The new public names start with `ctl_`/`CTL_`.
+      - Refusals are returned as status values.
+      - The firmware code is in a `.cpp` file.
+      - No upstream file or hook line changed.
+   3. Embedded safety:
+      - There is no allocation, recursion or unbounded loop.
+      - `value_text` is written with its size.
+      - The payload is parsed before any log line can overwrite the buffer.
+      - A value from outside is checked to be finite before it is used.
+   4. Quality: one shared bare-number parse, no dead code, and the comments say why.
+   5. Work item hygiene:
+      - The decision entry names the main choice, the shared parse and what was rejected.
+      - `settings.md` and `core.md` match the code: the six functions, the clamp bounds, the `-5000` to `-3000` example, the refusal log text, and the fault reset at `ctl_controller.c:261`.
+      - The Description matches what was built.
+   6. Earlier tests:
+      - `tests/control/test_dispatch.c` (M): three rows added to `test_topics`, under the leave the story gives by name. No earlier check was removed or loosened.
+
+   no findings
