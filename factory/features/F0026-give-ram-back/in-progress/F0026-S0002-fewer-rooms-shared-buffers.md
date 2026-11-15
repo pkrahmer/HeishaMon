@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 45
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T23:50:04.504551Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-15T23:49:54.961265Z'
   stage: doing
   run: 298accfb5b054ca6a97c2fb59a20b797
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:50:04.504551Z'
+  stage: review
 ---
 
 # Fewer room slots and shared buffers
@@ -112,3 +121,4 @@ Expect: `1`
    - Older entries in `decisions.md` mention 16 rooms as history, and I left them.
 
    `check`: check: green
+4. factory: started review as heishamon.
