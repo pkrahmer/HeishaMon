@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T23:28:52.449310Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-15T23:28:47.654910Z'
   stage: review
   run: 128f8d0dd4d74c3cb1fe9b9b13b3943b
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:28:52.449310Z'
+  stage: doing
 ---
 
 # Constant text in flash
@@ -132,3 +141,4 @@ Expect: `1`
    - Copy buffers fit their longest texts: the longest save result has 38 characters in `LAST_SAVE_MAX` 40, and the longest consequence 36 in `CONSEQUENCE_SIZE` 48.
    - No dynamic memory, recursion or unbounded loop was added.
    - Earlier tests: none changed. Every test file in the diff is new (`test_control_page.c`, `test_flash_text.c`, `data/control_page.html`).
+6. factory: started doing as heishamon.
