@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T23:33:38.001028Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-15T23:33:38.001028Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T23:35:19.955008Z'
+  stage: review
+  run: 1ac50ecedec84728995cabfe7b0dabe1
 ---
 
 # Constant text in flash
@@ -65,6 +67,8 @@ journal:
 **Why.** On the ESP8266, a `const char` text lives in RAM unless it is placed in flash. The control code keeps about 4.0 KB of such text in RAM: topic and subtopic names, setting names, log texts, the control page's snippets, the reset reason words and the type names. Upstream's web server needs that RAM when it builds the main page; without it, the board restarts. This story moves the control code's constant text to flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`, without changing any text or behaviour.
 
 **How it stays pure.** The `.c` files must still compile on the host as strict C99. One small header in the control code provides what is needed: on the ESP8266 the flash attribute and flash-safe reading, on the host and the ESP32 plain `const` data and ordinary reading. Text read from flash is copied into the caller's buffer before it is used, as the glue already does with `ctl_text`.
+
+**What stays in RAM.** The core's type names (`core/ctl_types.c`, about 300 bytes) stay in RAM: the core includes only its own headers and four standard ones, so it cannot include the flash header, and the RAM budget does not need them moved. A few short glue texts stay in RAM too, about 300 bytes: names returned to callers as pointers, file paths and a status word table.
 
 **What stays.** Every text, topic, value, log line and page byte is exactly as before; the core's behaviour and the golden traces are untouched.
 
@@ -170,3 +174,26 @@ Expect: `1`
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: No findings.
+
+   Last round's finding 1 (the Description did not match what was built) was still open in the committed work item. The builder had written the paragraph, but the work item is outside the builder's write paths, so the factory dropped the change (journal entry 7). The work item is within my write paths, so I added the "What stays in RAM" paragraph to the `## Description` myself, after "How it stays pure". I used the text the builder described in entry 7: the core's type names (`core/ctl_types.c`) stay in RAM because of the core's include rule, and about 300 bytes of short glue texts stay too. I changed no code. A `doing` would have looped, because the builder cannot write that file.
+
+   Checked with no finding:
+   - Criterion 1: the journal reports D1 mini 49108 → 46484 bytes (−2624), and last round's review rebuilt the branch and read the same 46484. I did not rebuild develop.
+   - Criterion 2: `tests/control/test_control_page.c` renders every telemetry group, both setting-row forms, the settings' telemetry and the open and close text. It compares them byte for byte with `tests/control/data/control_page.html`. Its comments (lines 20-21 and 158-160) are now accurate and timeless. `test_telemetry.c` is unchanged.
+   - Criterion 3: the core and `test_traces` are untouched.
+   - Criterion 4: no upstream file and no hook line is in the diff.
+   - Criteria 5 and 6: the journal reports `check: green`. `docs/control/firmware.md` "The RAM budget" and the decisions entry "Constant text in flash" match the code: the names in `ctl_flash.h`, `log_text`, `snprintf_P`, `publish_flash`, the fixed-width tables, and the core left as it is.
+   - Flash pointers:
+     - No flash pointer is read directly. In `loop/ctl_loop.c`, `put_number_field` and `put_input_field` pass their key only to `put_field` → `ctl_text_put_flash`.
+     - `find_name` and `copy_fixed_name` in `glue/ctl_settings.c` take addresses into `FIXED_NAMES` and read them only through `CTL_FLASH_*`.
+     - `entity_of` returns a flash pointer that only `put_flash` reads.
+     - Every `%s` argument of `vsnprintf_P`/`snprintf_P` in `ctl_firmware.cpp` is in RAM. The consequence goes through `copy_flash` first.
+     - `ctl_web.cpp` already holds its snippets in flash (`FLASHPROG`).
+   - Fixed widths: no entry fills its slot without room for its zero. The longest setting name is 21 in 24, the longest reset reason name 18 in 20, and the longest entity 6 in 7. Copy buffers hold their texts: save result 38 in 40, consequence 36 in 48.
+   - Architecture: `ctl_flash.h` is outside the core, and the core does not include it. On the host it is plain C99. There is no dynamic memory or recursion, and every new loop is bounded by a table size or a buffer size.
+   - Earlier tests: none changed. Every test file in the diff has status `A` (`test_control_page.c`, `test_flash_text.c`, `data/control_page.html`).
+
+   Notes:
+   - `tests/control/test_flash_text.c:22-33`: the refusal is tested well past the limit only. A piece that exactly fills the buffer (5 characters in 6) would test both sides of the boundary.
+   - `glue/ctl_form.c` `copy_last_save` and `glue/ctl_settings.c` `copy_fixed_name` have the same body: a bounded copy of a flash text. This is code, not a test file, so it is not a note under the rules. I recorded it because it is small, and I did not count it as a finding.
