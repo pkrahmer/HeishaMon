@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T22:35:43.851471Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-15T22:35:38.997973Z'
   stage: doing
   run: b4ee3a385c9f4a62928b7a8c358985ed
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:35:43.851471Z'
+  stage: review
 ---
 
 # The energy balance command
@@ -97,3 +106,4 @@ Expect: `1`
    Noticed but not touched: if the board has never seen a `t` before, the first set only seeds `t_last`, and the balance it sets carries through the seeding. A later FAULT recovery still resets the balance to 0, as documented.
 
    `check`: check: green
+4. factory: started review as heishamon.
