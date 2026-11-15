@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 1
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T22:22:21.392851Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -74,6 +70,12 @@ journal:
   kind: started
   at: '2026-11-15T22:22:21.392851Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T22:23:11.545053Z'
+  stage: review
+  run: 140ba8f594c64c71b06aed2680e725a0
 ---
 
 # The reset reason and the heap's shape
@@ -257,3 +259,40 @@ Expect: `1`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: no findings
+
+    Round 1 review. Both findings from entry 5 are fixed:
+    - `HeishaMon/src/control/glue/ctl_telemetry.h:39-41`: the comment on `ctl_telemetry_count` now says "16 status entries, 17 when the source has the heap's fragmentation", which matches `STATUS_COUNT + (has_heap_fragmentation ? 1 : 0)` in `ctl_telemetry.c`.
+    - The once-per-boot rule is now the pure `ctl_reset_latch` (`ctl_reset_latch_due` and `ctl_reset_latch_record` in `glue/ctl_reset_reason.h` and `.c`). `publish_reset_reason()` in `ctl_firmware.cpp` gates on it and records the bool that `publish()` returns. Both sides have host tests: `test_latch_is_due_until_a_publish_is_taken` checks that refused publishes leave it due and a taken one ends it, and `test_latch_stays_set_for_the_boot` checks that a later refused or taken publish does not make it due again.
+
+    What I checked in every group:
+    1. Acceptance criteria:
+       - Criterion 1: every row is in `test_exception` and `test_plain_reasons`, including reason 9. The non-exception rows carry a cause and an `epc1`, so leaked fields would show.
+       - Criterion 2: `test_longest_text_fits` checks that the longest text equals `CTL_RESET_REASON_TEXT_MAX` (105). `test_small_buffer_is_refused` checks the exact size and size − 1 on both boards, and size 0, with the buffer left untouched.
+       - Criterion 3: the three rows are in `test_entries`. The count is 17 with fragmentation and 16 without, and the refused index is 17 or 16.
+       - Criterion 5: `git diff --name-status develop...HEAD` lists only files under `HeishaMon/src/control/`, `docs/control/` and `tests/control/`.
+       - Criteria 4 and 6: the journal reports `check: green` in entry 10 and the D1 mini's before and after numbers. The red check in entry 8 was an internal compiler error in the ESP32 toolchain's `cmath`, not in this diff.
+    2. Architecture:
+       - `ctl_reset_reason.c` is pure C99 and includes only its own header, `loop/ctl_text.h` and standard headers.
+       - The Arduino code stays in the `.cpp`. Public names are `ctl_`/`CTL_`, helpers are `static`, and the refusals return a status.
+       - No upstream file or hook line changed.
+    3. Embedded safety:
+       - No dynamic memory and no recursion. Loops are bounded (`HEX_DIGITS`, the row tables).
+       - Name lookups are bounded by `sizeof` of their tables. The text is built in a buffer of `CTL_RESET_REASON_TEXT_MAX` and copied out only when `length < size`.
+       - The heap values are uint32 from the SDK, with no NaN path.
+    4. Quality: no dead code. The text writer reuses `ctl_text` rather than copying it, and the comments give reasons.
+    5. Hygiene:
+       - The journal records the main decisions and what was rejected, and the Description matches the build.
+       - `docs/control/firmware.md` matches the code: the topic, when it is published, the retry when the client does not take it, the words for both boards, 105 bytes, the 16/17 count and the `addr2line` line.
+       - `docs/control/decisions.md` has the one entry, with its decision, reason and what was rejected.
+    6. Earlier tests: `tests/control/test_telemetry.c` (M) was changed under the story's Interface leave:
+       - The fixture gains the heap fields.
+       - Three status rows are added.
+       - The status count goes 14→17 and the refused index 14→17.
+       - `test_heap_without_fragmentation` is new.
+       - No check was removed or loosened.
+
+    Notes:
+    - `tests/control/test_reset_reason.c:76`: the ESP8266 unknown reason is still tested only at 9, not at 7, the first number past the table.
+    - `HeishaMon/src/control/glue/ctl_reset_reason.h:49,52` and `ctl_firmware.h:40` are 101 columns wide. Nothing enforces a width, and other control headers are wider.
+    - `docs/control/firmware.md:171`: "in the same header" comes before the header is named; `glue/ctl_reset_reason.h` is named in the next paragraph.
