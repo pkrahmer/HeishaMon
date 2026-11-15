@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 43
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T22:28:38.341455Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-15T22:28:38.341455Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-15T22:35:38.997973Z'
+  stage: doing
+  run: b4ee3a385c9f4a62928b7a8c358985ed
 ---
 
 # The energy balance command
@@ -66,3 +68,32 @@ Expect: `1`
 
 1. 2026-11-15 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the energy balance command: tests first (they failed to compile without the new names), then the code. `make check` is green (lint, test with 36 control programs, firmware for both boards).
+
+   What I built:
+   - Core: `ctl_set_energy(state, energy_wh, t, config)` in `HeishaMon/src/control/core/ctl_controller.{h,c}`, next to `ctl_reset_integral`. It refuses a NaN or infinite `energy_wh` or `t` and returns false without changing anything, not even `t_last`. Otherwise it calls `ctl_advance` to `t`, then sets the energy, clamped through the same `clamp_to_allowed` the integration uses, and returns true. The header comment now says "the functions" instead of "the five functions".
+   - Dispatch: `HeishaMon/src/control/glue/ctl_dispatch.{h,c}` has a new `CTL_TOPIC_SET_ENERGY` for `<base>/control/set/energy_wh`, handled like `integral_reset`. A new pure function, `ctl_dispatch_energy_wh(payload, length, &energy_wh)`, reads the payload. It accepts only a bare finite number: it uses `ctl_payload_parse` and refuses a JSON object, the same way the settings and integral-store parsers do.
+   - Firmware glue: `handle_set_energy` in `HeishaMon/src/control/glue/ctl_firmware.cpp` and a new case in `ctl_firmware_mqtt`. It reads the payload before any log line can overwrite the buffer. A refused payload is logged as `control: setting energy_wh refused (BAD_VALUE)`, the same form as a refused setting. A taken one is logged as `control: energy balance set to <clamped value> Wh`. Nothing is saved: no settings file and no integral file.
+   - Tests: new `tests/control/test_set_energy.c`:
+     - criterion 1: rows for -1200, -5000 and 5000, and refusal of NaN and ±infinity;
+     - criterion 2: heating-only mask, checked against a twin state that `ctl_set_allowed` clamped;
+     - criterion 3: compared with a twin that advanced to the same `t` without a set, the integrated seconds and ledger match; the next interval starts from -1200 + net·h;
+     - the next decision uses the new value;
+     - criterion 4: dispatch kind, and `energy_wh` is no setting;
+     - payload rows.
+     
+     `tests/control/test_dispatch.c` gained three rows, as the story allows; no check was removed.
+   - Docs: in `docs/control/settings.md`, a new section "Setting the energy balance" after the integral reset, and the cross-reference now reads *The six functions*. In `docs/control/core.md`, the six-function count, the new function, the `energy_wh` row and the order of calls. In `docs/control/decisions.md`, one new entry.
+
+   Decisions where the story left room (all recorded in decisions.md):
+   - The payload must be a bare number; a JSON object is refused.
+   - A non-finite `t` is refused too, so a refusal changes nothing at all.
+   - The `clamped` flag is left alone, because it reports the last integration step.
+   - An out-of-bounds value is clamped, not refused.
+   - Rejected: restoring the balance automatically at boot, and refusing out-of-bounds values.
+
+   Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` printed `1`, as expected. `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty. Golden traces: test_traces passes and was not changed.
+
+   Noticed but not touched: if the board has never seen a `t` before, the first set only seeds `t_last`, and the balance it sets carries through the seeding. A later FAULT recovery still resets the balance to 0, as documented.
+
+   `check`: check: green

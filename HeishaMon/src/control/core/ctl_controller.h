@@ -1,8 +1,8 @@
 /*
- * The controller: the state the control loop remembers and the five functions that move it.
+ * The controller: the state the control loop remembers and the functions that move it.
  * Time handling is the algorithm here, so it is concentrated in ctl_advance, the only function
- * that moves the integration reference and changes the energy integral, and where the integral
- * term learns; the other four call it first. A reading closes the open interval with the old
+ * that moves the integration reference and integrates the energy, and where the integral term
+ * learns; the others call it first. A reading closes the open interval with the old
  * held values before it takes effect, because a reading describes the world from its own instant
  * onward and never before it.
  */
@@ -17,7 +17,7 @@
 #include "ctl_signals.h"
 #include "ctl_types.h"
 
-/* The caller owns the state; the five functions change it in place. */
+/* The caller owns the state; the functions below change it in place. */
 typedef struct {
     ctl_phase phase;
     double energy_wh;
@@ -82,6 +82,13 @@ void ctl_set_allowed(ctl_state *state, uint8_t allowed, double t, const ctl_conf
 /* Advances to t, as far as ctl_advance takes it, and then sets the integral to 0. Refuses
  * nothing. */
 void ctl_reset_integral(ctl_state *state, double t, const ctl_config *config);
+
+/* Advances to t, as far as ctl_advance takes it, and then sets the energy to energy_wh clamped
+ * to the bounds of the permitted directions, the bounds the integration clamps to, and returns
+ * true. The interval up to t is integrated before the value replaces the energy, so that none is
+ * lost or counted twice; the clamped flag stays as the last integration left it. Refuses,
+ * changing nothing and returning false, a NaN or infinite energy_wh or t. */
+bool ctl_set_energy(ctl_state *state, double energy_wh, double t, const ctl_config *config);
 
 /* Advances to t, decides the demand and fills the decision; the only function that changes the
  * demand or the phase. Refuses a NaN or infinite t: the state stays as it is and the decision

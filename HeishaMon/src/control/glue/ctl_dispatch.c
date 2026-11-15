@@ -1,9 +1,11 @@
 #include "ctl_dispatch.h"
 
+#include "../adapt/ctl_payload.h"
 #include "../adapt/ctl_rooms.h"
 #include "../loop/ctl_loop.h"
 #include "ctl_settings.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -11,6 +13,7 @@
 
 #define SETTING_PATH "/control/set/"
 #define INTEGRAL_RESET "integral_reset"
+#define SET_ENERGY "energy_wh"
 
 /* Returns the rest of topic after prefix, or NULL when topic does not start with it. */
 static const char *after_prefix(const char *topic, const char *prefix)
@@ -72,9 +75,24 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
         if (strcmp(result.name, INTEGRAL_RESET) == 0) {
             result = none;
             result.kind = CTL_TOPIC_INTEGRAL_RESET;
+        } else if (strcmp(result.name, SET_ENERGY) == 0) {
+            result = none;
+            result.kind = CTL_TOPIC_SET_ENERGY;
         }
     }
     return result;
+}
+
+bool ctl_dispatch_energy_wh(const char *payload, size_t length, double *energy_wh)
+{
+    ctl_payload parsed = {0.0, false, 0};
+    /* The payload parser also takes a JSON object, whose timestamp a command has no use for. */
+    if (payload == NULL || memchr(payload, '{', length) != NULL ||
+        !ctl_payload_parse(payload, length, &parsed) || !isfinite(parsed.value)) {
+        return false;
+    }
+    *energy_wh = parsed.value;
+    return true;
 }
 
 int ctl_dispatch_thermostat_state(uint8_t pcb_byte_6)
