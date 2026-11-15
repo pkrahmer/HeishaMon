@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T22:10:15.289778Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-15T22:10:07.105967Z'
   stage: doing
   run: d73fadc2dac9462a88555ee7834c74fd
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:10:15.289778Z'
+  stage: review
 ---
 
 # The reset reason and the heap's shape
@@ -110,3 +119,4 @@ Expect: `1`
    Noticed, not touched: the RAM increase comes mostly from string literals (reset-reason names, the new subtopics). On the ESP8266, `.rodata` from plain C sits in RAM, and the pure `.c` files cannot use PROGMEM. If RAM gets tight, the ESP8266 name table could move into the `.cpp` as flash strings, at the cost of host coverage.
 
    `check`: check: green
+4. factory: started review as heishamon.
