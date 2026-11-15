@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-15T22:43:09.902984Z'
   stage: review
   run: 799f3d6f8bcd4fbbb23f4f8fa58b3be6
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-15T22:53:10.664575Z'
+  stage: approval
 ---
 
 # The energy balance command
@@ -196,3 +201,4 @@ Expect: `1`
       - `tests/control/test_dispatch.c` (M): three rows added to `test_topics`, under the leave the story gives by name. No earlier check was removed or loosened.
 
    no findings
+10. factory: done (pull request merged); cost: 4 runs, 10.1 min, 44 turns, 162985 tokens in (1465669 more from cache), 30269 out, $1.71
