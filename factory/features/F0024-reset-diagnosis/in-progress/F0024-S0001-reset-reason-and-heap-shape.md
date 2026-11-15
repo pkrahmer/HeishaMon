@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T22:11:44.397861Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-15T22:11:39.423361Z'
   stage: review
   run: 07b90b07f67741769292028923d7c461
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:11:44.397861Z'
+  stage: doing
 ---
 
 # The reset reason and the heap's shape
@@ -143,3 +152,4 @@ Expect: `1`
 
    Notes:
    - `tests/control/test_reset_reason.c:76`: the ESP8266 unknown reason is tested only at 9, not at 7, the first number past the table. The shared `put_name` bound is still covered by the ESP32 row 16.
+6. factory: started doing as heishamon.
