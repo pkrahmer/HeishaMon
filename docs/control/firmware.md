@@ -517,3 +517,37 @@ stops hot water too.
 Smart Grid mode it sent in its optional PCB frame: if that was `1`, the pump stays in Capacity 1
 until the owner sends `SetSmartGridMode` `0`, by HeishaMon's web page or its `commands/` topic, or
 Node-RED takes over again.
+
+## The RAM budget
+
+On the ESP8266 a constant lives in RAM unless it is placed in flash: every string literal, every
+`const char` array and every table of pointers to text takes RAM for as long as the board runs.
+Upstream's web server builds its main page in that RAM, and with the control code's texts there
+the board ran out of heap on the main page and restarted. So the control code keeps its constant
+text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
+topics, the log lines and the page are the same byte for byte. On the ESP32 a constant already
+stays in flash, and on the host nothing changes.
+
+`ctl_flash.h` holds what a `.c` file needs, so that it still compiles on the host as strict C99:
+`CTL_FLASH` places a constant object in flash, `CTL_FLASH_TEXT("...")` is a string literal in flash,
+and `CTL_FLASH_CHAR`, `CTL_FLASH_LENGTH`, `CTL_FLASH_COMPARE` and `CTL_FLASH_COPY` read it. On the
+ESP8266 they are `PROGMEM`, `PSTR` and the flash-safe `_P` functions; elsewhere plain constants and
+the ordinary functions. A `.cpp` file uses upstream's `PSTR`, `PROGMEM` and the `_P` functions
+directly.
+
+The rule for new text:
+
+- A literal the control code writes, compares or logs is in flash: `CTL_FLASH_TEXT` in a `.c` file
+  (with `ctl_text_put_flash` to append it), `PSTR` with `log_text`, `snprintf_P` or
+  `publish_flash` in the glue's `.cpp` files.
+- A table of names is one array in flash with the text inside its entries
+  (`static const char NAMES[][SIZE] CTL_FLASH`), never an array of pointers, whose pointers would
+  sit in RAM. Prefer a small table over a `switch` that returns texts or pointers: the compiler may
+  turn such a switch into a table of pointers in RAM.
+- A pointer to flash text is never read directly. It is passed to a function that says it takes
+  flash text, or copied into the caller's buffer first, before anything else reads it.
+- The core stays as it is: it may include no header beyond its own and four of the standard
+  library, so its few type names stay in RAM.
+
+`make firmware` prints the D1 mini's "Variables and constants in RAM"; a story that adds text
+looks at that line.

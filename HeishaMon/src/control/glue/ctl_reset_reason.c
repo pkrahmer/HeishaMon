@@ -1,5 +1,6 @@
 #include "ctl_reset_reason.h"
 
+#include "../ctl_flash.h"
 #include "../loop/ctl_text.h"
 
 #include <stdbool.h>
@@ -9,15 +10,18 @@
 
 #define ESP8266_EXCEPTION 2u
 #define HEX_DIGITS 8
+/* Holds the longest name, "interrupt watchdog", with its zero; the names sit in the table itself,
+ * so that the whole table lives in flash. */
+#define NAME_SIZE 20
 
 /* Indexed by the SDK's enum rst_reason; the exception is written apart, with its fields. */
-static const char *const ESP8266_NAMES[] = {
+static const char ESP8266_NAMES[][NAME_SIZE] CTL_FLASH = {
     "power on",         "hardware watchdog", "exception",      "software watchdog",
     "software restart", "deep sleep wake",   "external reset",
 };
 
 /* Indexed by esp_reset_reason_t, from ESP_RST_UNKNOWN to ESP_RST_CPU_LOCKUP. */
-static const char *const ESP32_NAMES[] = {
+static const char ESP32_NAMES[][NAME_SIZE] CTL_FLASH = {
     "unknown",         "power on",           "external reset", "software restart",
     "exception",       "interrupt watchdog", "task watchdog",  "other watchdog",
     "deep sleep wake", "brownout",           "sdio reset",     "usb reset",
@@ -53,7 +57,7 @@ static void put_field(ctl_text *writer, const char *name, uint32_t value)
 
 static void put_exception(ctl_text *writer, const ctl_reset_info *info)
 {
-    ctl_text_put(writer, "exception ");
+    ctl_text_put_flash(writer, CTL_FLASH_TEXT("exception "));
     put_decimal(writer, info->exccause);
     put_field(writer, "epc1", info->epc1);
     put_field(writer, "epc2", info->epc2);
@@ -62,13 +66,14 @@ static void put_exception(ctl_text *writer, const ctl_reset_info *info)
     put_field(writer, "depc", info->depc);
 }
 
-static void put_name(ctl_text *writer, const char *const *names, size_t count, uint32_t reason)
+static void put_name(ctl_text *writer, const char (*names)[NAME_SIZE], size_t count,
+                     uint32_t reason)
 {
     if (reason < count) {
-        ctl_text_put(writer, names[reason]);
+        ctl_text_put_flash(writer, names[reason]);
         return;
     }
-    ctl_text_put(writer, "reason ");
+    ctl_text_put_flash(writer, CTL_FLASH_TEXT("reason "));
     put_decimal(writer, reason);
 }
 
