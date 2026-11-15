@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T22:42:23.231365Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-15T22:42:15.677343Z'
   stage: doing
   run: df11629ae642480daccf58461b532829
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:42:23.231365Z'
+  stage: review
 ---
 
 # The energy balance command
@@ -153,3 +162,4 @@ Expect: `1`
    Noticed but not touched: `docs/control/adapters.md` describes `ctl_payload_parse` but not the new `ctl_payload_parse_number`. I left it alone because the story's docs criterion does not name that document.
 
    `check`: check: green
+8. factory: started review as heishamon.
