@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T23:24:48.195567Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-15T23:24:48.195567Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T23:28:47.654910Z'
+  stage: review
+  run: 128f8d0dd4d74c3cb1fe9b9b13b3943b
 ---
 
 # Constant text in flash
@@ -112,3 +114,21 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. The `## Description` of this work item doesn't match what was built. Its "Why" lists "the type names" among the 4.0 KB, and it says "This story moves the control code's constant text to flash". The built code leaves the core's type names in RAM (`HeishaMon/src/control/core/ctl_types.c`, 296 bytes), because the core's include rule allows no flash header there. It also leaves about 300 bytes of small glue texts in RAM, as the journal says. Fix: rewrite the Description so it says the core's type names stay in RAM and why (as `docs/control/decisions.md` and `docs/control/firmware.md` already do). If the human wants them moved after all, end with `question` instead, since that would mean changing the core's include rule.
+   2. `tests/control/test_control_page.c:162-163` has a false comment. It says "The rows of the page in the order the firmware sends them", but `glue/ctl_web.cpp` sends a setting's too-long row only instead of its editable row, never both. It also never puts the `config/` telemetry rows on the page. The test interleaves all three for every setting. Lines 20-21 call the reference "The page as the firmware rendered it before its constant text moved to flash". That is wrong for the same reason, and the comment is about history rather than timeless. Fix: say that the test renders every row form the `.c` renderers produce (telemetry groups, both setting-row forms, settings telemetry, and the settings open and close text) and compares it with a captured reference, so a change of where the text lives can't change a byte.
+
+   Checked with no finding:
+   - Criterion 1: I ran `make firmware` myself. The D1 mini reads 46484 bytes and the ESP32 67616, as reported. The develop figure of 49108 is taken from the journal; I did not rebuild develop.
+   - Criterion 2: `test_control_page.c` covers every snippet moved in `ctl_html.c`, `ctl_form.c` and `ctl_telemetry.c`. `test_telemetry.c` is unchanged.
+   - Criterion 3: `test_traces` is untouched, and so is the core.
+   - Criterion 4: `git diff develop...HEAD --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+   - Criterion 5: the journal reports `check: green`.
+   - Criterion 6: both documents are present, and their claims match the code.
+   - Every literal moved in the diff keeps its exact text.
+   - No flash pointer is read directly. Every one reaches `ctl_text_put_flash`, `put_flash`, `CTL_FLASH_COMPARE`, `CTL_FLASH_COPY`, `copy_flash` or `vsnprintf_P`/`snprintf_P`.
+   - Fixed-width tables have room: the longest fixed setting name has 21 characters in a 24-byte slot, the longest reset reason name 18 in 20, and the longest entity 6 in 7.
+   - Copy buffers fit their longest texts: the longest save result has 38 characters in `LAST_SAVE_MAX` 40, and the longest consequence 36 in `CONSEQUENCE_SIZE` 48.
+   - No dynamic memory, recursion or unbounded loop was added.
+   - Earlier tests: none changed. Every test file in the diff is new (`test_control_page.c`, `test_flash_text.c`, `data/control_page.html`).
