@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 45
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T23:50:04.504551Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-15T23:50:04.504551Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T23:51:52.258980Z'
+  stage: review
+  run: e67ea9a5332b446d826348568fdfa94e
 ---
 
 # Fewer room slots and shared buffers
@@ -122,3 +124,19 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `## Description` and `## Interface` of the work item vs `HeishaMon/src/control/glue/ctl_web.cpp` (unchanged): the story says the web glue's desired-setpoint and form report buffers share storage, and the Interface lists "the shared buffers in `glue/ctl_web.cpp`". Nothing there was built. The builder's reason may well be right: `last_report` lives from the save to the next page, `ctl_desired.topic` is state, and the page's buffers are on the stack. But the Description was neither corrected with the human's word nor rewritten, so it no longer matches what was built. Fix: ask the human (R8/R13) whether to drop the web glue from the story. On their answer, rewrite the Description and Interface to match.
+   2. `docs/control/adapters.md:80`: it still says "`CTL_ROOMS_MAX` (16)", which this change made false. Fix: say 8.
+   3. `tests/control/test_five_rooms.c` `set_settings`/`render_settings`: criterion 3 says the control page is byte for byte as before. But the reference renders the settings form only with an empty report (`ctl_form_report_start`), so no row with a save result is ever compared. The tables this change shrank are `ctl_form` and `ctl_form_report`, sized by `CTL_FORM_FIELDS_MAX`/`CTL_SETTINGS_NAMES_MAX`. They feed exactly those rows, and the save path with them is not exercised for 5 rooms. Fix: in the render, post and save a 5-room form through `ctl_form`'s parse and save with the settings setter, so that the report holds at least one saved, one refused and one unchanged setting. Render the rows with that report, and regenerate `tests/control/data/five_rooms.txt` from `develop`'s 16-slot code.
+
+   Checked and found sound (no finding):
+   - Every use site of the two unions in `ctl_firmware.cpp`. No value text is live across a write of another value text. No topic or subtopic is live across `log_text`. `store_integral` keeps `integral_text` until `write_integral` reads it, and log lines only follow a failure.
+   - `ctl_settings_load` gives the setter's answers for NULL and malformed input, and `test_room_limit.c` covers both sides of 8/9, `room.7`/`room.8` and the 10-room file.
+   - `git diff --name-status develop...HEAD` shows no file outside the fork's folders and the work item.
+   - The factory's `make check` after the builder was green.
+
+   Earlier tests:
+   - `tests/control/test_rooms.c`: count limits 17→9 and 16→8, under the story's named leave (`test_rooms.c`).
+   - `tests/control/test_settings.c`: rooms 16/17→8/9 and `room.16`/`room.15`→`room.8`/`room.7`, under the story's named leave (`test_settings*.c`).
+   - `tests/control/test_telemetry.c`: `room/15`→`room/7`, under the story's named leave (`test_telemetry.c`).
