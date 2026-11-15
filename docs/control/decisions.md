@@ -1092,3 +1092,24 @@ ELF. Once per boot is enough because it changes only at a boot.
 link would repeat it for nothing. Saving the crash's stack to the file system: more flash writes
 and code for what the addresses mostly already tell. Fields on a watchdog reset: the reason alone
 is the line the owner asked for; the watchdog's addresses can follow if a crash needs them.
+
+## 2026-11-15: A one-shot command sets the energy balance
+
+**Decision.** A message on `<base>/control/set/energy_wh` with a bare finite number sets the
+controller's energy balance once, through the core's `ctl_set_energy`, which first advances to the
+message's instant and then clamps the value to the bounds of the directions permitted at that
+moment, the bounds of the integration itself. It is a command like `integral_reset`: it is not
+stored and changes no setting. The payload is a bare number only, as a setting's is; a JSON object
+is refused, since its timestamp would mean nothing to a command. The command, a setting and the
+stored integral read their bare number through one shared function, `ctl_payload_parse_number`
+beside the payload parser, instead of each refusing the object on its own. A refused value changes nothing,
+not even the integration reference. Setting the energy leaves the `clamped` flag alone, because the
+flag reports what the last integration step did. The log names the value after the clamp.
+**Reason.** A restart resets the balance to 0, and the pump then rests until the balance reaches
+the start threshold again; the owner wants to set it back from the value recorded before the
+restart. Clamping to the integration's own bounds means the command cannot store more windup than
+the controller itself could.
+**Rejected.** Restoring the balance automatically at boot from a stored value: after a long outage
+the stored value is stale and would be wrong. Refusing a value outside the bounds instead of
+clamping it: the owner's recorded value lay within the bounds of its moment, and the mask may have
+changed since. Accepting the payload parser's JSON object: no source sends one for a command.

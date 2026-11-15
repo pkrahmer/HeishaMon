@@ -513,6 +513,22 @@ static void handle_desired(const byte *payload, unsigned int length)
     }
 }
 
+// A command, not a setting: nothing is stored, and a restart starts from 0 again. The payload is
+// parsed before the log line overwrites the client's buffer.
+static void handle_set_energy(const byte *payload, unsigned int length)
+{
+    double energy_wh = 0.0;
+    if (!ctl_dispatch_energy_wh((const char *)payload, length, &energy_wh) ||
+        !ctl_set_energy(&loop_state.state, energy_wh, now_s(), &config.core)) {
+        log_text("control: setting energy_wh refused (%s)",
+                 setting_status_name(CTL_SETTING_BAD_VALUE));
+        return;
+    }
+    if (ctl_format_fixed(loop_state.state.energy_wh, 1, value_text, sizeof value_text)) {
+        log_text("control: energy balance set to %s Wh", value_text);
+    }
+}
+
 // --- Commands ------------------------------------------------------------------------------
 
 static const char *gate_text(ctl_gate reason)
@@ -673,6 +689,9 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
         ctl_reset_integral(&loop_state.state, now_s(), &config.core);
         log_text("control: integral reset");
         store_integral(true, now_s());
+        return true;
+    case CTL_TOPIC_SET_ENERGY:
+        handle_set_energy(payload, length);
         return true;
     case CTL_TOPIC_NONE:
         break;

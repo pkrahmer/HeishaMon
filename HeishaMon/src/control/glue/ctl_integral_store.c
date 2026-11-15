@@ -6,7 +6,6 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <string.h>
 
 #define FILE_DECIMALS 3
 
@@ -21,14 +20,7 @@ bool ctl_integral_store_due(double integral_w, double saved_w, double since_writ
 
 bool ctl_integral_store_parse(const char *text, size_t length, double *value_w)
 {
-    ctl_payload payload;
-    /* The payload parser also takes a JSON object; the file holds a bare number only. */
-    if (memchr(text, '{', length) != NULL || !ctl_payload_parse(text, length, &payload) ||
-        !isfinite(payload.value)) {
-        return false;
-    }
-    *value_w = payload.value;
-    return true;
+    return ctl_payload_parse_number(text, length, value_w);
 }
 
 double ctl_integral_store_start(const char *text, size_t length, double limit_w)

@@ -193,11 +193,13 @@ otherwise, so a NaN passes through unchanged.
 
 ## Controller (`ctl_controller.h`)
 
-The controller is the state the control loop remembers and five functions that change it in
+The controller is the state the control loop remembers and six functions that change it in
 place. Time handling is the algorithm here, so it is concentrated in `ctl_advance`: it is the
-only function that moves the integration reference and the only one that changes the energy
-integral; the other four call it first. Only `ctl_evaluate` changes the demand and the phase.
-Besides `ctl_advance`, only `ctl_reset_integral` changes the integral term.
+only function that moves the integration reference and the only one that integrates the energy;
+the other five call it first. Only `ctl_evaluate` changes the demand and the phase. Besides
+`ctl_advance`, only `ctl_reset_integral` changes the integral term. Besides the integration, the
+energy changes only by a clamp to new bounds in `ctl_set_allowed`, by the owner's value in
+`ctl_set_energy`, and by the restart from 0 after a fault.
 
 ### The state
 
@@ -206,7 +208,7 @@ Besides `ctl_advance`, only `ctl_reset_integral` changes the integral term.
 | Field | Meaning | After `ctl_state_init` |
 |---|---|---|
 | `phase` | Where the controller is in its lifecycle; see the transitions below. | `UNINITIALIZED` |
-| `energy_wh` | The accumulated energy deviation the relay acts on, in Wh: negative is a deficit, positive a surplus. Clamped on every integration step and every change of the mask. | 0.0 |
+| `energy_wh` | The accumulated energy deviation the relay acts on, in Wh: negative is a deficit, positive a surplus. Clamped on every integration step, every change of the mask and every `ctl_set_energy`. | 0.0 |
 | `demand` | The relay's previous demand: the demand of the last decision with any reason but `WAITING_FOR_INPUTS`. A `WAITING_FOR_INPUTS` decision carries `NONE` and leaves this field as it is. | `NONE` |
 | `allowed` | `CTL_DEMAND_BIT` of each permitted demand; the bit of `NONE` is always set by `ctl_set_allowed`. | `CTL_DEMAND_ALL` |
 | `has_t_last`, `t_last` | The integration reference: the instant up to which the energy is integrated. | unset |
@@ -220,7 +222,7 @@ Besides `ctl_advance`, only `ctl_reset_integral` changes the integral term.
 
 A value behind an unset flag is 0.0 and means nothing.
 
-### The five functions
+### The six functions
 
 `ctl_advance(state, t, config, &dt_s)` moves the reference to `t` and returns whether it
 integrated; `dt_s` gets the length of the interval it closed, or 0.0. An interval is integrated
@@ -244,6 +246,15 @@ once.
 
 `ctl_reset_integral(state, t, config)` advances to `t` and then sets the integral to 0. It
 refuses nothing.
+
+`ctl_set_energy(state, energy_wh, t, config)` advances to `t` and then sets the energy to
+`energy_wh` clamped to the bounds of `allowed`, the same bounds every integration step clamps to,
+and returns true. Because it advances first, the interval up to `t` is integrated with the
+balance that held in it, and the next interval starts from the value set: no interval is lost or
+counted twice. It leaves `clamped` as the last integration step left it, and the next
+`ctl_evaluate` decides on the value set. It refuses, changing nothing and returning false, a NaN
+or infinite `energy_wh` or `t`. It exists so that the owner can restore the balance a restart
+reset to 0.
 
 | `ctl_advance` refuses | and returns |
 |---|---|
@@ -302,8 +313,8 @@ A host makes the calls on one monotonic clock, from one thread:
 2. `ctl_observe` as each reading arrives, at any rate, with the reading's sample instant, not its
    arrival instant.
 3. `ctl_set_allowed` whenever the supervisor changes the permitted directions.
-4. `ctl_reset_integral` whenever the owner asks to clear the integral term, with the instant of
-   the request.
+4. `ctl_reset_integral` whenever the owner asks to clear the integral term, and `ctl_set_energy`
+   whenever the owner sets the energy balance, each with the instant of the request.
 5. `ctl_advance` on the fast tick (`integration_interval_s`, 10 s): the integral is exact either
    way, but a finer grid takes a step in power into account sooner.
 6. `ctl_evaluate` on the decision tick (`tick_interval_s`, 60 s), whether or not anything was

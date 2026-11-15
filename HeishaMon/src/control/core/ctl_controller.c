@@ -155,6 +155,18 @@ void ctl_reset_integral(ctl_state *state, double t, const ctl_config *config)
     state->p_integral_w = 0.0;
 }
 
+bool ctl_set_energy(ctl_state *state, double energy_wh, double t, const ctl_config *config)
+{
+    double dt_s;
+
+    if (!isfinite(energy_wh) || !isfinite(t)) {
+        return false;
+    }
+    (void)ctl_advance(state, t, config, &dt_s);
+    state->energy_wh = clamp_to_allowed(energy_wh, state->allowed, config);
+    return true;
+}
+
 /* Fills the fields every decision reads from the state, after the state has moved. */
 static void describe_state(const ctl_state *state, double t, const ctl_config *config,
                            ctl_decision *decision)
