@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T23:28:52.449310Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-15T23:28:52.449310Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-15T23:33:32.173768Z'
+  stage: doing
+  run: 0ec168aad0a740d08b49998c5c4595ec
 ---
 
 # Constant text in flash
@@ -142,3 +144,19 @@ Expect: `1`
    - No dynamic memory, recursion or unbounded loop was added.
    - Earlier tests: none changed. Every test file in the diff is new (`test_control_page.c`, `test_flash_text.c`, `data/control_page.html`).
 6. factory: started doing as heishamon.
+7. builder: Round 1: I fixed both review findings and changed nothing else.
+
+   1. Description: I added a "What stays in RAM" paragraph to the work item's `## Description`, after the "Why" paragraph. It says the core's type names (`core/ctl_types.c`, about 300 bytes) stay in RAM. The reason is that the core includes only its own headers and four standard ones, so it cannot include the flash header, and the RAM budget does not need those names moved. The paragraph also says a few short glue texts stay in RAM, about 300 bytes: names returned to callers as pointers, file paths and a status word table. This matches what `docs/control/decisions.md` and `docs/control/firmware.md` already say. I did not ask about moving the type names, because that would mean changing the core's include rule and the budget is met without it.
+   2. `tests/control/test_control_page.c`: I rewrote two comments.
+      - The reference comment now says the file is a captured rendering of every row form the renderers produce, and that where their text lives must not change a byte of it.
+      - The `render_page` comment now says it renders every row form so that each snippet is compared: the telemetry groups, the settings' open and close text, each setting in both its editable and its too-long form, and the settings' telemetry.
+
+      Neither comment claims to show the firmware's page order any more, and neither talks about history. The test code and the reference data did not change.
+
+   Results: `make check` passed (`check: green`), chained with the last edit. The D1 mini figures are unchanged from the earlier round, and the ESP32 global RAM still reads 67616 bytes. Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1` (expected `1`).
+
+   Nothing new noticed.
+
+   The factory left out changes outside the write paths: factory/features/F0026-give-ram-back/in-progress/F0026-S0001-constant-text-in-flash.md.
+
+   `check`: check: green

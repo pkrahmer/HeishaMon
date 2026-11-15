@@ -17,8 +17,8 @@
 #include <stdio.h>
 #include <string.h>
 
-/* The page as the firmware rendered it before its constant text moved to flash; where the text
- * lives must not change a byte of it. */
+/* A captured rendering of every row form the renderers produce; where their constant text lives
+ * must not change a byte of it. */
 #define REFERENCE_PATH "tests/control/data/control_page.html"
 #define ROOMS 3
 #define ROW_MAX 512 /* the page's chunk */
@@ -158,8 +158,9 @@ static void render_group(ctl_group group)
     }
 }
 
-/* The rows of the page in the order the firmware sends them, the settings as editable rows
- * and once more as rows too long to show, and the settings' telemetry. */
+/* Every row form the renderers produce, so that each of their snippets is compared: the telemetry
+ * groups, the settings' open and close text, each setting in both its editable and its too-long
+ * form, and the settings' telemetry. */
 static void render_page(void)
 {
     char row[ROW_MAX];
