@@ -1,5 +1,6 @@
 #include "ctl_form.h"
 
+#include "../ctl_flash.h"
 #include "ctl_html.h"
 #include "ctl_settings.h"
 
@@ -174,21 +175,37 @@ ctl_save_result ctl_form_report_result(const ctl_form_report *report, const char
     return CTL_SAVE_UNCHANGED;
 }
 
+/* Holds the longest text of a save's result with its zero. */
+#define LAST_SAVE_MAX 40
+
+/* Returns the text of a save's result, in flash. */
 static const char *last_save_text(ctl_save_result result)
 {
     switch (result) {
     case CTL_SAVE_SAVED:
-        return "saved";
+        return CTL_FLASH_TEXT("saved");
     case CTL_SAVE_REFUSED_BAD_VALUE:
-        return "refused: not a valid value";
+        return CTL_FLASH_TEXT("refused: not a valid value");
     case CTL_SAVE_REFUSED_INVALID_SET:
-        return "refused: conflicts with other settings";
+        return CTL_FLASH_TEXT("refused: conflicts with other settings");
     case CTL_SAVE_REFUSED_UNKNOWN:
-        return "refused: unknown setting";
+        return CTL_FLASH_TEXT("refused: unknown setting");
     case CTL_SAVE_UNCHANGED:
     default:
-        return "";
+        return CTL_FLASH_TEXT("");
     }
+}
+
+/* Copies the text of a save's result out of flash; returns false when it does not fit. */
+static bool copy_last_save(ctl_save_result result, char *out, size_t size)
+{
+    const char *text = last_save_text(result);
+    const size_t length = CTL_FLASH_LENGTH(text);
+    if (length >= size) {
+        return false;
+    }
+    CTL_FLASH_COPY(out, text, length + 1);
+    return true;
 }
 
 bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, size_t index,
@@ -196,6 +213,7 @@ bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, s
 {
     char name[CTL_SETTINGS_NAME_MAX];
     char value[CTL_SETTINGS_VALUE_MAX];
+    char last_save[LAST_SAVE_MAX];
     if (size == 0) {
         return false;
     }
@@ -208,7 +226,10 @@ bool ctl_form_row(const ctl_settings *settings, const ctl_form_report *report, s
     ctl_html_setting row;
     row.name = name;
     row.value = editable ? value : NULL;
-    row.last_save = last_save_text(result);
+    if (!copy_last_save(result, last_save, sizeof last_save)) {
+        return false;
+    }
+    row.last_save = last_save;
     row.refused = result != CTL_SAVE_UNCHANGED && result != CTL_SAVE_SAVED;
     return ctl_html_setting_row(&row, out, size);
 }

@@ -32,6 +32,9 @@ void ctl_text_put(ctl_text *writer, const char *piece);
  * terminating zero; refuses as ctl_text_put does. */
 void ctl_text_put_bounded(ctl_text *writer, const char *piece, size_t limit);
 
+/* Appends piece, a text in flash (ctl_flash.h); refuses as ctl_text_put does. */
+void ctl_text_put_flash(ctl_text *writer, const char *piece);
+
 /* Appends value as ctl_format_fixed writes it with decimals; refuses, by clearing fits, what
  * ctl_format_fixed refuses and what does not fit. */
 void ctl_text_put_number(ctl_text *writer, double value, int decimals);

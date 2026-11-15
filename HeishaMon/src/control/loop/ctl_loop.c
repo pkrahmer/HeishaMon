@@ -7,6 +7,7 @@
 #include "../core/ctl_controller.h"
 #include "../core/ctl_relay.h"
 #include "../core/ctl_types.h"
+#include "../ctl_flash.h"
 #include "../route/ctl_router.h"
 #include "ctl_text.h"
 
@@ -193,12 +194,13 @@ bool ctl_loop_tick(ctl_loop *loop, const ctl_loop_config *config, double now,
     return true;
 }
 
+/* The keys are texts in flash. */
 static void put_field(ctl_text *writer, const char *key)
 {
     if (writer->length > 0) {
         ctl_text_put(writer, " ");
     }
-    ctl_text_put(writer, key);
+    ctl_text_put_flash(writer, key);
     ctl_text_put(writer, "=");
 }
 
@@ -217,7 +219,7 @@ static void put_input_field(ctl_text *writer, const char *key, bool has_inputs, 
 
 static void put_rooms(ctl_text *writer, const ctl_rooms_average *rooms)
 {
-    put_field(writer, "rooms");
+    put_field(writer, CTL_FLASH_TEXT("rooms"));
     ctl_text_put_number(writer, (double)rooms->fresh_count, 0);
     ctl_text_put(writer, ":");
     ctl_text_put_number(writer, rooms->fresh_weight, 1);
@@ -233,23 +235,25 @@ bool ctl_loop_format_record(const ctl_loop_record *record, char *text, size_t si
 
     ctl_text_start(&writer, text, size);
 
-    put_number_field(&writer, "t", record->t, 1);
-    put_field(&writer, "demand");
+    put_number_field(&writer, CTL_FLASH_TEXT("t"), record->t, 1);
+    put_field(&writer, CTL_FLASH_TEXT("demand"));
     ctl_text_put(&writer, ctl_demand_name(decision->demand));
-    put_field(&writer, "reason");
+    put_field(&writer, CTL_FLASH_TEXT("reason"));
     ctl_text_put(&writer, ctl_reason_name(decision->reason));
-    put_field(&writer, "phase");
+    put_field(&writer, CTL_FLASH_TEXT("phase"));
     ctl_text_put(&writer, ctl_phase_name(decision->phase));
-    put_number_field(&writer, "E", decision->energy_wh, 1);
-    put_input_field(&writer, "pnet", has_inputs, decision->balance.p_net_w, 0);
-    put_input_field(&writer, "indoor", has_inputs, decision->inputs.t_indoor_c, 2);
-    put_input_field(&writer, "outdoor", has_inputs, decision->inputs.t_outdoor_c, 2);
-    put_input_field(&writer, "produced", has_inputs, decision->inputs.p_produced_w, 0);
-    put_input_field(&writer, "solar", has_inputs, decision->inputs.p_solar_w, 0);
+    put_number_field(&writer, CTL_FLASH_TEXT("E"), decision->energy_wh, 1);
+    put_input_field(&writer, CTL_FLASH_TEXT("pnet"), has_inputs, decision->balance.p_net_w, 0);
+    put_input_field(&writer, CTL_FLASH_TEXT("indoor"), has_inputs, decision->inputs.t_indoor_c, 2);
+    put_input_field(&writer, CTL_FLASH_TEXT("outdoor"), has_inputs, decision->inputs.t_outdoor_c,
+                    2);
+    put_input_field(&writer, CTL_FLASH_TEXT("produced"), has_inputs,
+                    decision->inputs.p_produced_w, 0);
+    put_input_field(&writer, CTL_FLASH_TEXT("solar"), has_inputs, decision->inputs.p_solar_w, 0);
     put_rooms(&writer, &record->rooms);
-    put_field(&writer, "router");
+    put_field(&writer, CTL_FLASH_TEXT("router"));
     ctl_text_put(&writer, ctl_router_status_name(record->router_status));
-    put_field(&writer, "cmd");
+    put_field(&writer, CTL_FLASH_TEXT("cmd"));
     ctl_text_put_commands(&writer, &record->commands);
 
     if (!writer.fits) {

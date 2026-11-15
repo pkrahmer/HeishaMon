@@ -6,6 +6,7 @@
 #include "../core/ctl_config.h"
 #include "../core/ctl_relay.h"
 #include "../core/ctl_types.h"
+#include "../ctl_flash.h"
 #include "../loop/ctl_format.h"
 #include "../loop/ctl_loop.h"
 #include "../route/ctl_router.h"
@@ -47,13 +48,17 @@ typedef enum {
     SETTING_SMART_GRID
 } setting_id;
 
+/* Holds the longest fixed name, min_change_interval_s, with its zero and room to spare; the name
+ * sits in the entry itself, so that the whole table lives in flash. */
+#define FIXED_NAME_SIZE 24
+
 typedef struct {
-    const char *name;
+    char name[FIXED_NAME_SIZE];
     setting_id id;
 } fixed_name;
 
 /* In the order of the list; the rooms' names come after the first NAMES_BEFORE_ROOMS. */
-static const fixed_name FIXED_NAMES[] = {
+static const fixed_name FIXED_NAMES[] CTL_FLASH = {
     {"enabled", SETTING_ENABLED},
     {"cooling", SETTING_COOLING},
     {"rooms", SETTING_ROOMS},
@@ -295,13 +300,26 @@ static bool find_name(const ctl_settings *settings, const char *name, setting_ke
         return false;
     }
     for (i = 0; i < FIXED_NAME_COUNT; i++) {
-        if (strcmp(name, FIXED_NAMES[i].name) == 0) {
-            key->id = FIXED_NAMES[i].id;
+        if (CTL_FLASH_COMPARE(name, FIXED_NAMES[i].name) == 0) {
+            fixed_name entry;
+            CTL_FLASH_COPY(&entry, &FIXED_NAMES[i], sizeof entry);
+            key->id = entry.id;
             key->room = 0;
             return true;
         }
     }
     return find_room_name(settings, name, key);
+}
+
+static bool copy_fixed_name(size_t index, char *name, size_t size)
+{
+    const char *fixed = FIXED_NAMES[index].name;
+    const size_t length = CTL_FLASH_LENGTH(fixed);
+    if (length >= size) {
+        return false;
+    }
+    CTL_FLASH_COPY(name, fixed, length + 1);
+    return true;
 }
 
 static bool write_room_name(size_t room, const char *suffix, char *name, size_t size)
@@ -545,14 +563,14 @@ bool ctl_settings_name_at(const ctl_settings *settings, size_t index, char *name
         return false;
     }
     if (index < NAMES_BEFORE_ROOMS) {
-        return copy_text(FIXED_NAMES[index].name, name, size);
+        return copy_fixed_name(index, name, size);
     }
     index -= NAMES_BEFORE_ROOMS;
     if (index < room_names) {
         const char *suffix = index % 2u == 0u ? ROOM_TOPIC_SUFFIX : ROOM_WEIGHT_SUFFIX;
         return write_room_name(index / 2u, suffix, name, size);
     }
-    return copy_text(FIXED_NAMES[NAMES_BEFORE_ROOMS + index - room_names].name, name, size);
+    return copy_fixed_name(NAMES_BEFORE_ROOMS + index - room_names, name, size);
 }
 
 bool ctl_settings_valid(const ctl_settings *settings)

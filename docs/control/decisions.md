@@ -1113,3 +1113,22 @@ the controller itself could.
 the stored value is stale and would be wrong. Refusing a value outside the bounds instead of
 clamping it: the owner's recorded value lay within the bounds of its moment, and the mask may have
 changed since. Accepting the payload parser's JSON object: no source sends one for a command.
+
+## 2026-11-15: Constant text in flash
+
+**Decision.** On the ESP8266 the control code keeps its constant text in flash: the telemetry's
+subtopics, the setting names, the log texts, the control page's snippets, the record line's keys,
+the reset reason words and the save results. One header, `ctl_flash.h`, maps `CTL_FLASH`,
+`CTL_FLASH_TEXT` and the flash-safe reads to `PROGMEM`, `PSTR` and the `_P` functions on the
+ESP8266 and to plain constants and the ordinary functions elsewhere, so that every `.c` file still
+compiles on the host as strict C99; the `.cpp` glue uses `PSTR` and the `_P` functions as upstream
+does. Name tables are arrays of fixed-width entries in flash rather than arrays of pointers. Flash
+text is copied into the caller's buffer before it is read as RAM text. The core is left as it is.
+**Reason.** The board restarted when upstream's web server built the main page and ran out of
+heap; the control code held about 4 KB of constant text in RAM that the page needed. The D1 mini's
+global RAM went from 49108 to 46484 bytes.
+**Rejected.** Leaving the text in RAM: the main page would keep restarting the board. Moving the
+core's type names too: the core may include no header outside its own folder and the four of the
+standard library, and its 296 bytes are not needed for the budget. Relying on the ESP8266's
+emulation of byte reads from flash (`non32xfer=fast`) to read flash text as RAM text: it is slow
+and hides the difference that a later reader of the code must see.

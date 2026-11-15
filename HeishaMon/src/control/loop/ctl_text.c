@@ -1,5 +1,6 @@
 #include "ctl_text.h"
 
+#include "../ctl_flash.h"
 #include "../route/ctl_router.h"
 #include "ctl_format.h"
 
@@ -19,16 +20,29 @@ void ctl_text_start(ctl_text *writer, char *buffer, size_t size)
     }
 }
 
+static void put_char(ctl_text *writer, char c)
+{
+    if (writer->length + 1 >= writer->size) {
+        writer->fits = false;
+        return;
+    }
+    writer->text[writer->length++] = c;
+    writer->text[writer->length] = '\0';
+}
+
 void ctl_text_put_bounded(ctl_text *writer, const char *piece, size_t limit)
 {
     size_t i;
     for (i = 0; writer->fits && i < limit && piece[i] != '\0'; i++) {
-        if (writer->length + 1 >= writer->size) {
-            writer->fits = false;
-            return;
-        }
-        writer->text[writer->length++] = piece[i];
-        writer->text[writer->length] = '\0';
+        put_char(writer, piece[i]);
+    }
+}
+
+void ctl_text_put_flash(ctl_text *writer, const char *piece)
+{
+    size_t i;
+    for (i = 0; writer->fits && CTL_FLASH_CHAR(piece + i) != '\0'; i++) {
+        put_char(writer, CTL_FLASH_CHAR(piece + i));
     }
 }
 
