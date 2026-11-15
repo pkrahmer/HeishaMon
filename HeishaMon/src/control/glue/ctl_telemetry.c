@@ -18,7 +18,7 @@
 
 #define INPUTS_FIXED 8
 #define ENTRIES_PER_ROOM 3
-#define STATUS_COUNT 14
+#define STATUS_COUNT 16 /* without the heap's fragmentation */
 #define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
  * signal names, with room to spare. */
@@ -192,9 +192,21 @@ static void put_status_entry(ctl_text *subtopic, ctl_text *value,
         ctl_text_put(subtopic, "status/desired_c");
         ctl_text_put_number(value, source->desired_c, 2);
         break;
-    default:
+    case 13:
         ctl_text_put(subtopic, "status/desired_source");
         ctl_text_put(value, ctl_desired_source_name(source->desired_source));
+        break;
+    case 14:
+        ctl_text_put(subtopic, "status/heap_free");
+        ctl_text_put_number(value, (double)source->heap_free, 0);
+        break;
+    case 15:
+        ctl_text_put(subtopic, "status/heap_max_block");
+        ctl_text_put_number(value, (double)source->heap_max_block, 0);
+        break;
+    default:
+        ctl_text_put(subtopic, "status/heap_fragmentation");
+        ctl_text_put_number(value, (double)source->heap_fragmentation, 0);
         break;
     }
 }
@@ -248,7 +260,7 @@ size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group)
     case CTL_GROUP_INPUTS:
         return INPUTS_FIXED + ENTRIES_PER_ROOM * room_count(source->rooms_config);
     case CTL_GROUP_STATUS:
-        return STATUS_COUNT;
+        return STATUS_COUNT + (source->has_heap_fragmentation ? 1 : 0);
     case CTL_GROUP_OUTPUTS:
         return OUTPUTS_COUNT;
     default:

@@ -1072,3 +1072,23 @@ call count.
 **Rejected.** Rewriting the history to remove the old name from earlier commits: it would rewrite
 every published commit and break every clone and open pull request, for a name that the current
 tree no longer shows.
+
+## 2026-11-15: The reset reason is published retained once per boot
+
+**Decision.** After the first successful connection to the broker of a boot, the firmware publishes
+the chip's reason of its last reset, retained, as one line of text to
+`<base>/control/status/reset_reason`: on the ESP8266 with the exception's cause and five addresses
+in hexadecimal, on the ESP32 as `esp_reset_reason()` names it. A later reconnect does not repeat it.
+The heap's free bytes, largest block and, on the ESP8266, fragmentation join the status telemetry,
+sampled at each decision. The text is built by a pure function of the fields as numbers, so a host
+test checks it; the ESP32's names follow the numbering of `esp_reset_reason_t`, which the glue
+asserts at compile time for the values that fix the table's order. The ESP32's fragmentation entry
+is left out of the list rather than published as a made-up value.
+**Reason.** The owner's board restarts with no serial cable attached, so the crash message is lost;
+the reset reason survives the reboot, and retained it waits on the broker for whoever looks, with
+the addresses that `xtensa-lx106-elf-addr2line` turns into a function and line with the release
+ELF. Once per boot is enough because it changes only at a boot.
+**Rejected.** Publishing it on every connect: a retained message already holds it, and a flapping
+link would repeat it for nothing. Saving the crash's stack to the file system: more flash writes
+and code for what the addresses mostly already tell. Fields on a watchdog reset: the reason alone
+is the line the owner asked for; the watchdog's addresses can follow if a crash needs them.

@@ -4,6 +4,9 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
+#if defined(ESP32)
+#include <esp_system.h>
+#endif
 
 #include "../../../commands.h"
 #include "../../../decode.h"
@@ -17,6 +20,7 @@ extern "C" {
 #include "ctl_dispatch.h"
 #include "ctl_gate.h"
 #include "ctl_integral_store.h"
+#include "ctl_reset_reason.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
 }
@@ -73,6 +77,10 @@ static double decision_s;
 static ctl_gate decision_gate;
 static double decision_desired_c;
 static ctl_desired_source decision_desired_source;
+static uint32_t decision_heap_free;
+static uint32_t decision_heap_max_block;
+static uint32_t decision_heap_fragmentation;
+static ctl_reset_latch reset_reason_latch = CTL_RESET_LATCH_INIT;
 
 static ctl_integral_store integral_store;
 static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
@@ -273,13 +281,14 @@ static void store_integral(bool reset, double now)
 
 // --- MQTT ----------------------------------------------------------------------------------
 
-static void publish(const char *subtopic, const char *value, bool retained)
+// Returns whether the client took the message.
+static bool publish(const char *subtopic, const char *value, bool retained)
 {
     int length = snprintf(topic_text, sizeof topic_text, "%s/control/%s", topic_base, subtopic);
     if (length < 0 || (size_t)length >= sizeof topic_text) {
-        return;
+        return false;
     }
-    control_client->publish(topic_text, value, retained);
+    return control_client->publish(topic_text, value, retained);
 }
 
 static void publish_setting_at(size_t index)
@@ -331,6 +340,47 @@ static void publish_telemetry()
     if (ctl_format_fixed(integral_store.saved_w, 1, value_text, sizeof value_text)) {
         publish("status/integral_saved_w", value_text, false);
     }
+}
+
+// --- The board's state ---------------------------------------------------------------------
+
+#if defined(ESP32)
+// The pure text numbers the reasons as these values do.
+static_assert(ESP_RST_UNKNOWN == 0 && ESP_RST_POWERON == 1 && ESP_RST_PANIC == 4
+                  && ESP_RST_DEEPSLEEP == 8 && ESP_RST_SDIO == 10,
+              "esp_reset_reason_t is numbered as ctl_reset_reason_esp32 reads it");
+#endif
+
+static bool reset_reason_text(char *text, size_t size)
+{
+#if defined(ESP8266)
+    const struct rst_info *raw = ESP.getResetInfoPtr();
+    ctl_reset_info info = {raw->reason, raw->exccause, raw->epc1, raw->epc2,
+                           raw->epc3,   raw->excvaddr, raw->depc};
+    return ctl_reset_reason_esp8266(&info, text, size);
+#else
+    return ctl_reset_reason_esp32((uint32_t)esp_reset_reason(), text, size);
+#endif
+}
+
+static void publish_reset_reason()
+{
+    char text[CTL_RESET_REASON_TEXT_MAX];
+    if (!ctl_reset_latch_due(&reset_reason_latch) || !reset_reason_text(text, sizeof text)) {
+        return;
+    }
+    ctl_reset_latch_record(&reset_reason_latch, publish("status/reset_reason", text, true));
+}
+
+static void sample_heap()
+{
+    decision_heap_free = ESP.getFreeHeap();
+#if defined(ESP8266)
+    decision_heap_max_block = ESP.getMaxFreeBlockSize();
+    decision_heap_fragmentation = ESP.getHeapFragmentation();
+#else
+    decision_heap_max_block = ESP.getMaxAllocHeap();
+#endif
 }
 
 static void subscribe_one(const char *topic, bool subscribe)
@@ -553,6 +603,7 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     decision_s = now;
     decision_gate = current;
     decision_desired_source = ctl_desired_target(&desired, &settings, &decision_desired_c);
+    sample_heap();
     if (mqtt.connected()) {
         publish_telemetry();
     }
@@ -591,6 +642,8 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base)
     if (length > 0 && (size_t)length < sizeof topic_text) {
         mqtt.subscribe(topic_text);
     }
+    // First, so that the diagnosis never waits behind the settings.
+    publish_reset_reason();
     publish_settings();
 }
 
@@ -645,6 +698,14 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source)
     source->gate = decision_gate;
     source->desired_c = decision_desired_c;
     source->desired_source = decision_desired_source;
+    source->heap_free = decision_heap_free;
+    source->heap_max_block = decision_heap_max_block;
+#if defined(ESP8266)
+    source->has_heap_fragmentation = true;
+#else
+    source->has_heap_fragmentation = false;
+#endif
+    source->heap_fragmentation = decision_heap_fragmentation;
     return true;
 }
 
