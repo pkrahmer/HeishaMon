@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 1
@@ -76,6 +76,11 @@ journal:
   at: '2026-11-15T22:23:11.545053Z'
   stage: review
   run: 140ba8f594c64c71b06aed2680e725a0
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-15T22:25:01.765218Z'
+  stage: approval
 ---
 
 # The reset reason and the heap's shape
@@ -296,3 +301,4 @@ Expect: `1`
     - `tests/control/test_reset_reason.c:76`: the ESP8266 unknown reason is still tested only at 9, not at 7, the first number past the table.
     - `HeishaMon/src/control/glue/ctl_reset_reason.h:49,52` and `ctl_firmware.h:40` are 101 columns wide. Nothing enforces a width, and other control headers are wider.
     - `docs/control/firmware.md:171`: "in the same header" comes before the header is named; `glue/ctl_reset_reason.h` is named in the next paragraph.
+13. factory: done (pull request merged); cost: 5 runs, 19.3 min, 48 turns, 188874 tokens in (1841443 more from cache), 40060 out, $2.11
