@@ -91,7 +91,8 @@ The entries come one at a time, by index, so that the glue needs no buffer for a
 `ctl_telemetry_count` gives a group's count and `ctl_telemetry_entry` the entry at an index of
 `CTL_GROUP_INPUTS`, `CTL_GROUP_STATUS` or `CTL_GROUP_OUTPUTS`. The source holds the record of the
 last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds,
-whether commands are enabled, and the target the decision was made with and its source. A subtopic, with its terminating zero, fits
+whether commands are enabled, the target the decision was made with and its source, and the
+heap's shape the glue sampled at the decision. A subtopic, with its terminating zero, fits
 `CTL_TELEMETRY_SUBTOPIC_MAX` (48 bytes).
 
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
@@ -115,7 +116,7 @@ does not have is written `-`. A flag is `1` or `0`.
 
 The four input values are `-` when the decision has no inputs: the core resolved nothing then.
 
-**Status**, 14 entries:
+**Status**, 16 entries, and a 17th on a board that reports the heap's fragmentation:
 
 | Subtopic | Value |
 |---|---|
@@ -133,6 +134,9 @@ The four input values are `-` when the decision has no inputs: the core resolved
 | `status/integral_wh` | the integral term's energy in the ledger, 1 decimal |
 | `status/desired_c` | the target the decision was made with, 2 decimals |
 | `status/desired_source` | where the target came from: `setting` (`desired_indoor_c`) or `topic` (the setpoint held from `desired_topic`) |
+| `status/heap_free` | the free heap at the decision, in bytes |
+| `status/heap_max_block` | the largest block the heap could allocate at the decision, in bytes |
+| `status/heap_fragmentation` | the ESP8266 only: the heap's fragmentation at the decision, in percent, 0 to 100; the ESP32 does not report it, and the entry is not listed there |
 
 Beside the telemetry's status entries, the glue publishes `status/integral_saved_w` with them:
 the integral last written to or loaded from `/control_integral.txt` (*The integral file*), 1
@@ -155,6 +159,49 @@ name.
 **A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
 for an index past the end, for a buffer too small for the subtopic or the value with its
 terminating zero, and for a number the fixed format refuses: a text is never cut.
+
+## The reset reason
+
+A board without a serial cable loses the crash message of a restart. The chip keeps the reason of
+its last reset across the reboot, so the glue publishes it, once per boot, after the first
+successful connection to the broker (hook 5 below), or at the next connect when the client
+did not take it: one line of text, retained, to
+`<mqtt_topic_base>/control/status/reset_reason`. A later reconnect does not publish it again; the
+retained message holds it until the next boot replaces it.
+
+The text is built by the pure `glue/ctl_reset_reason.h` from the reason's fields as numbers; it
+fits `CTL_RESET_REASON_TEXT_MAX` (105 bytes) with its terminating zero, and a smaller buffer that
+cannot hold it is refused, written nothing. The glue reads the fields:
+
+- **ESP8266** (`ESP.getResetInfoPtr()`): `power on`, `hardware watchdog`, `software watchdog`,
+  `software restart`, `deep sleep wake`, `external reset`, and for an exception its cause and five
+  addresses, each in hexadecimal with eight digits:
+  `exception 28 epc1=0x4020f3a4 epc2=0x00000000 epc3=0x00000000 excvaddr=0x00000004 depc=0x00000000`.
+- **ESP32-S3** (`esp_reset_reason()`): `unknown`, `power on`, `external reset`,
+  `software restart`, `exception`, `interrupt watchdog`, `task watchdog`, `other watchdog`,
+  `deep sleep wake`, `brownout`, `sdio reset`, `usb reset`, `jtag reset`, `efuse error`,
+  `power glitch`, `cpu lockup`. The ESP32 keeps no exception fields, so a panic is `exception`
+  alone.
+
+A reason neither list knows is `reason <n>`, with its number.
+
+**Decoding an exception.** The cause is the Xtensa exception cause (28 and 29 are a load or a
+store at an invalid address, `excvaddr`, such as a null pointer's 0x00000004; 0 an illegal
+instruction; 3 a load or store error, often an unaligned access to flash). `epc1` is the address
+of the instruction that faulted. With the ELF of the exact release the board runs (the `.elf`
+beside the `.bin` in arduino-cli's build folder), the toolchain names the function and the line:
+
+```sh
+xtensa-lx106-elf-addr2line -pfiaC -e <elf> <epc1>
+```
+
+for example `xtensa-lx106-elf-addr2line -pfiaC -e HeishaMon.ino.elf 0x4020f3a4`. An address of
+another build names the wrong place, so keep the ELF of every release that goes on a board.
+
+**The heap's shape** is in the status entries of the telemetry above: the free heap, the largest
+block and, on the ESP8266, the fragmentation, sampled when the loop decides. A free heap that is
+large while the largest block is small is a fragmented heap, which a large allocation, such as a
+page, cannot use.
 
 ## The glue
 
@@ -188,7 +235,7 @@ line of `HeishaMon/htmlcode.h`, serve the control page and are described with it
    reach the loop while the broker is down (decision F-3).
 5. `ctl_firmware_subscribe(...)` in `mqtt_reconnect()`, after upstream's subscriptions of a
    successful connect: every new connection subscribes again to the loop's topics and publishes
-   the settings again.
+   the settings again; the first one also publishes the reset reason (*The reset reason*).
 6. `if (ctl_firmware_mqtt(topic, payload, length)) return;` at the very start of
    `mqtt_callback()`, before upstream's own guard and copies: a message of the loop's is handled
    and never reaches upstream's parsing; every other message goes on untouched.

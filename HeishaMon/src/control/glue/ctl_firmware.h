@@ -35,9 +35,10 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
  * to the loop at the board's clock. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_frame(char *data);
 
-/* Subscribes to the configured room topics and to <base>/control/set/+,
- * then publishes every setting retained under <base>/control/config/. Keeps the client and the
- * base for the messages that follow. Does nothing before ctl_firmware_setup. */
+/* Subscribes to the configured room topics and to <base>/control/set/+, then publishes, until
+ * the client has taken it once this boot, the reset reason retained to
+ * <base>/control/status/reset_reason, and every setting retained under <base>/control/config/. Keeps
+ * the client and the base for the messages that follow. Does nothing before ctl_firmware_setup. */
 void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base);
 
 /* Returns true when the topic is a room, a setting of the loop or the integral reset and

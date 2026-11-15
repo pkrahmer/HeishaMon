@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 42
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T21:58:13.376921Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-15T21:58:13.376921Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-15T22:10:07.105967Z'
+  stage: doing
+  run: d73fadc2dac9462a88555ee7834c74fd
 ---
 
 # The reset reason and the heap's shape
@@ -65,3 +67,46 @@ Expect: `1`
 
 1. 2026-11-15 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built the reset reason and the heap's shape.
+
+   What I built:
+   - `HeishaMon/src/control/glue/ctl_reset_reason.h` / `.c` (new, pure C99): `ctl_reset_info` (reason, exccause, epc1, epc2, epc3, excvaddr, depc as uint32_t), `ctl_reset_reason_esp8266(info, text, size)` and `ctl_reset_reason_esp32(reason, text, size)`, and `CTL_RESET_REASON_TEXT_MAX` = 105. That is the longest possible text (a ten-digit cause and five full addresses) plus its terminating zero, and a test checks that it matches exactly. The text is built with the existing `ctl_text` writer. A buffer too small for the text is refused and nothing is written to it, following the pattern of `ctl_telemetry`.
+   - `glue/ctl_telemetry.h` / `.c`: the source gains `heap_free`, `heap_max_block`, `has_heap_fragmentation` and `heap_fragmentation`. Three status entries are added after `status/desired_source`: `status/heap_free`, `status/heap_max_block` and `status/heap_fragmentation`. The status count is 16, plus 1 when fragmentation is reported.
+   - `glue/ctl_firmware.cpp`, with `#if defined(ESP8266)` / `ESP32` for the two boards:
+     - `sample_heap()` reads the heap at each decision: `ESP.getFreeHeap`, then `getMaxFreeBlockSize` and `getHeapFragmentation` on the ESP8266, or `getMaxAllocHeap` on the ESP32.
+     - `ctl_firmware_last_decision` hands the heap values to the source.
+     - `publish_reset_reason()` runs in `ctl_firmware_subscribe`, ahead of the settings, so the diagnosis never waits behind them. It reads `ESP.getResetInfoPtr()` or `esp_reset_reason()` and publishes retained to `status/reset_reason`.
+     - `publish()` now returns whether the client took the message. The once-per-boot flag is set only when the publish succeeded.
+     - On the ESP32, a `static_assert` checks that `esp_reset_reason_t` is numbered the way the text table reads it.
+     - The comment of `ctl_firmware_subscribe` in `ctl_firmware.h` is updated.
+   - Tests:
+     - `tests/control/test_reset_reason.c` (new): the rows of criterion 1, every field in its place, the 16 ESP32 names plus an unknown one, the longest text against the named constant, and refusals at exact size − 1 and at size 0 with the buffer left untouched.
+     - `tests/control/test_telemetry.c`, within the leave the story gives:
+       - The fixture sets the heap fields.
+       - Three status rows are added.
+       - The status count goes 14 → 17.
+       - The refused index goes 14 → 17.
+       - A new `test_heap_without_fragmentation` checks the ESP32 case: count 16, no fragmentation entry, index 16 refused.
+       - No check was removed or loosened.
+   - Docs:
+     - `docs/control/firmware.md`: a new section *The reset reason* (topic, when it is published, both boards' words, the exception causes, decoding with `xtensa-lx106-elf-addr2line -pfiaC -e <elf> <epc1>` and the release ELF). The telemetry status table gains the three heap rows and the new count, and hook 5 mentions the reset reason.
+     - `docs/control/decisions.md`: one entry for the reset reason published retained once per boot.
+
+   Decisions where the story left room:
+   - ESP32 words: `unknown`, `power on`, `external reset`, `software restart`, `exception` (a panic; the ESP32 keeps no exception fields), `interrupt watchdog`, `task watchdog`, `other watchdog`, `deep sleep wake`, `brownout`, `sdio reset`, `usb reset`, `jtag reset`, `efuse error`, `power glitch`, `cpu lockup`. Any other reason is `reason <n>`.
+   - On the ESP32 the fragmentation entry is left out of the list rather than published as 0.
+   - The heap is sampled at each decision, like the rest of the status entries, rather than read live when the page is built.
+   - If the client does not take the reset reason, it is tried again at the next connect. Rejected alternatives: publishing on every connect; adding addresses to watchdog resets (the story fixes those texts).
+
+   Results:
+   - `make check` is green: lint, test (35 control programs), firmware for both boards. One earlier run of the ESP32 build died with an arduino-cli `internal compiler error: Segmentation fault` inside upstream's `HeishaMon/src/rules/rules.cpp`; the same tree then passed on the next run unchanged, so it looks like a toolchain flake.
+   - Smoke test: `make test … | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1`, as expected.
+   - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty. No upstream file and no hook line changed.
+   - Criterion 4, D1 mini: develop was built from a `git archive` copy in a temp folder (that copy's ESP32 build hit the same compiler crash; only the D1 numbers were needed from it).
+     - Global RAM: 48596 before → 49028 after (+432 bytes).
+     - Flash code: 758184 → 758872 (+688 bytes).
+     - ESP32-S3 after: sketch 1707003 bytes, globals 67616 bytes.
+
+   Noticed, not touched: the RAM increase comes mostly from string literals (reset-reason names, the new subtopics). On the ESP8266, `.rodata` from plain C sits in RAM, and the pure `.c` files cannot use PROGMEM. If RAM gets tight, the ESP8266 name table could move into the `.cpp` as flash strings, at the cost of host coverage.
+
+   `check`: check: green

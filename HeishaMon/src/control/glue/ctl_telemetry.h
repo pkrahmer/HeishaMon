@@ -30,10 +30,14 @@ typedef struct {
     ctl_gate gate; /* why commands are blocked, or OPEN */
     double desired_c; /* the target the decision was made with */
     ctl_desired_source desired_source;
+    uint32_t heap_free; /* bytes */
+    uint32_t heap_max_block; /* bytes, the largest block that can be allocated */
+    bool has_heap_fragmentation; /* false on a board that does not report it */
+    uint32_t heap_fragmentation; /* percent */
 } ctl_telemetry_source;
 
 /* Returns the number of entries of the group: 9 inputs and 3 more for each configured room (up to
- * CTL_ROOMS_MAX), 14 status entries and 4 outputs; 0 for a group that is no member. */
+ * CTL_ROOMS_MAX), 16 status entries and one more with the heap's fragmentation, and 4 outputs; 0 for a group that is no member. */
 size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group);
 
 /* Writes the subtopic and the value text of the group's entry at index and returns true.
