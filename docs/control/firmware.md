@@ -167,7 +167,9 @@ its last reset across the reboot, so the glue publishes it, once per boot, after
 successful connection to the broker (hook 5 below), or at the next connect when the client
 did not take it: one line of text, retained, to
 `<mqtt_topic_base>/control/status/reset_reason`. A later reconnect does not publish it again; the
-retained message holds it until the next boot replaces it.
+retained message holds it until the next boot replaces it. Whether it is still due is the pure
+latch `ctl_reset_latch` in the same header, so a host test checks both sides: a publish the
+client did not take leaves it due, a taken one ends it for the boot.
 
 The text is built by the pure `glue/ctl_reset_reason.h` from the reason's fields as numbers; it
 fits `CTL_RESET_REASON_TEXT_MAX` (105 bytes) with its terminating zero, and a smaller buffer that

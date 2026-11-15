@@ -37,4 +37,20 @@ bool ctl_reset_reason_esp8266(const ctl_reset_info *info, char *text, size_t siz
  * is "reason <n>". Returns true; refuses as ctl_reset_reason_esp8266 does. */
 bool ctl_reset_reason_esp32(uint32_t reason, char *text, size_t size);
 
+/* Whether the reset reason still waits to be published in this boot. The message is retained, so
+ * once per boot is enough and a later connect would only repeat it; but a message the client did
+ * not take never reached the broker, so it stays due until a publish is taken. */
+typedef struct {
+    bool published;
+} ctl_reset_latch;
+
+#define CTL_RESET_LATCH_INIT {false}
+
+/* Returns true while no publish of the reset reason has been taken in this boot. Refuses nothing. */
+bool ctl_reset_latch_due(const ctl_reset_latch *latch);
+
+/* Records the outcome of a publish: a taken one ends the latch for the boot, a refused one leaves it
+ * due. Returns nothing and refuses nothing; once ended, the latch stays ended. */
+void ctl_reset_latch_record(ctl_reset_latch *latch, bool taken);
+
 #endif

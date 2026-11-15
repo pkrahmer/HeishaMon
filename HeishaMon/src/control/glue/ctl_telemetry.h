@@ -37,7 +37,8 @@ typedef struct {
 } ctl_telemetry_source;
 
 /* Returns the number of entries of the group: 9 inputs and 3 more for each configured room (up to
- * CTL_ROOMS_MAX), 16 status entries and one more with the heap's fragmentation, and 4 outputs; 0 for a group that is no member. */
+ * CTL_ROOMS_MAX), 16 status entries, 17 when the source has the heap's fragmentation, and 4
+ * outputs; 0 for a group that is no member. */
 size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group);
 
 /* Writes the subtopic and the value text of the group's entry at index and returns true.

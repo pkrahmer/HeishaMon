@@ -80,8 +80,7 @@ static ctl_desired_source decision_desired_source;
 static uint32_t decision_heap_free;
 static uint32_t decision_heap_max_block;
 static uint32_t decision_heap_fragmentation;
-// The reset reason is retained, so once per boot is enough; a later connect would repeat it.
-static bool reset_reason_published;
+static ctl_reset_latch reset_reason_latch = CTL_RESET_LATCH_INIT;
 
 static ctl_integral_store integral_store;
 static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
@@ -367,11 +366,10 @@ static bool reset_reason_text(char *text, size_t size)
 static void publish_reset_reason()
 {
     char text[CTL_RESET_REASON_TEXT_MAX];
-    if (reset_reason_published || !reset_reason_text(text, sizeof text)) {
+    if (!ctl_reset_latch_due(&reset_reason_latch) || !reset_reason_text(text, sizeof text)) {
         return;
     }
-    // A message the client did not take is tried again at the next connect.
-    reset_reason_published = publish("status/reset_reason", text, true);
+    ctl_reset_latch_record(&reset_reason_latch, publish("status/reset_reason", text, true));
 }
 
 static void sample_heap()

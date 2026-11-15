@@ -165,6 +165,29 @@ static void test_small_buffer_is_refused(void)
     check_refused_esp32(__FILE__, __LINE__, 99, sizeof "reason 99" - 1);
 }
 
+static void test_latch_is_due_until_a_publish_is_taken(void)
+{
+    ctl_reset_latch latch = CTL_RESET_LATCH_INIT;
+    CHECK_TRUE(ctl_reset_latch_due(&latch));
+    ctl_reset_latch_record(&latch, false);
+    CHECK_TRUE(ctl_reset_latch_due(&latch));
+    ctl_reset_latch_record(&latch, false);
+    CHECK_TRUE(ctl_reset_latch_due(&latch));
+    ctl_reset_latch_record(&latch, true);
+    CHECK_TRUE(!ctl_reset_latch_due(&latch));
+}
+
+static void test_latch_stays_set_for_the_boot(void)
+{
+    ctl_reset_latch latch = CTL_RESET_LATCH_INIT;
+    ctl_reset_latch_record(&latch, true);
+    CHECK_TRUE(!ctl_reset_latch_due(&latch));
+    ctl_reset_latch_record(&latch, false);
+    CHECK_TRUE(!ctl_reset_latch_due(&latch));
+    ctl_reset_latch_record(&latch, true);
+    CHECK_TRUE(!ctl_reset_latch_due(&latch));
+}
+
 int main(void)
 {
     test_exception();
@@ -173,5 +196,7 @@ int main(void)
     test_esp32_reasons();
     test_longest_text_fits();
     test_small_buffer_is_refused();
+    test_latch_is_due_until_a_publish_is_taken();
+    test_latch_stays_set_for_the_boot();
     return check_result();
 }

@@ -105,3 +105,15 @@ bool ctl_reset_reason_esp32(uint32_t reason, char *text, size_t size)
     put_name(&writer, ESP32_NAMES, sizeof ESP32_NAMES / sizeof ESP32_NAMES[0], reason);
     return deliver(&writer, text, size);
 }
+
+bool ctl_reset_latch_due(const ctl_reset_latch *latch)
+{
+    return !latch->published;
+}
+
+void ctl_reset_latch_record(ctl_reset_latch *latch, bool taken)
+{
+    if (taken) {
+        latch->published = true;
+    }
+}
