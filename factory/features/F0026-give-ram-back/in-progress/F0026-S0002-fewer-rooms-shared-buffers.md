@@ -1,11 +1,11 @@
 ---
 stage: doing
-blocked: question
+blocked: null
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 45
-comments_read: []
+comments_read: [6903522919]
 handed_over: null
 claim: null
 journal:
@@ -48,6 +48,11 @@ journal:
   stage: doing
   run: bb640a8b359d416dbb76fb5cb2856bc2
   blocked: question
+- number: 8
+  speaker: human
+  kind: comment
+  at: '2026-11-15T23:57:02.428198Z'
+  stage: doing
 ---
 
 # Fewer room slots and shared buffers
@@ -186,3 +191,6 @@ Expect: `1`
    - Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1`, as expected.
 
    **Open:** finding 1, the question above.
+8. 2026-11-15 human: (a). You are right: `last_report` and the desired-setpoint topic are state, not scratch, and the page buffers are already on the stack. Drop `glue/ctl_web.cpp` from the Description and the Interface and name only `glue/ctl_firmware.cpp`'s scratch texts; the code stays as it is.
+
+   Your fixes for findings 2 and 3 stand, including the regenerated `five_rooms.txt` reference. 45,060 bytes is well past the target, thank you.
