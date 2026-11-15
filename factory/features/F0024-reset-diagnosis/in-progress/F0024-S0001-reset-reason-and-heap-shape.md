@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-15T22:10:15.289778Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-15T22:10:15.289778Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-15T22:11:39.423361Z'
+  stage: review
+  run: 07b90b07f67741769292028923d7c461
 ---
 
 # The reset reason and the heap's shape
@@ -120,3 +122,24 @@ Expect: `1`
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `HeishaMon/src/control/glue/ctl_telemetry.h:40`. The comment on `ctl_telemetry_count` says "16 status entries and one more with the heap's fragmentation". It never says the 17th entry depends on `has_heap_fragmentation`, so a reader can take the count to be always 17. The line is also 131 columns long, while the rest of the header wraps at 100. Fix: say "16 status entries, 17 when the source has the heap's fragmentation", and wrap the line at 100 columns.
+   2. Story gap, `HeishaMon/src/control/glue/ctl_firmware.cpp` `publish_reset_reason()` (around line 367). The Description says the reset reason "is published once and not repeated on a later reconnect", and the build adds "retried when the client did not take it". No criterion covers either rule, and no test checks them: the once-per-boot latch lives only in the `.cpp`, which the host tests do not build. A latch that never sets, or one that sets even when the publish fails, would pass `make check`. Fix, one of two: the builder moves the latch decision into a pure function in a `.c` file of the glue (input: already published and publish taken; output: publish now or not, and the new state) and asks the tester for a host test of both sides; or the human states that this rule is checked only on the board. I would choose the first.
+
+   Checked, no finding:
+   - Criterion 1: every row, plus every field in its place, is checked by `tests/control/test_reset_reason.c`. Non-exception rows also carry a cause and an `epc1`, so a check would catch fields that leak into those texts.
+   - Criterion 2: the longest text equals `CTL_RESET_REASON_TEXT_MAX` (105 = 104 + 1, recounted). Both sides of the size limit are tested for each board: a buffer of exactly the text's size is taken, one byte less is refused, and size 0 is refused, each time with the buffer left untouched.
+   - Criterion 3: the three rows and the counts 17 and 16 are tested. An index past the end is refused through `ctl_telemetry_count`, so the `default:` case only ever sees index 16.
+   - Criterion 5: `git diff develop...HEAD --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+   - Criteria 4 and 6: carried by the journal (`check: green`).
+   - ESP8266 reason numbering matches the SDK's `rst_reason`. The ESP32 table matches `esp_reset_reason_t` 0 to 15, with a partial `static_assert`.
+   - Architecture and embedded safety: no dynamic memory, loops are bounded, table access is bounded by `sizeof`, uint32 values reach `ctl_format_fixed` exactly, the private names are `static`, and the new `.c` file is pure C99 that reuses `ctl_text` rather than copying a helper.
+   - Docs: `docs/control/firmware.md` and `docs/control/decisions.md` match the code: the topics, when the reason is published, both boards' words, 105 bytes, the 16/17 count, the `addr2line` line, and the Xtensa causes 0, 3, 28 and 29.
+   - The control page (`ctl_web.cpp:138,189`) builds its rows from `ctl_telemetry_count`, so it gains the three heap rows on its own. That fits "nothing changes but these topics" as long as the page counts as showing the topics.
+
+   Earlier tests:
+   - `tests/control/test_telemetry.c` (M): the story's Interface names it, with its leave to add rows and shift indexes and counts. The status count went 14→17 and the refused index 14→17, three rows and `test_heap_without_fragmentation` were added, and no check was removed or loosened.
+
+   Notes:
+   - `tests/control/test_reset_reason.c:76`: the ESP8266 unknown reason is tested only at 9, not at 7, the first number past the table. The shared `put_name` bound is still covered by the ESP32 row 16.
