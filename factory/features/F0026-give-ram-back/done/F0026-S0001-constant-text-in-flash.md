@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-15T23:35:19.955008Z'
   stage: review
   run: 1ac50ecedec84728995cabfe7b0dabe1
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-15T23:37:11.363233Z'
+  stage: approval
 ---
 
 # Constant text in flash
@@ -197,3 +202,4 @@ Expect: `1`
    Notes:
    - `tests/control/test_flash_text.c:22-33`: the refusal is tested well past the limit only. A piece that exactly fills the buffer (5 characters in 6) would test both sides of the boundary.
    - `glue/ctl_form.c` `copy_last_save` and `glue/ctl_settings.c` `copy_fixed_name` have the same body: a bounded copy of a flash text. This is code, not a test file, so it is not a note under the rules. I recorded it because it is small, and I did not count it as a finding.
+10. factory: done (pull request merged); cost: 4 runs, 22.0 min, 81 turns, 258582 tokens in (5315720 more from cache), 66135 out, $3.68
