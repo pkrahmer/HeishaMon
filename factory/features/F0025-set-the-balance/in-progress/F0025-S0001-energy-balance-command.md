@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 43
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T22:36:50.843121Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-15T22:36:45.892307Z'
   stage: review
   run: 668f12a86f444c86878ee23f8109f546
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:36:50.843121Z'
+  stage: doing
 ---
 
 # The energy balance command
@@ -116,3 +125,4 @@ Expect: `1`
 
    Earlier tests:
    - `tests/control/test_dispatch.c` (M): three rows added to `test_topics`, under the leave the story gives by name. No earlier check was removed or loosened.
+6. factory: started doing as heishamon.
