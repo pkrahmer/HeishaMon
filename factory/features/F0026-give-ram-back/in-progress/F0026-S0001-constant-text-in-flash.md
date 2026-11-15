@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 44
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-15T23:33:38.001028Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-15T23:33:32.173768Z'
   stage: doing
   run: 0ec168aad0a740d08b49998c5c4595ec
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:33:38.001028Z'
+  stage: review
 ---
 
 # Constant text in flash
@@ -160,3 +169,4 @@ Expect: `1`
    The factory left out changes outside the write paths: factory/features/F0026-give-ram-back/in-progress/F0026-S0001-constant-text-in-flash.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
