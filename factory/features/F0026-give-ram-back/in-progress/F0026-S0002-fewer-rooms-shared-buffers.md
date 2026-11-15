@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 45
 comments_read: [6903522919]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T23:57:05.143165Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -52,6 +56,11 @@ journal:
   speaker: human
   kind: comment
   at: '2026-11-15T23:57:02.428198Z'
+  stage: doing
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:57:05.143165Z'
   stage: doing
 ---
 
@@ -194,3 +203,4 @@ Expect: `1`
 8. 2026-11-15 human: (a). You are right: `last_report` and the desired-setpoint topic are state, not scratch, and the page buffers are already on the stack. Drop `glue/ctl_web.cpp` from the Description and the Interface and name only `glue/ctl_firmware.cpp`'s scratch texts; the code stays as it is.
 
    Your fixes for findings 2 and 3 stand, including the regenerated `five_rooms.txt` reference. 45,060 bytes is well past the target, thank you.
+9. factory: started doing as heishamon.
