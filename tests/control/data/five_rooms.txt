@@ -1,0 +1,146 @@
+status/demand HEATING
+<tr><td>status/demand</td><td>HEATING</td></tr>
+status/reason HELD_STALE_INPUT
+<tr><td>status/reason</td><td>HELD_STALE_INPUT</td></tr>
+status/phase RUNNING
+<tr><td>status/phase</td><td>RUNNING</td></tr>
+status/energy_wh -812.5
+<tr><td>status/energy_wh</td><td>-812.5</td></tr>
+status/p_net_w 0
+<tr><td>status/p_net_w</td><td>0</td></tr>
+status/clamped 0
+<tr><td>status/clamped</td><td>0</td></tr>
+status/integrated_s 0
+<tr><td>status/integrated_s</td><td>0</td></tr>
+status/skipped_s 0
+<tr><td>status/skipped_s</td><td>0</td></tr>
+status/uptime_s 613
+<tr><td>status/uptime_s</td><td>613</td></tr>
+status/enabled 1
+<tr><td>status/enabled</td><td>1</td></tr>
+status/p_integral_w 0.0
+<tr><td>status/p_integral_w</td><td>0.0</td></tr>
+status/integral_wh 0.0
+<tr><td>status/integral_wh</td><td>0.0</td></tr>
+status/desired_c 21.50
+<tr><td>status/desired_c</td><td>21.50</td></tr>
+status/desired_source setting
+<tr><td>status/desired_source</td><td>setting</td></tr>
+status/heap_free 23456
+<tr><td>status/heap_free</td><td>23456</td></tr>
+status/heap_max_block 11208
+<tr><td>status/heap_max_block</td><td>11208</td></tr>
+status/heap_fragmentation 37
+<tr><td>status/heap_fragmentation</td><td>37</td></tr>
+outputs/router IDLE
+<tr><td>outputs/router</td><td>IDLE</td></tr>
+outputs/thermostat_state 2
+<tr><td>outputs/thermostat_state</td><td>2</td></tr>
+outputs/commands -
+<tr><td>outputs/commands</td><td>-</td></tr>
+outputs/blocked -
+<tr><td>outputs/blocked</td><td>-</td></tr>
+inputs/indoor_c 21.25
+<tr><td>inputs/indoor_c</td><td>21.25</td></tr>
+inputs/outdoor_c 3.50
+<tr><td>inputs/outdoor_c</td><td>3.50</td></tr>
+inputs/produced_w 0
+<tr><td>inputs/produced_w</td><td>0</td></tr>
+inputs/internal_w 0
+<tr><td>inputs/internal_w</td><td>0</td></tr>
+inputs/substituted -
+<tr><td>inputs/substituted</td><td>-</td></tr>
+inputs/unhealthy -
+<tr><td>inputs/unhealthy</td><td>-</td></tr>
+inputs/rooms_fresh 3
+<tr><td>inputs/rooms_fresh</td><td>3</td></tr>
+inputs/rooms_fresh_weight 4.5
+<tr><td>inputs/rooms_fresh_weight</td><td>4.5</td></tr>
+inputs/room/0/value_c 21.46
+<tr><td>inputs/room/0/value_c</td><td>21.46</td></tr>
+inputs/room/0/fresh 1
+<tr><td>inputs/room/0/fresh</td><td>1</td></tr>
+inputs/room/0/weight 2.5
+<tr><td>inputs/room/0/weight</td><td>2.5</td></tr>
+inputs/room/1/value_c 19.50
+<tr><td>inputs/room/1/value_c</td><td>19.50</td></tr>
+inputs/room/1/fresh 0
+<tr><td>inputs/room/1/fresh</td><td>0</td></tr>
+inputs/room/1/weight 1.0
+<tr><td>inputs/room/1/weight</td><td>1.0</td></tr>
+inputs/room/2/value_c -
+<tr><td>inputs/room/2/value_c</td><td>-</td></tr>
+inputs/room/2/fresh 0
+<tr><td>inputs/room/2/fresh</td><td>0</td></tr>
+inputs/room/2/weight 0.5
+<tr><td>inputs/room/2/weight</td><td>0.5</td></tr>
+inputs/room/3/value_c 23.00
+<tr><td>inputs/room/3/value_c</td><td>23.00</td></tr>
+inputs/room/3/fresh 1
+<tr><td>inputs/room/3/fresh</td><td>1</td></tr>
+inputs/room/3/weight 0.0
+<tr><td>inputs/room/3/weight</td><td>0.0</td></tr>
+inputs/room/4/value_c 20.25
+<tr><td>inputs/room/4/value_c</td><td>20.25</td></tr>
+inputs/room/4/fresh 1
+<tr><td>inputs/room/4/fresh</td><td>1</td></tr>
+inputs/room/4/weight 1.0
+<tr><td>inputs/room/4/weight</td><td>1.0</td></tr>
+<h2>Settings</h2><p><a href="https://github.com/pkrahmer/HeishaMon/blob/develop/docs/control/settings.md">What the settings mean</a></p><form method='POST' action='/savecontrol'><div class='panel'><table><tr><th>Setting</th><th>Value</th><th>Save result</th></tr>
+config/enabled 0
+<tr><td><label for="enabled">enabled</label></td><td><input id="enabled" name="enabled" value="0"></td><td></td></tr>
+config/cooling 0
+<tr><td><label for="cooling">cooling</label></td><td><input id="cooling" name="cooling" value="0"></td><td></td></tr>
+config/rooms 5
+<tr><td><label for="rooms">rooms</label></td><td><input id="rooms" name="rooms" value="5"></td><td></td></tr>
+config/room.0.topic home/living/temp
+<tr><td><label for="room.0.topic">room.0.topic</label></td><td><input id="room.0.topic" name="room.0.topic" value="home/living/temp"></td><td></td></tr>
+config/room.0.weight 2.5
+<tr><td><label for="room.0.weight">room.0.weight</label></td><td><input id="room.0.weight" name="room.0.weight" value="2.5"></td><td></td></tr>
+config/room.1.topic home/kitchen/temp
+<tr><td><label for="room.1.topic">room.1.topic</label></td><td><input id="room.1.topic" name="room.1.topic" value="home/kitchen/temp"></td><td></td></tr>
+config/room.1.weight 1
+<tr><td><label for="room.1.weight">room.1.weight</label></td><td><input id="room.1.weight" name="room.1.weight" value="1"></td><td></td></tr>
+config/room.2.topic home/bed/temp
+<tr><td><label for="room.2.topic">room.2.topic</label></td><td><input id="room.2.topic" name="room.2.topic" value="home/bed/temp"></td><td></td></tr>
+config/room.2.weight 0.5
+<tr><td><label for="room.2.weight">room.2.weight</label></td><td><input id="room.2.weight" name="room.2.weight" value="0.5"></td><td></td></tr>
+config/room.3.topic home/bath/temp
+<tr><td><label for="room.3.topic">room.3.topic</label></td><td><input id="room.3.topic" name="room.3.topic" value="home/bath/temp"></td><td></td></tr>
+config/room.3.weight 0
+<tr><td><label for="room.3.weight">room.3.weight</label></td><td><input id="room.3.weight" name="room.3.weight" value="0"></td><td></td></tr>
+config/room.4.topic home/office/temp
+<tr><td><label for="room.4.topic">room.4.topic</label></td><td><input id="room.4.topic" name="room.4.topic" value="home/office/temp"></td><td></td></tr>
+config/room.4.weight 1
+<tr><td><label for="room.4.weight">room.4.weight</label></td><td><input id="room.4.weight" name="room.4.weight" value="1"></td><td></td></tr>
+config/room_timeout_s 1800
+<tr><td><label for="room_timeout_s">room_timeout_s</label></td><td><input id="room_timeout_s" name="room_timeout_s" value="1800"></td><td></td></tr>
+config/desired_indoor_c 22
+<tr><td><label for="desired_indoor_c">desired_indoor_c</label></td><td><input id="desired_indoor_c" name="desired_indoor_c" value="22"></td><td></td></tr>
+config/desired_topic home/thermostat/set
+<tr><td><label for="desired_topic">desired_topic</label></td><td><input id="desired_topic" name="desired_topic" value="home/thermostat/set"></td><td></td></tr>
+config/transmission_w_per_k 155
+<tr><td><label for="transmission_w_per_k">transmission_w_per_k</label></td><td><input id="transmission_w_per_k" name="transmission_w_per_k" value="155"></td><td></td></tr>
+config/adjustment_w_per_k 805
+<tr><td><label for="adjustment_w_per_k">adjustment_w_per_k</label></td><td><input id="adjustment_w_per_k" name="adjustment_w_per_k" value="805"></td><td></td></tr>
+config/hysteresis_wh 1500
+<tr><td><label for="hysteresis_wh">hysteresis_wh</label></td><td><input id="hysteresis_wh" name="hysteresis_wh" value="1500"></td><td></td></tr>
+config/trim_limit_k 3
+<tr><td><label for="trim_limit_k">trim_limit_k</label></td><td><input id="trim_limit_k" name="trim_limit_k" value="3"></td><td></td></tr>
+config/integral_w_per_kh 0
+<tr><td><label for="integral_w_per_kh">integral_w_per_kh</label></td><td><input id="integral_w_per_kh" name="integral_w_per_kh" value="0"></td><td></td></tr>
+config/integral_limit_w 300
+<tr><td><label for="integral_limit_w">integral_limit_w</label></td><td><input id="integral_limit_w" name="integral_limit_w" value="300"></td><td></td></tr>
+config/internal_w 550
+<tr><td><label for="internal_w">internal_w</label></td><td><input id="internal_w" name="internal_w" value="550"></td><td></td></tr>
+config/heat_cool_heat_value -1
+<tr><td><label for="heat_cool_heat_value">heat_cool_heat_value</label></td><td><input id="heat_cool_heat_value" name="heat_cool_heat_value" value="-1"></td><td></td></tr>
+config/min_change_interval_s 300
+<tr><td><label for="min_change_interval_s">min_change_interval_s</label></td><td><input id="min_change_interval_s" name="min_change_interval_s" value="300"></td><td></td></tr>
+config/retry_interval_s 120
+<tr><td><label for="retry_interval_s">retry_interval_s</label></td><td><input id="retry_interval_s" name="retry_interval_s" value="120"></td><td></td></tr>
+config/max_retries 3
+<tr><td><label for="max_retries">max_retries</label></td><td><input id="max_retries" name="max_retries" value="3"></td><td></td></tr>
+config/smart_grid 0
+<tr><td><label for="smart_grid">smart_grid</label></td><td><input id="smart_grid" name="smart_grid" value="0"></td><td></td></tr>
+</table></div><p>To add rooms, save the new count of rooms first; their fields then appear here.</p><input type='submit' value='Save'></form>

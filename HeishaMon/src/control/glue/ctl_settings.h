@@ -64,6 +64,12 @@ void ctl_settings_defaults(ctl_settings *settings);
  * result but OK leaves the settings as they were. */
 ctl_setting_status ctl_settings_set(ctl_settings *settings, const char *name, const char *value);
 
+/* Applies a setting read from the settings file: as ctl_settings_set, except that a whole count
+ * of rooms above CTL_ROOMS_MAX is taken as CTL_ROOMS_MAX, so that a file written for more rooms
+ * keeps its first ones and the setter refuses the rooms beyond them. Returns and refuses what
+ * ctl_settings_set returns and refuses for the value it applies. */
+ctl_setting_status ctl_settings_load(ctl_settings *settings, const char *name, const char *value);
+
 /* Writes the value of the setting called name as text, the form ctl_settings_set takes, and
  * returns true. Refuses, returning false, a name that is not listed and a size that cannot hold
  * the text with its terminating zero; the buffer then holds nothing to rely on. */

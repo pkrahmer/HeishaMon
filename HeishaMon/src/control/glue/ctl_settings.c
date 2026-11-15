@@ -537,6 +537,27 @@ ctl_setting_status ctl_settings_set(ctl_settings *settings, const char *name, co
     return CTL_SETTING_OK;
 }
 
+/* A count the setter would refuse only for being above the limit. */
+static bool is_count_above_limit(const ctl_settings *settings, const char *name, const char *value)
+{
+    setting_key key = {SETTING_ENABLED, 0};
+    int count = 0;
+    return value != NULL && find_name(settings, name, &key) && key.id == SETTING_ROOMS &&
+           parse_whole(value, CTL_ROOMS_MAX + 1, INT_MAX, &count);
+}
+
+ctl_setting_status ctl_settings_load(ctl_settings *settings, const char *name, const char *value)
+{
+    char limit[CTL_FORMAT_TEXT_MAX];
+    if (is_count_above_limit(settings, name, value)) {
+        if (!format_whole(CTL_ROOMS_MAX, limit, sizeof limit)) {
+            return CTL_SETTING_BAD_VALUE;
+        }
+        return ctl_settings_set(settings, name, limit);
+    }
+    return ctl_settings_set(settings, name, value);
+}
+
 bool ctl_settings_get(const ctl_settings *settings, const char *name, char *value, size_t size)
 {
     setting_key key = {SETTING_ENABLED, 0};

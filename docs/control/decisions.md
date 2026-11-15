@@ -1132,3 +1132,26 @@ core's type names too: the core may include no header outside its own folder and
 standard library, and its 296 bytes are not needed for the budget. Relying on the ESP8266's
 emulation of byte reads from flash (`non32xfer=fast`) to read flash text as RAM text: it is slow
 and hides the difference that a later reader of the code must see.
+
+## 2026-11-15: 8 room slots and shared buffers
+
+**Decision.** `CTL_ROOMS_MAX` is 8, and every table sized by it shrinks with it: the settings' room
+topics and weights, the rooms' configuration and state, the settings' name list and the form and
+its report. A `rooms` above 8 and a room index of 8 or more are refused like any out-of-range
+value. Only the settings file is read more kindly: `ctl_settings_load` takes a whole count above 8
+as 8, so that a file written with more rooms keeps its first 8 and its rooms beyond them are
+refused pairs, logged and skipped. In `ctl_firmware.cpp` the scratch texts share storage in two
+unions, each use under its own name and size through a reference to its member: the value texts
+(a published value, a setting's value, the integral's text) in one, the log line and the topic
+and subtopic of a publish in the other. The web glue keeps its buffers apart: its save report must
+live from the save to the next page, and the page's own buffers are already on the stack. The D1
+mini's global RAM went from 46484 to 45060 bytes, 4048 below the 49108 of before the texts moved
+to flash.
+**Reason.** The web server needs the heap, and the room slots were the control code's largest
+RAM item; the owner's house has 5 rooms. A file the board saved with more rooms must not fall back
+to the defaults, which would disable the control loop, so it loads the rooms that fit.
+**Rejected.** 16 slots: two thirds of them unused on the owner's board. Capping the count in the
+setter too: a message or a form that asks for 9 rooms is a mistake to refuse, not to correct. A
+single union for every scratch text: a log line shows a value, and a topic is built while a value
+waits to be published. Sharing the web glue's save report or the held setpoint's topic: both are
+state that outlives one call, not scratch.

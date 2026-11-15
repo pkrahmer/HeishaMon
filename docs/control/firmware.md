@@ -23,7 +23,7 @@ below, with the rooms' names after `rooms`.
 |---|---|---|---|
 | `enabled` | `0` or `1` | `0` | |
 | `cooling` | `0` or `1` | `0` | |
-| `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
+| `rooms` | decimal | `0` | 0 to 8; a lower count keeps the topics and weights above it unlisted |
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
@@ -304,8 +304,10 @@ text values, the names and value texts of the settings' table above.
     {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
      "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
 
-At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
-the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
+At start the glue applies the pairs in file order with `ctl_settings_load`, so `rooms` comes
+before the rooms' names. It is the setter but for one thing: a whole count of rooms above the 8
+room slots is taken as 8, so a file written by a firmware with more slots keeps its first 8 rooms,
+and the names of the rooms beyond them are refused pairs. A value that is not a JSON string, or a pair the setter refuses, is logged with
 the setter's answer and skipped; the rest of the file still applies. A name the settings no longer
 list, such as one an older firmware wrote, is such a refused pair, and the next write leaves it
 out. A missing file, one that cannot be opened or does not hold a JSON object, and a set that ends
@@ -549,5 +551,19 @@ The rule for new text:
 - The core stays as it is: it may include no header beyond its own and four of the standard
   library, so its few type names stay in RAM.
 
-`make firmware` prints the D1 mini's "Variables and constants in RAM"; a story that adds text
-looks at that line.
+The tables and buffers are kept small too:
+
+- The settings, the loop's configuration and the room table hold `CTL_ROOMS_MAX` (8) room slots,
+  each with a topic of up to 96 characters in the settings. The owner's house has 5 rooms; 16
+  slots held about 1 KB more for rooms nobody used.
+- The firmware glue's scratch texts share their storage, each use under its own name and size, so
+  that no text is cut shorter than before: the value texts (a published value, a setting's value
+  for the file, the integral's text) share one buffer, and the log line shares the storage of the
+  topic and subtopic of a publish. A log line may show a value, so it never shares the value's
+  buffer; a new use of a scratch text keeps to these pairs or gets its own buffer.
+- The web glue's save report lives from the save to the page that follows it, and the held
+  setpoint's topic for as long as the board runs; neither is scratch, so neither shares storage.
+
+The D1 mini's global RAM went from 49108 bytes with the texts in RAM to 46484 with them in flash,
+and to 45060 with 8 room slots and the shared buffers. `make firmware` prints the D1 mini's
+"Variables and constants in RAM"; a story that adds text or a buffer looks at that line.

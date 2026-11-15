@@ -13,7 +13,7 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 |---|---|---|---|
 | `enabled` | `0` | `0` or `1` | Send commands to the pump: 0 = only watch and decide, 1 = control the pump. |
 | `cooling` | `0` | `0` or `1` | Allow cooling demand: 0 = heating only, 1 = heating and cooling. |
-| `rooms` | `0` | whole, 0 to 16 | Number of room sensors in the indoor average. On the control page, save the count first; the room fields then appear. |
+| `rooms` | `0` | whole, 0 to 8 | Number of room sensors in the indoor average. On the control page, save the count first; the room fields then appear. A settings file written with more rooms keeps its first 8. |
 | `room.<i>.topic` | empty | a topic; one per room `i` below `rooms` | MQTT topic of room `i`'s temperature. Empty: the room never receives a value. |
 | `room.<i>.weight` | `1` | 0 to 1000; one per room `i` below `rooms`; the weights of all rooms together above 0 | Weight of room `i` in the indoor average; 0 = watched, not counted. |
 | `room_timeout_s` | `1800` | s, above 0 | Seconds after which a room's last value counts as too old. |
