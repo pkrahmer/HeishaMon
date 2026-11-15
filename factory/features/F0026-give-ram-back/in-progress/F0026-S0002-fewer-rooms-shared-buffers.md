@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 45
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T23:51:58.063034Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-15T23:51:52.258980Z'
   stage: review
   run: e67ea9a5332b446d826348568fdfa94e
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-15T23:51:58.063034Z'
+  stage: doing
 ---
 
 # Fewer room slots and shared buffers
@@ -140,3 +149,4 @@ Expect: `1`
    - `tests/control/test_rooms.c`: count limits 17→9 and 16→8, under the story's named leave (`test_rooms.c`).
    - `tests/control/test_settings.c`: rooms 16/17→8/9 and `room.16`/`room.15`→`room.8`/`room.7`, under the story's named leave (`test_settings*.c`).
    - `tests/control/test_telemetry.c`: `room/15`→`room/7`, under the story's named leave (`test_telemetry.c`).
+6. factory: started doing as heishamon.
