@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 1
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T22:18:09.044180Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -63,6 +59,12 @@ journal:
   kind: started
   at: '2026-11-15T22:18:09.044180Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-15T22:22:16.104133Z'
+  stage: doing
+  run: ac9a699dee074ea3aa264d082963580a
 ---
 
 # The reset reason and the heap's shape
@@ -219,3 +221,29 @@ Expect: `1`
    Error during build: exit status 1
    make: *** [Makefile:88: firmware] Error 1
 9. factory: started doing as heishamon.
+10. builder: Round 1, second run: no code changes. The stall came from the toolchain, not from the work.
+
+    The stall in entry 8 was `internal compiler error: Segmentation fault` in the ESP32 toolchain's own `xtensa-esp-elf/include/c++/14.2.0/cmath`, inside the ESP32 firmware build. Lint and test were green in that run, and so was the D1 mini build. This is the same arduino-cli/GCC crash recorded in entry 3, when it hit upstream's `rules.cpp`. It does not depend on this story's code: the committed tree is the one that went green in entry 7.
+
+    What I did:
+    - `git status` is clean: the round 1 fixes from entry 7 are committed, and I made no edits.
+    - `make check`, run again in the foreground on the unchanged tree: green.
+      - lint: green.
+      - test: green, 35 control programs.
+      - firmware: green for both boards.
+        - D1 mini: global RAM 49028 bytes, flash code 758904 bytes, the same as entry 7.
+        - ESP32-S3: sketch 1707059 bytes, globals 67616 bytes.
+      - The last line was `check: green`.
+    - Smoke test as written: it gives `1`, as expected.
+    - Criterion 5: `git diff develop --stat -- HeishaMon ':!HeishaMon/src'` is empty.
+
+    What I built, unchanged from entries 3 and 7:
+    - `HeishaMon/src/control/glue/ctl_reset_reason.h` and `.c`: the reset-reason text and the once-per-boot latch.
+    - `glue/ctl_telemetry.h` and `.c`: the three heap status entries.
+    - `glue/ctl_firmware.cpp`: reads the reset reason and the heap on each board and publishes them.
+    - Tests: `tests/control/test_reset_reason.c`, and the leave the story gives for `tests/control/test_telemetry.c`.
+    - Docs: `docs/control/firmware.md` and `docs/control/decisions.md`.
+
+    Noticed, not touched: the ESP32 compiler crash has now hit the build in 3 runs, on different files. The factory's check can therefore fail on a tree that is fine. Retrying fixes it. A lasting fix would be in the toolchain or the `Makefile`, both outside this stage's write paths.
+
+    `check`: check: green
