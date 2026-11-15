@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 42
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-15T22:18:09.044180Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -54,6 +58,11 @@ journal:
   stage: doing
   run: d9c182cc4f734c26b40698021f97cc50
   reason: check_red
+- number: 9
+  speaker: factory
+  kind: started
+  at: '2026-11-15T22:18:09.044180Z'
+  stage: doing
 ---
 
 # The reset reason and the heap's shape
@@ -209,3 +218,4 @@ Expect: `1`
    0x1888336 internal_error(char const*, ...)
    Error during build: exit status 1
    make: *** [Makefile:88: firmware] Error 1
+9. factory: started doing as heishamon.
