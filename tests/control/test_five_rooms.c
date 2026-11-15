@@ -25,6 +25,7 @@
 #define VALUE_SIZE 128
 
 static ctl_settings settings;
+static ctl_form form;
 static ctl_form_report report;
 static ctl_loop_record record;
 static ctl_rooms rooms;
@@ -61,7 +62,43 @@ static void set_settings(void)
     }
     CHECK_TRUE(ctl_settings_set(&settings, "desired_topic", "home/thermostat/set")
                == CTL_SETTING_OK);
+}
+
+static ctl_setting_status set_setting(void *context, const char *name, const char *value,
+                                      bool *changed)
+{
+    char before[CTL_SETTINGS_VALUE_MAX];
+    char after[CTL_SETTINGS_VALUE_MAX];
+    ctl_setting_status status;
+    (void)context;
+    before[0] = '\0';
+    after[0] = '\0';
+    (void)ctl_settings_get(&settings, name, before, sizeof before);
+    status = ctl_settings_set(&settings, name, value);
+    (void)ctl_settings_get(&settings, name, after, sizeof after);
+    *changed = strcmp(before, after) != 0;
+    return status;
+}
+
+static void keep_field(const char *name, const char *value)
+{
+    ctl_form_keep(&form, name, value, strlen(value));
+}
+
+/* A save of the room fields, so that the rows show a saved, a refused and an unchanged setting
+ * from the report the room tables size. */
+static void save_form(void)
+{
+    ctl_form_start(&form);
     ctl_form_report_start(&report);
+    keep_field("room.4.weight", "abc");
+    keep_field("room.2.weight", "0.75");
+    keep_field("room.1.topic", "home/kitchen/temp");
+    keep_field("rooms", "5");
+    CHECK_TRUE(ctl_form_apply(&form, &settings, set_setting, NULL, &report));
+    CHECK_TRUE(ctl_form_report_result(&report, "room.2.weight") == CTL_SAVE_SAVED);
+    CHECK_TRUE(ctl_form_report_result(&report, "room.4.weight") == CTL_SAVE_REFUSED_BAD_VALUE);
+    CHECK_TRUE(ctl_form_report_result(&report, "room.1.topic") == CTL_SAVE_UNCHANGED);
 }
 
 /* Rooms fresh, stale, without a value and with a timestamp, so that every room row form shows. */
@@ -168,6 +205,7 @@ static void render(void)
 {
     rendered[0] = '\0';
     set_settings();
+    save_form();
     set_source();
     render_group(CTL_GROUP_STATUS);
     render_group(CTL_GROUP_OUTPUTS);

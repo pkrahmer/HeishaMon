@@ -103,8 +103,8 @@ config/room.1.weight 1
 <tr><td><label for="room.1.weight">room.1.weight</label></td><td><input id="room.1.weight" name="room.1.weight" value="1"></td><td></td></tr>
 config/room.2.topic home/bed/temp
 <tr><td><label for="room.2.topic">room.2.topic</label></td><td><input id="room.2.topic" name="room.2.topic" value="home/bed/temp"></td><td></td></tr>
-config/room.2.weight 0.5
-<tr><td><label for="room.2.weight">room.2.weight</label></td><td><input id="room.2.weight" name="room.2.weight" value="0.5"></td><td></td></tr>
+config/room.2.weight 0.75
+<tr><td><label for="room.2.weight">room.2.weight</label></td><td><input id="room.2.weight" name="room.2.weight" value="0.75"></td><td>saved</td></tr>
 config/room.3.topic home/bath/temp
 <tr><td><label for="room.3.topic">room.3.topic</label></td><td><input id="room.3.topic" name="room.3.topic" value="home/bath/temp"></td><td></td></tr>
 config/room.3.weight 0
@@ -112,7 +112,7 @@ config/room.3.weight 0
 config/room.4.topic home/office/temp
 <tr><td><label for="room.4.topic">room.4.topic</label></td><td><input id="room.4.topic" name="room.4.topic" value="home/office/temp"></td><td></td></tr>
 config/room.4.weight 1
-<tr><td><label for="room.4.weight">room.4.weight</label></td><td><input id="room.4.weight" name="room.4.weight" value="1"></td><td></td></tr>
+<tr style='color:var(--orange)'><td><label for="room.4.weight">room.4.weight</label></td><td><input id="room.4.weight" name="room.4.weight" value="1"></td><td>refused: not a valid value</td></tr>
 config/room_timeout_s 1800
 <tr><td><label for="room_timeout_s">room_timeout_s</label></td><td><input id="room_timeout_s" name="room_timeout_s" value="1800"></td><td></td></tr>
 config/desired_indoor_c 22

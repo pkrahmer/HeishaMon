@@ -1,17 +1,13 @@
 ---
 stage: doing
-blocked: null
+blocked: question
 round: 1
 attempts: 0
 crashes: 0
 pull_request: 45
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T23:51:58.063034Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,13 @@ journal:
   kind: started
   at: '2026-11-15T23:51:58.063034Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: question
+  at: '2026-11-15T23:55:13.983118Z'
+  stage: doing
+  run: bb640a8b359d416dbb76fb5cb2856bc2
+  blocked: question
 ---
 
 # Fewer room slots and shared buffers
@@ -150,3 +153,36 @@ Expect: `1`
    - `tests/control/test_settings.c`: rooms 16/17→8/9 and `room.16`/`room.15`→`room.8`/`room.7`, under the story's named leave (`test_settings*.c`).
    - `tests/control/test_telemetry.c`: `room/15`→`room/7`, under the story's named leave (`test_telemetry.c`).
 6. factory: started doing as heishamon.
+7. builder: Round 1. I fixed findings 2 and 3. Finding 1 needs your word, so I am stopping here with a question.
+
+   **Question:** should I drop `glue/ctl_web.cpp` from the story's Description and Interface?
+
+   The Description says the web glue's "desired-setpoint and form report buffers" share storage, and the Interface lists "the shared buffers in `glue/ctl_web.cpp`". Neither one is scratch:
+   - `last_report` (the form report) has to survive from a save until the next page render.
+   - The desired-setpoint topic (`ctl_desired.topic`) is state that the firmware holds for as long as the board runs.
+   - The page's chunk and row buffers are already on the stack.
+
+   Putting any of these in the same storage as another buffer would change behaviour. The RAM target is met without them: the D1 mini uses 45,060 bytes against a target of at most 45,608. `last_report` also shrinks with the room limit.
+
+   Options:
+   - (a) Drop the web glue from the story. I would rewrite the Description's sentence to name only `glue/ctl_firmware.cpp`'s scratch texts and remove `glue/ctl_web.cpp` from the Interface. Code stays as it is. **My choice.**
+   - (b) Keep it and say which buffers in `ctl_web.cpp` you want shared, knowing that sharing `last_report` would lose the save result shown on the next page.
+
+   On your answer I will rewrite the Description and Interface to match, then hand forward to review.
+
+   **Done this round (left in the working tree):**
+   - Finding 2: `docs/control/adapters.md:80` now says "`CTL_ROOMS_MAX` (8)". The docs criterion does not name this file, but the reviewer asked for the fix.
+   - Finding 3: in `tests/control/test_five_rooms.c`, a new `save_form` posts a 5-room form through `ctl_form_keep` and `ctl_form_apply`, using a setter built on `ctl_settings_set` that compares the value before and after. The form holds:
+     - `room.4.weight=abc`: refused as a bad value
+     - `room.2.weight=0.75`: saved
+     - `room.1.topic` with its current value: unchanged
+     - `rooms=5`
+     
+     The test checks those three results, then renders the settings rows with that report.
+   - I regenerated `tests/control/data/five_rooms.txt` from `develop`'s 16-slot code. I exported `develop`'s control code and tests with `git archive` into a `mktemp` folder, built the new test there with a dump of the render, and confirmed `CTL_ROOMS_MAX` was 16. The new reference differs from the old one only in the `room.2.weight` lines (0.75, "saved") and the `room.4.weight` row ("refused: not a valid value"). The 8-slot code matches it byte for byte.
+
+   **Checks:**
+   - `make check` is green: lint, test and firmware.
+   - Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1`, as expected.
+
+   **Open:** finding 1, the question above.
