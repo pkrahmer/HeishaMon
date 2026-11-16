@@ -435,7 +435,7 @@ static void test_longest_subtopic_fits(void)
                (uint32_t)(8 + 3 * CTL_ROOMS_MAX));
     CHECK_TRUE(ctl_telemetry_entry(&f.source, CTL_GROUP_INPUTS, 8 + 3 * CTL_ROOMS_MAX - 3,
                                    subtopic, sizeof subtopic, value, sizeof value));
-    CHECK_TEXT(subtopic, "inputs/room/15/value_c");
+    CHECK_TEXT(subtopic, "inputs/room/7/value_c");
 }
 
 /* A configured count above the maximum is capped, so that no room past the arrays is listed. */

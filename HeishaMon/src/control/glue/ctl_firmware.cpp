@@ -85,13 +85,30 @@ static uint32_t decision_heap_fragmentation;
 static ctl_reset_latch reset_reason_latch = CTL_RESET_LATCH_INIT;
 
 static ctl_integral_store integral_store;
-static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
 
-static char log_line[LOG_SIZE];
-static char topic_text[TOPIC_SIZE];
-static char subtopic_text[CTL_TELEMETRY_SUBTOPIC_MAX];
-static char value_text[VALUE_SIZE];
-static char setting_value[CTL_SETTINGS_VALUE_MAX];
+// The scratch texts share their storage. A value's text is made, then logged, written or
+// published before the next one is made, so the three kinds of value share one buffer. A log line
+// is never written while a topic is built or published, and a log line may show a value, so the
+// log line shares the topic's storage, not the value's.
+static union {
+    char published[VALUE_SIZE];
+    char setting[CTL_SETTINGS_VALUE_MAX];
+    char integral[CTL_INTEGRAL_STORE_TEXT_MAX];
+} value_scratch;
+static union {
+    struct {
+        char topic[TOPIC_SIZE];
+        char subtopic[CTL_TELEMETRY_SUBTOPIC_MAX];
+    } mqtt;
+    char log_line[LOG_SIZE];
+} line_scratch;
+// Each use keeps its own name and size: sizeof a reference is the size of its own member.
+static char (&value_text)[VALUE_SIZE] = value_scratch.published;
+static char (&setting_value)[CTL_SETTINGS_VALUE_MAX] = value_scratch.setting;
+static char (&integral_text)[CTL_INTEGRAL_STORE_TEXT_MAX] = value_scratch.integral;
+static char (&topic_text)[TOPIC_SIZE] = line_scratch.mqtt.topic;
+static char (&subtopic_text)[CTL_TELEMETRY_SUBTOPIC_MAX] = line_scratch.mqtt.subtopic;
+static char (&log_line)[LOG_SIZE] = line_scratch.log_line;
 
 // The format is a text in flash (PSTR), so that the log texts take no RAM on the ESP8266.
 static void log_text(const char *format, ...)
@@ -160,7 +177,7 @@ static void load_settings()
             continue;
         }
         ctl_setting_status status =
-            ctl_settings_set(&settings, name, pair.value().as<const char *>());
+            ctl_settings_load(&settings, name, pair.value().as<const char *>());
         if (status != CTL_SETTING_OK) {
             log_text(PSTR("control: setting %s in %s refused (%s), skipped"), name,
                      SETTINGS_PATH, setting_status_name(status));

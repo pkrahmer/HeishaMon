@@ -51,7 +51,7 @@ static void test_config(void)
             bool valid;
         } rows[] = {
             {COUNT, 0.0, false},
-            {COUNT, 17.0, false},
+            {COUNT, 9.0, false},
             {WEIGHT_1, -1.0, false},
             {WEIGHT_1, 1000.001, false},
             {ALL_WEIGHTS, 0.0, false},
@@ -60,7 +60,7 @@ static void test_config(void)
             {TIMEOUT, NAN, false},
             {TIMEOUT, INFINITY, false},
             {COUNT, 1.0, true},
-            {COUNT, 16.0, true},
+            {COUNT, 8.0, true},
             {WEIGHT_1, 1000.0, true},
             {WEIGHT_1, 0.0, true},
             /* Only the first count weights are configured; a refused weight beyond them is ignored. */
@@ -71,7 +71,7 @@ static void test_config(void)
             ctl_rooms_config config = zero_config;
             size_t j;
             ctl_rooms_config_defaults(&config, 4);
-            /* A count of 16 needs the slots beyond 4 to hold accepted weights. */
+            /* A count of 8 needs the slots beyond 4 to hold accepted weights. */
             for (j = 4; j < CTL_ROOMS_MAX; j++) {
                 config.weight[j] = 1.0;
             }
@@ -199,13 +199,13 @@ static void test_out_of_range(void)
     }
 
     {
-        enum { COUNT_17, NEGATIVE_WEIGHT };
-        static const int rows[] = {COUNT_17, NEGATIVE_WEIGHT};
+        enum { COUNT_9, NEGATIVE_WEIGHT };
+        static const int rows[] = {COUNT_9, NEGATIVE_WEIGHT};
         for (i = 0; i < sizeof rows / sizeof rows[0]; i++) {
             ctl_rooms_average average;
             ctl_rooms_config_defaults(&config, 4);
-            if (rows[i] == COUNT_17) {
-                config.count = 17;
+            if (rows[i] == COUNT_9) {
+                config.count = 9;
             } else {
                 config.weight[1] = -1.0;
             }
