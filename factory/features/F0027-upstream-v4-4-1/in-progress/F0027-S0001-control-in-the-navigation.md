@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-16T16:48:30.237836Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -36,6 +40,11 @@ journal:
   at: '2026-11-16T16:48:24.966907Z'
   stage: review
   run: 209f7447c962437b863e5ce637f256bc
+- number: 6
+  speaker: factory
+  kind: started
+  at: '2026-11-16T16:48:30.237836Z'
+  stage: doing
 ---
 
 # The control page in v4.4.1's navigation
@@ -130,3 +139,4 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
    - The page still sends `menuJS` (`ctl_web.cpp:282`), so the docs' claim that the shared script marks *Control* holds.
    - Architecture and embedded safety: the only new code is one send of a constant from flash. No upstream file changes beyond the named hook line.
    - Earlier tests: `git diff --name-status develop...HEAD` shows no changed, renamed or deleted test file. The only test change is the new `tests/control/test_navigation.c` (A).
+6. factory: started doing as heishamon.
