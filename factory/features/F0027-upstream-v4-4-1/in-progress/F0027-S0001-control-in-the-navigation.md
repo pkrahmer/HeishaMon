@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-16T16:48:30.237836Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -45,6 +41,12 @@ journal:
   kind: started
   at: '2026-11-16T16:48:30.237836Z'
   stage: doing
+- number: 7
+  speaker: builder
+  kind: result
+  at: '2026-11-16T16:53:19.387268Z'
+  stage: doing
+  run: 0b7d5db766d4483aac31fd547eb75340
 ---
 
 # The control page in v4.4.1's navigation
@@ -140,3 +142,24 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
    - Architecture and embedded safety: the only new code is one send of a constant from flash. No upstream file changes beyond the named hook line.
    - Earlier tests: `git diff --name-status develop...HEAD` shows no changed, renamed or deleted test file. The only test change is the new `tests/control/test_navigation.c` (A).
 6. factory: started doing as heishamon.
+7. builder: Round 1: fixed the reviewer's two findings and nothing else.
+
+   1. `docs/control/firmware.md`, section "The RAM budget": I removed the sentence that blamed the main-page restarts on the control code's texts in RAM. The section now says that keeping constant text in flash spares the ESP8266's heap, which upstream's web server also needs to build its pages. It says the restarts once blamed on those texts came from the websocket's log queue during a full retransmit, fixed upstream in v4.4.1, and it points to the decision of 2026-11-16, "The restarts with a browser on a page came from the websocket's log queue". The rest of the section is unchanged.
+   2. Work item Description, `## Interface`: added one line, placed before the human's-leave line. It says that `ctl_web.cpp` sends the shared header's two halves, `webBodyStart` and `webBodyStart2`, before `<main class='main-content'>`, without the board's description between them. This matches `HeishaMon/src/control/glue/ctl_web.cpp` (`write_page_top`) and what `tests/control/test_navigation.c` checks.
+
+   No code or test changed this round.
+
+   Smoke test, run as written:
+   - `grep -c 'href="/control"' HeishaMon/htmlcode.h` gives 1.
+   - `grep -c 'sideNav' …/ctl_web.cpp` gives 0.
+   - The diff of `htmlcode.h` against `b2bd74e4` gives 1 changed line.
+   - `make firmware`, run inside `make check`, ends with `firmware: green (104.7 s)`.
+   - The ESP8266 RAM line is not in the output tail I read. Only the code changed the build, and this round changed none, so it should still be 45400 bytes, as in round 0. ESP32 global variables are 74176 bytes, the same as in round 0.
+
+   `make check` ends with `check: green`.
+
+   Noticed, not touched: the ESP8266 RAM is still exactly at the 45,400-byte limit.
+
+   The factory left out changes outside the write paths: factory/features/F0027-upstream-v4-4-1/in-progress/F0027-S0001-control-in-the-navigation.md.
+
+   `check`: check: green

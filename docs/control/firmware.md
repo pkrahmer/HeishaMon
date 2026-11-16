@@ -530,9 +530,11 @@ Node-RED takes over again.
 
 On the ESP8266 a constant lives in RAM unless it is placed in flash: every string literal, every
 `const char` array and every table of pointers to text takes RAM for as long as the board runs.
-Upstream's web server builds its main page in that RAM, and with the control code's texts there
-the board ran out of heap on the main page and restarted. So the control code keeps its constant
-text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
+Keeping constant text in flash spares the ESP8266's heap, which upstream's web server also needs
+to build its pages. The restarts once blamed on the control code's texts in RAM came from the
+websocket's log queue during a full retransmit, which upstream fixed in v4.4.1 (see the decision
+of 2026-11-16, "The restarts with a browser on a page came from the websocket's log queue"). The
+control code keeps its constant text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
 topics, the log lines and the page are the same byte for byte. On the ESP32 a constant already
 stays in flash, and on the host nothing changes.
 
