@@ -1,5 +1,5 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 45
 comments_read: [6903522919]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-15T23:57:05.143165Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -62,6 +58,12 @@ journal:
   kind: started
   at: '2026-11-15T23:57:05.143165Z'
   stage: doing
+- number: 10
+  speaker: builder
+  kind: result
+  at: '2026-11-16T00:01:52.768538Z'
+  stage: doing
+  run: 8255afe0524041b9a9bd86ab904408d4
 ---
 
 # Fewer room slots and shared buffers
@@ -204,3 +206,26 @@ Expect: `1`
 
    Your fixes for findings 2 and 3 stand, including the regenerated `five_rooms.txt` reference. 45,060 bytes is well past the target, thank you.
 9. factory: started doing as heishamon.
+10. builder: Round 1, after the human's answer (a). I rewrote the work item's `## Description` and `## Interface` to drop the web glue, as the human asked. No code, test or document changed in this run.
+
+    - **Why:** it now names only `glue/ctl_firmware.cpp`'s scratch texts: log line, topic, subtopic, value, setting value and integral text. It also says why `glue/ctl_web.cpp` stays as it is: the form report and the held desired-setpoint topic are state, not scratch, and the page's buffers are already on the stack.
+    - **What changes:** "The glue's scratch buffers" now reads "The firmware glue's scratch texts".
+    - **Interface:** "The shared scratch texts in `glue/ctl_firmware.cpp`; `glue/ctl_web.cpp` is unchanged."
+
+    Fixes for findings 2 and 3 from the previous run are already committed and stand, as the human confirmed:
+    - `docs/control/adapters.md:80` now says 8.
+    - `tests/control/test_five_rooms.c` has the save path.
+    - `tests/control/data/five_rooms.txt` is regenerated from `develop`'s 16-slot code.
+
+    Checks:
+    - `make check` is green: lint, test (40 control programs) and firmware.
+    - The D1 mini's global RAM is 45,060 / 80,192 bytes, 4,048 below the 49,108 baseline. The ESP32-S3 builds and uses 66,192 bytes.
+    - Smoke test: `make test 2>&1 | grep -E '^control: [0-9]+ test programs passed$' | wc -l` gives `1`, as expected.
+
+    Decisions: none new. The decision log entry from the first run still says what was built. It covers only the firmware glue's buffers, so it needs no change.
+
+    Noticed, not touched: older entries in `docs/control/decisions.md` mention 16 rooms as history.
+
+    The factory left out changes outside the write paths: factory/features/F0026-give-ram-back/in-progress/F0026-S0002-fewer-rooms-shared-buffers.md.
+
+    `check`: check: green
