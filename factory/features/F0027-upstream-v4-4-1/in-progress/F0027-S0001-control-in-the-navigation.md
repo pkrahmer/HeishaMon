@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-16T16:47:13.435591Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -25,6 +29,11 @@ journal:
   at: '2026-11-16T16:47:07.955808Z'
   stage: doing
   run: b390ff9df29a48a8b5bf4dbf3159773a
+- number: 4
+  speaker: factory
+  kind: started
+  at: '2026-11-16T16:47:13.435591Z'
+  stage: review
 ---
 
 # The control page in v4.4.1's navigation
@@ -105,3 +114,4 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
    - The ESP8266 RAM is at the limit exactly, so any later story that adds RAM will need to reclaim some first.
 
    `check`: check: green
+4. factory: started review as heishamon.
