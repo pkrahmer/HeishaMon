@@ -63,16 +63,6 @@ static void apply_form(const ctl_form *form)
 // --- The page ------------------------------------------------------------------------------
 
 static const char PAGE_TOP[] FLASHPROG = R"====(
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-  var nav=document.getElementById('sideNav');
-  nav.innerHTML=`
-<a href="/"><span class="nav-icon">&#8634;</span> Home</a>
-<a href="/settings"><span class="nav-icon">&#9881;</span> Settings</a>
-<a href="/rules"><span class="nav-icon">&#8881;</span> Rules</a>
-`;
-});
-</script>
 <main class='main-content'>
 <h1 style='color:var(--accent);margin-bottom:16px'><span aria-hidden='true'>&#9832;</span>
 Control loop</h1>
@@ -256,6 +246,9 @@ static void write_page_top(struct webserver_t *client)
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+    // Upstream splits the top bar around the board's description; the page leaves the
+    // description out, since only upstream's own file can reach the helper that escapes it.
+    webserver_send_content_P(client, webBodyStart2, strlen_P(webBodyStart2));
     webserver_send_content_P(client, PAGE_TOP, strlen_P(PAGE_TOP));
     client->userdata = (void *)(uintptr_t)0;
 }

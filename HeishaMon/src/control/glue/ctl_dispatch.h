@@ -10,6 +10,7 @@
 #include "../loop/ctl_loop.h"
 #include "ctl_settings.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -18,7 +19,8 @@ typedef enum {
     CTL_TOPIC_INPUT,
     CTL_TOPIC_SETTING,
     CTL_TOPIC_DESIRED,       /* the thermostat's setpoint of the setting desired_topic */
-    CTL_TOPIC_INTEGRAL_RESET /* the command that clears the core's integral term */
+    CTL_TOPIC_INTEGRAL_RESET, /* the command that clears the core's integral term */
+    CTL_TOPIC_SET_ENERGY      /* the command that sets the core's energy balance */
 } ctl_topic_kind;
 
 typedef struct {
@@ -30,13 +32,19 @@ typedef struct {
 
 /* Returns INPUT with CTL_INPUT_ROOM and the room's index for a topic equal to the topic of a
  * room below room_count, the first such room when several are equal; else DESIRED for a topic
- * equal to desired_topic; else INTEGRAL_RESET for
- * <base>/control/set/integral_reset, which is a command and no setting; SETTING with the name for
+ * equal to desired_topic; else INTEGRAL_RESET for <base>/control/set/integral_reset and
+ * SET_ENERGY for <base>/control/set/energy_wh, which are commands and no settings; SETTING with the name for
  * every other <base>/control/set/<name>, when the name has 1 to CTL_SETTINGS_NAME_MAX - 1 characters and no '/' (whether such a setting
  * exists is the setter's to say). Returns NONE for every other topic, an empty one included, and
  * for a NULL argument; an empty topic setting matches nothing, since an empty topic is NONE.
  * Every field the kind does not use is zero. */
 ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, const char *topic);
+
+/* Returns true with the energy balance in Wh that the length bytes of payload, which need no
+ * terminating zero, carry as a bare number. Refuses, returning false and leaving *energy_wh as it
+ * was, a NULL payload, a JSON object, any other text the payload parser refuses, and a number
+ * that is not finite. The value is not clamped: that is the core's to do. */
+bool ctl_dispatch_energy_wh(const char *payload, size_t length, double *energy_wh);
 
 /* Returns the thermostat-1 state of byte 6 of the emulated optional PCB frame: its bits 2 and 3,
  * 0 to 3. Refuses nothing. */

@@ -13,7 +13,7 @@ a bare number whose magnitude is below 10¹², with at most three decimals; a to
 |---|---|---|---|
 | `enabled` | `0` | `0` or `1` | Send commands to the pump: 0 = only watch and decide, 1 = control the pump. |
 | `cooling` | `0` | `0` or `1` | Allow cooling demand: 0 = heating only, 1 = heating and cooling. |
-| `rooms` | `0` | whole, 0 to 16 | Number of room sensors in the indoor average. On the control page, save the count first; the room fields then appear. |
+| `rooms` | `0` | whole, 0 to 8 | Number of room sensors in the indoor average. On the control page, save the count first; the room fields then appear. A settings file written with more rooms keeps its first 8. |
 | `room.<i>.topic` | empty | a topic; one per room `i` below `rooms` | MQTT topic of room `i`'s temperature. Empty: the room never receives a value. |
 | `room.<i>.weight` | `1` | 0 to 1000; one per room `i` below `rooms`; the weights of all rooms together above 0 | Weight of room `i` in the indoor average; 0 = watched, not counted. |
 | `room_timeout_s` | `1800` | s, above 0 | Seconds after which a room's last value counts as too old. |
@@ -57,7 +57,7 @@ The target in use is published on `<base>/control/status/desired_c`, and where i
 
 The adjustment alone leaves the house steadily off its target by whatever the model gets wrong,
 divided by `adjustment_w_per_k`. The integral term learns that missing power slowly and removes
-the offset; `core.md` (*Controller*, *The five functions*) says when it learns. It is off by
+the offset; `core.md` (*Controller*, *The six functions*) says when it learns. It is off by
 default. A start value of `25` for `integral_w_per_kh` at an `adjustment_w_per_k` of `600` is a
 suggestion, not a default: it takes some hours to learn an offset of a few tenths of a kelvin,
 slowly enough that it does not swing against the house's own inertia.
@@ -67,6 +67,24 @@ command, not a setting: nothing is stored in `/control.json` and nothing comes b
 `<base>/control/config/`. The term itself is published on `<base>/control/status/p_integral_w`
 (`-` while the inputs are missing), and the energy it has booked since the start on
 `<base>/control/status/integral_wh`.
+
+## Setting the energy balance
+
+A restart starts the energy balance from 0, and the pump then rests until the balance reaches a
+start threshold again. A message to `<base>/control/set/energy_wh` whose payload is a bare finite
+number sets the balance to that value in Wh, so that the owner can restore the value
+`<base>/control/status/energy_wh` showed before the restart. Like `integral_reset`, it is a
+command, not a setting: nothing is stored in `/control.json`, nothing comes back on
+`<base>/control/config/`, no setting changes, and the next restart starts from 0 again.
+
+The value is clamped to the bounds the controller's own integration clamps to at that moment:
+`energy_clamp_factor` times `hysteresis_wh` either way in a permitted direction, and
+`hysteresis_wh` in a masked one. With the defaults (1500 Wh, factor 2) and both directions
+permitted, `-5000` gives `-3000`. The controller first integrates the time up to the message, so
+that no interval is lost or counted twice; the next decision uses the new balance, and the next
+status publication shows it on `<base>/control/status/energy_wh`. Any other payload, a JSON
+object or a non-finite number included, is refused, changes nothing and is logged as
+`control: setting energy_wh refused (BAD_VALUE)`.
 
 The learned term survives a restart: the board keeps it in `/control_integral.txt`, written at
 most every 6 hours and only after it moved by 10 W, and loads it at boot (`firmware.md`, *The

@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define CTL_ROOMS_MAX 16
+#define CTL_ROOMS_MAX 8
 
 typedef struct {
     size_t count;                 /* rooms configured, 1 to CTL_ROOMS_MAX */

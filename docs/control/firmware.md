@@ -23,7 +23,7 @@ below, with the rooms' names after `rooms`.
 |---|---|---|---|
 | `enabled` | `0` or `1` | `0` | |
 | `cooling` | `0` or `1` | `0` | |
-| `rooms` | decimal | `0` | 0 to 16; a lower count keeps the topics and weights above it unlisted |
+| `rooms` | decimal | `0` | 0 to 8; a lower count keeps the topics and weights above it unlisted |
 | `room.<i>.topic` | text | empty | one per room `i` below `rooms`; see topics below |
 | `room.<i>.weight` | number | `1` | one per room `i` below `rooms`; 0 to 1000 |
 | `room_timeout_s` | number | `1800` | greater than 0 |
@@ -91,7 +91,8 @@ The entries come one at a time, by index, so that the glue needs no buffer for a
 `ctl_telemetry_count` gives a group's count and `ctl_telemetry_entry` the entry at an index of
 `CTL_GROUP_INPUTS`, `CTL_GROUP_STATUS` or `CTL_GROUP_OUTPUTS`. The source holds the record of the
 last decision tick (`loop.md`), the rooms and their configuration, the uptime in seconds,
-whether commands are enabled, and the target the decision was made with and its source. A subtopic, with its terminating zero, fits
+whether commands are enabled, the target the decision was made with and its source, and the
+heap's shape the glue sampled at the decision. A subtopic, with its terminating zero, fits
 `CTL_TELEMETRY_SUBTOPIC_MAX` (48 bytes).
 
 A number is written by `ctl_format_fixed` with the decimals the tables name; a value the record
@@ -115,7 +116,7 @@ does not have is written `-`. A flag is `1` or `0`.
 
 The four input values are `-` when the decision has no inputs: the core resolved nothing then.
 
-**Status**, 14 entries:
+**Status**, 16 entries, and a 17th on a board that reports the heap's fragmentation:
 
 | Subtopic | Value |
 |---|---|
@@ -133,6 +134,9 @@ The four input values are `-` when the decision has no inputs: the core resolved
 | `status/integral_wh` | the integral term's energy in the ledger, 1 decimal |
 | `status/desired_c` | the target the decision was made with, 2 decimals |
 | `status/desired_source` | where the target came from: `setting` (`desired_indoor_c`) or `topic` (the setpoint held from `desired_topic`) |
+| `status/heap_free` | the free heap at the decision, in bytes |
+| `status/heap_max_block` | the largest block the heap could allocate at the decision, in bytes |
+| `status/heap_fragmentation` | the ESP8266 only: the heap's fragmentation at the decision, in percent, 0 to 100; the ESP32 does not report it, and the entry is not listed there |
 
 Beside the telemetry's status entries, the glue publishes `status/integral_saved_w` with them:
 the integral last written to or loaded from `/control_integral.txt` (*The integral file*), 1
@@ -155,6 +159,51 @@ name.
 **A refusal writes nothing.** Both functions return false, and leave both buffers as they were,
 for an index past the end, for a buffer too small for the subtopic or the value with its
 terminating zero, and for a number the fixed format refuses: a text is never cut.
+
+## The reset reason
+
+A board without a serial cable loses the crash message of a restart. The chip keeps the reason of
+its last reset across the reboot, so the glue publishes it, once per boot, after the first
+successful connection to the broker (hook 5 below), or at the next connect when the client
+did not take it: one line of text, retained, to
+`<mqtt_topic_base>/control/status/reset_reason`. A later reconnect does not publish it again; the
+retained message holds it until the next boot replaces it. Whether it is still due is the pure
+latch `ctl_reset_latch` in the same header, so a host test checks both sides: a publish the
+client did not take leaves it due, a taken one ends it for the boot.
+
+The text is built by the pure `glue/ctl_reset_reason.h` from the reason's fields as numbers; it
+fits `CTL_RESET_REASON_TEXT_MAX` (105 bytes) with its terminating zero, and a smaller buffer that
+cannot hold it is refused, written nothing. The glue reads the fields:
+
+- **ESP8266** (`ESP.getResetInfoPtr()`): `power on`, `hardware watchdog`, `software watchdog`,
+  `software restart`, `deep sleep wake`, `external reset`, and for an exception its cause and five
+  addresses, each in hexadecimal with eight digits:
+  `exception 28 epc1=0x4020f3a4 epc2=0x00000000 epc3=0x00000000 excvaddr=0x00000004 depc=0x00000000`.
+- **ESP32-S3** (`esp_reset_reason()`): `unknown`, `power on`, `external reset`,
+  `software restart`, `exception`, `interrupt watchdog`, `task watchdog`, `other watchdog`,
+  `deep sleep wake`, `brownout`, `sdio reset`, `usb reset`, `jtag reset`, `efuse error`,
+  `power glitch`, `cpu lockup`. The ESP32 keeps no exception fields, so a panic is `exception`
+  alone.
+
+A reason neither list knows is `reason <n>`, with its number.
+
+**Decoding an exception.** The cause is the Xtensa exception cause (28 and 29 are a load or a
+store at an invalid address, `excvaddr`, such as a null pointer's 0x00000004; 0 an illegal
+instruction; 3 a load or store error, often an unaligned access to flash). `epc1` is the address
+of the instruction that faulted. With the ELF of the exact release the board runs (the `.elf`
+beside the `.bin` in arduino-cli's build folder), the toolchain names the function and the line:
+
+```sh
+xtensa-lx106-elf-addr2line -pfiaC -e <elf> <epc1>
+```
+
+for example `xtensa-lx106-elf-addr2line -pfiaC -e HeishaMon.ino.elf 0x4020f3a4`. An address of
+another build names the wrong place, so keep the ELF of every release that goes on a board.
+
+**The heap's shape** is in the status entries of the telemetry above: the free heap, the largest
+block and, on the ESP8266, the fragmentation, sampled when the loop decides. A free heap that is
+large while the largest block is small is a fragmented heap, which a large allocation, such as a
+page, cannot use.
 
 ## The glue
 
@@ -188,7 +237,7 @@ line of `HeishaMon/htmlcode.h`, serve the control page and are described with it
    reach the loop while the broker is down (decision F-3).
 5. `ctl_firmware_subscribe(...)` in `mqtt_reconnect()`, after upstream's subscriptions of a
    successful connect: every new connection subscribes again to the loop's topics and publishes
-   the settings again.
+   the settings again; the first one also publishes the reset reason (*The reset reason*).
 6. `if (ctl_firmware_mqtt(topic, payload, length)) return;` at the very start of
    `mqtt_callback()`, before upstream's own guard and copies: a message of the loop's is handled
    and never reaches upstream's parsing; every other message goes on untouched.
@@ -255,8 +304,10 @@ text values, the names and value texts of the settings' table above.
     {"enabled":"0","cooling":"0","rooms":"2","room.0.topic":"ccu/living/temp",
      "room.0.weight":"1","room.1.topic":"ccu/bath/temp","room.1.weight":"0.5",...}
 
-At start the glue applies the pairs in file order with `ctl_settings_set`, so `rooms` comes before
-the rooms' names. A value that is not a JSON string, or a pair the setter refuses, is logged with
+At start the glue applies the pairs in file order with `ctl_settings_load`, so `rooms` comes
+before the rooms' names. It is the setter but for one thing: a whole count of rooms above the 8
+room slots is taken as 8, so a file written by a firmware with more slots keeps its first 8 rooms,
+and the names of the rooms beyond them are refused pairs. A value that is not a JSON string, or a pair the setter refuses, is logged with
 the setter's answer and skipped; the rest of the file still applies. A name the settings no longer
 list, such as one an older firmware wrote, is such a refused pair, and the next write leaves it
 out. A missing file, one that cannot be opened or does not hold a JSON object, and a set that ends
@@ -351,8 +402,11 @@ The target and its source of the last decision are the telemetry's `status/desir
 
 ## The control page
 
-HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
-the root page. From top to bottom it shows:
+HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the side
+menu that upstream's shared page header gives every page. The page sends that header as it is,
+so the menu holds the same links as on every other page, and upstream's shared menu script marks
+*Control* as the page being shown. The page sends the top bar's two halves without the board's
+description between them. Below the menu, from top to bottom, it shows:
 
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
@@ -431,9 +485,12 @@ carry the page:
    the request by that route. So one line at the very start serves both routes and every step,
    and every other request passes on to upstream untouched. `/savecontrol` is claimed even after
    the method step has set upstream's route for a POST.
-9. In `htmlcode.h`, the menu of the root page gets the link
-   `<a href="/control"><span class="nav-icon">&#9832;</span> Control</a>` after the link to
-   `/rules`.
+9. In `htmlcode.h`, inside the shared menu `<nav class='sidemenu-nav' id='sideNav'>`, the line
+   `<a href="/control"><span class="nav-icon" aria-hidden="true">&#9832;</span> Control</a>`
+   between the links to `/rules` and `/settings`, in the form of upstream's links there and
+   outside every `#ifdef`, so both boards show it. Against upstream's release v4.4.1 it is the
+   only line of `htmlcode.h` that differs. `tests/control/test_navigation.c` checks its place
+   and that the page writes no menu of its own.
 
 ## First start on a board
 
@@ -468,3 +525,53 @@ stops hot water too.
 Smart Grid mode it sent in its optional PCB frame: if that was `1`, the pump stays in Capacity 1
 until the owner sends `SetSmartGridMode` `0`, by HeishaMon's web page or its `commands/` topic, or
 Node-RED takes over again.
+
+## The RAM budget
+
+On the ESP8266 a constant lives in RAM unless it is placed in flash: every string literal, every
+`const char` array and every table of pointers to text takes RAM for as long as the board runs.
+Keeping constant text in flash spares the ESP8266's heap, which upstream's web server also needs
+to build its pages. The restarts once blamed on the control code's texts in RAM came from the
+websocket's log queue during a full retransmit, which upstream fixed in v4.4.1 (see the decision
+of 2026-11-16, "The restarts with a browser on a page came from the websocket's log queue"). The
+control code keeps its constant text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
+topics, the log lines and the page are the same byte for byte. On the ESP32 a constant already
+stays in flash, and on the host nothing changes.
+
+`ctl_flash.h` holds what a `.c` file needs, so that it still compiles on the host as strict C99:
+`CTL_FLASH` places a constant object in flash, `CTL_FLASH_TEXT("...")` is a string literal in flash,
+and `CTL_FLASH_CHAR`, `CTL_FLASH_LENGTH`, `CTL_FLASH_COMPARE` and `CTL_FLASH_COPY` read it. On the
+ESP8266 they are `PROGMEM`, `PSTR` and the flash-safe `_P` functions; elsewhere plain constants and
+the ordinary functions. A `.cpp` file uses upstream's `PSTR`, `PROGMEM` and the `_P` functions
+directly.
+
+The rule for new text:
+
+- A literal the control code writes, compares or logs is in flash: `CTL_FLASH_TEXT` in a `.c` file
+  (with `ctl_text_put_flash` to append it), `PSTR` with `log_text`, `snprintf_P` or
+  `publish_flash` in the glue's `.cpp` files.
+- A table of names is one array in flash with the text inside its entries
+  (`static const char NAMES[][SIZE] CTL_FLASH`), never an array of pointers, whose pointers would
+  sit in RAM. Prefer a small table over a `switch` that returns texts or pointers: the compiler may
+  turn such a switch into a table of pointers in RAM.
+- A pointer to flash text is never read directly. It is passed to a function that says it takes
+  flash text, or copied into the caller's buffer first, before anything else reads it.
+- The core stays as it is: it may include no header beyond its own and four of the standard
+  library, so its few type names stay in RAM.
+
+The tables and buffers are kept small too:
+
+- The settings, the loop's configuration and the room table hold `CTL_ROOMS_MAX` (8) room slots,
+  each with a topic of up to 96 characters in the settings. The owner's house has 5 rooms; 16
+  slots held about 1 KB more for rooms nobody used.
+- The firmware glue's scratch texts share their storage, each use under its own name and size, so
+  that no text is cut shorter than before: the value texts (a published value, a setting's value
+  for the file, the integral's text) share one buffer, and the log line shares the storage of the
+  topic and subtopic of a publish. A log line may show a value, so it never shares the value's
+  buffer; a new use of a scratch text keeps to these pairs or gets its own buffer.
+- The web glue's save report lives from the save to the page that follows it, and the held
+  setpoint's topic for as long as the board runs; neither is scratch, so neither shares storage.
+
+The D1 mini's global RAM went from 49108 bytes with the texts in RAM to 46484 with them in flash,
+and to 45060 with 8 room slots and the shared buffers. `make firmware` prints the D1 mini's
+"Variables and constants in RAM"; a story that adds text or a buffer looks at that line.

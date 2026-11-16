@@ -77,7 +77,7 @@ fresh or not like any other and is counted in `fresh_count`, but it moves neithe
 the mean: a sensor to watch before it is trusted.
 
 **Defaults** (`ctl_rooms_config_defaults`): every weight 1.0, room timeout 1800 s. A
-configuration is valid with 1 to `CTL_ROOMS_MAX` (16) rooms, each weight accepted by
+configuration is valid with 1 to `CTL_ROOMS_MAX` (8) rooms, each weight accepted by
 `CTL_BOUND_WEIGHT` (0 to 1000), a weight sum above 0, and a finite timeout above 0;
 `ctl_rooms_average_at` gives no average for a configuration that is not valid.
 

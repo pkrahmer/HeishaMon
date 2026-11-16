@@ -90,6 +90,11 @@ Assuming that bytes from #129 to #138 are unique for each model of Aquarea heat 
 |83 | 42 D4 0B 83 71 42 D2 0B 72 66 | WH-ADC0309J3E5C | WH-UD09JE5-1 | KIT-ADC09JE5C-1 | 9 | 1ph | HP - All-In-One Compact J-series |
 |84 | E2 D5 0D 13 95 43 D6 0D 71 95 | WH-SXC09K3E8 | WH-UXZ09KE8 | - | 9 | 3ph | T-CAP
 |85 | E2 D5 0B 15 95 43 D6 0D 72 95 | WH-SXC12K9E8 | WH-UXZ12KE8 | KIT-WXC12K9E8 | 12 | 3ph | T-CAP - split K-series R32 |
+|86 | E2 D5 0C 00 09 43 D6 0D 07 09 | WH-SDC09K3E8 | WH-UDZ09KE8 | KIT-WC09K3E8 | 9 | 3ph | HP |
+|87 | 12 D7 0D 98 14 39 94 0F 83 10 | WH-SDC0316M9E8 | WH-WXG09ME8 | KIT-SDCWXG09 | 9 | 3ph | T-CAP - M-series; alt 61 | 
+|88 | E2 D5 0C 67 00 83 92 0D 29 98 | WH-ADC0509L3E5AN | WH-WDG09LE5 | KIT-ADC09L3E5AN | 9 | 1ph | HP - All-In-One L-series |
+|89 | 12 D7 0C 98 14 35 94 0D 84 10 | WH-SDC0316M9E8 | WH-WXG12ME8 | KIT-SDCWXG12 | 12 | 3ph | T-CAP - M-series |
+|90 | E2 D5 0D 99 94 02 D6 0F 68 95 | WH-ADC0309K3E5 | WH-UDZ09KE5 | KIT-ADC09K3E5 | 9 | 1ph | HP - All-In-One K-series |
 All bytes are used for Heat Pump model identification in the code.
 
 Note: These are the heat pump types that users have verified and reported back the model. HeishaMon should work with all H,J and M generation Aquarea heat pumps.

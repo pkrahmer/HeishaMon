@@ -4,6 +4,7 @@
 #include "../core/ctl_controller.h"
 #include "../core/ctl_signals.h"
 #include "../core/ctl_types.h"
+#include "../ctl_flash.h"
 #include "../loop/ctl_loop.h"
 #include "../loop/ctl_text.h"
 #include "../route/ctl_router.h"
@@ -18,7 +19,7 @@
 
 #define INPUTS_FIXED 8
 #define ENTRIES_PER_ROOM 3
-#define STATUS_COUNT 14
+#define STATUS_COUNT 16 /* without the heap's fragmentation */
 #define OUTPUTS_COUNT 4
 /* Holds the longest value an entry writes: two commands at their fields' full width, or all five
  * signal names, with room to spare. */
@@ -67,35 +68,35 @@ static void put_fixed_input(ctl_text *subtopic, ctl_text *value,
     const bool has_inputs = decision->has_inputs;
     switch (index) {
     case 0:
-        ctl_text_put(subtopic, "inputs/indoor_c");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/indoor_c"));
         ctl_text_put_input(value, has_inputs, inputs->t_indoor_c, 2);
         break;
     case 1:
-        ctl_text_put(subtopic, "inputs/outdoor_c");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/outdoor_c"));
         ctl_text_put_input(value, has_inputs, inputs->t_outdoor_c, 2);
         break;
     case 2:
-        ctl_text_put(subtopic, "inputs/produced_w");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/produced_w"));
         ctl_text_put_input(value, has_inputs, inputs->p_produced_w, 0);
         break;
     case 3:
-        ctl_text_put(subtopic, "inputs/internal_w");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/internal_w"));
         ctl_text_put_input(value, has_inputs, inputs->p_internal_w, 0);
         break;
     case 4:
-        ctl_text_put(subtopic, "inputs/substituted");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/substituted"));
         put_signals(value, decision->substituted);
         break;
     case 5:
-        ctl_text_put(subtopic, "inputs/unhealthy");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/unhealthy"));
         put_signals(value, decision->unhealthy);
         break;
     case 6:
-        ctl_text_put(subtopic, "inputs/rooms_fresh");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/rooms_fresh"));
         put_count(value, record->rooms.fresh_count);
         break;
     default:
-        ctl_text_put(subtopic, "inputs/rooms_fresh_weight");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/rooms_fresh_weight"));
         ctl_text_put_number(value, record->rooms.fresh_weight, 1);
         break;
     }
@@ -106,20 +107,20 @@ static void put_room_input(ctl_text *subtopic, ctl_text *value,
 {
     const size_t room = index / ENTRIES_PER_ROOM;
     const ctl_rooms *rooms = source->rooms;
-    ctl_text_put(subtopic, "inputs/room/");
+    ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("inputs/room/"));
     put_count(subtopic, room);
     switch (index % ENTRIES_PER_ROOM) {
     case 0:
-        ctl_text_put(subtopic, "/value_c");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("/value_c"));
         ctl_text_put_input(value, rooms->has_value[room], rooms->value_c[room], 2);
         break;
     case 1:
-        ctl_text_put(subtopic, "/fresh");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("/fresh"));
         put_flag(value, ctl_rooms_is_fresh(rooms, source->rooms_config, room,
                                            source->record->t));
         break;
     default:
-        ctl_text_put(subtopic, "/weight");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("/weight"));
         ctl_text_put_number(value, source->rooms_config->weight[room], 1);
         break;
     }
@@ -141,60 +142,72 @@ static void put_status_entry(ctl_text *subtopic, ctl_text *value,
     const ctl_decision *decision = &source->record->decision;
     switch (index) {
     case 0:
-        ctl_text_put(subtopic, "status/demand");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/demand"));
         ctl_text_put(value, ctl_demand_name(decision->demand));
         break;
     case 1:
-        ctl_text_put(subtopic, "status/reason");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/reason"));
         ctl_text_put(value, ctl_reason_name(decision->reason));
         break;
     case 2:
-        ctl_text_put(subtopic, "status/phase");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/phase"));
         ctl_text_put(value, ctl_phase_name(decision->phase));
         break;
     case 3:
-        ctl_text_put(subtopic, "status/energy_wh");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/energy_wh"));
         ctl_text_put_number(value, decision->energy_wh, 1);
         break;
     case 4:
-        ctl_text_put(subtopic, "status/p_net_w");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/p_net_w"));
         ctl_text_put_input(value, decision->has_inputs, decision->balance.p_net_w, 0);
         break;
     case 5:
-        ctl_text_put(subtopic, "status/clamped");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/clamped"));
         put_flag(value, decision->clamped);
         break;
     case 6:
-        ctl_text_put(subtopic, "status/integrated_s");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/integrated_s"));
         ctl_text_put_number(value, decision->integrated_s, 0);
         break;
     case 7:
-        ctl_text_put(subtopic, "status/skipped_s");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/skipped_s"));
         ctl_text_put_number(value, decision->skipped_s, 0);
         break;
     case 8:
-        ctl_text_put(subtopic, "status/uptime_s");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/uptime_s"));
         ctl_text_put_number(value, source->uptime_s, 0);
         break;
     case 9:
-        ctl_text_put(subtopic, "status/enabled");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/enabled"));
         put_flag(value, source->enabled);
         break;
     case 10:
-        ctl_text_put(subtopic, "status/p_integral_w");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/p_integral_w"));
         ctl_text_put_input(value, decision->has_inputs, decision->balance.p_integral_w, 1);
         break;
     case 11:
-        ctl_text_put(subtopic, "status/integral_wh");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/integral_wh"));
         ctl_text_put_number(value, decision->ledger.integral_wh, 1);
         break;
     case 12:
-        ctl_text_put(subtopic, "status/desired_c");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/desired_c"));
         ctl_text_put_number(value, source->desired_c, 2);
         break;
-    default:
-        ctl_text_put(subtopic, "status/desired_source");
+    case 13:
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/desired_source"));
         ctl_text_put(value, ctl_desired_source_name(source->desired_source));
+        break;
+    case 14:
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/heap_free"));
+        ctl_text_put_number(value, (double)source->heap_free, 0);
+        break;
+    case 15:
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/heap_max_block"));
+        ctl_text_put_number(value, (double)source->heap_max_block, 0);
+        break;
+    default:
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("status/heap_fragmentation"));
+        ctl_text_put_number(value, (double)source->heap_fragmentation, 0);
         break;
     }
 }
@@ -205,11 +218,11 @@ static void put_output_entry(ctl_text *subtopic, ctl_text *value,
     const ctl_loop_record *record = source->record;
     switch (index) {
     case 0:
-        ctl_text_put(subtopic, "outputs/router");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("outputs/router"));
         ctl_text_put(value, ctl_router_status_name(record->router_status));
         break;
     case 1:
-        ctl_text_put(subtopic, "outputs/thermostat_state");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("outputs/thermostat_state"));
         if (record->sent_state < 0) {
             ctl_text_put(value, NOTHING);
         } else {
@@ -217,11 +230,11 @@ static void put_output_entry(ctl_text *subtopic, ctl_text *value,
         }
         break;
     case 2:
-        ctl_text_put(subtopic, "outputs/commands");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("outputs/commands"));
         ctl_text_put_commands(value, &record->commands);
         break;
     default:
-        ctl_text_put(subtopic, "outputs/blocked");
+        ctl_text_put_flash(subtopic, CTL_FLASH_TEXT("outputs/blocked"));
         ctl_text_put(value, ctl_gate_name(source->gate));
         break;
     }
@@ -248,7 +261,7 @@ size_t ctl_telemetry_count(const ctl_telemetry_source *source, ctl_group group)
     case CTL_GROUP_INPUTS:
         return INPUTS_FIXED + ENTRIES_PER_ROOM * room_count(source->rooms_config);
     case CTL_GROUP_STATUS:
-        return STATUS_COUNT;
+        return STATUS_COUNT + (source->has_heap_fragmentation ? 1 : 0);
     case CTL_GROUP_OUTPUTS:
         return OUTPUTS_COUNT;
     default:
@@ -299,7 +312,7 @@ bool ctl_telemetry_setting(const ctl_settings *settings, size_t index,
         return false;
     }
     ctl_text_start(&subtopic_writer, subtopic_text, sizeof subtopic_text);
-    ctl_text_put(&subtopic_writer, "config/");
+    ctl_text_put_flash(&subtopic_writer, CTL_FLASH_TEXT("config/"));
     ctl_text_put(&subtopic_writer, name);
     if (!subtopic_writer.fits) {
         return false;

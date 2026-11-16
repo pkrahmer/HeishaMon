@@ -1,6 +1,8 @@
 #include "ctl_dispatch.h"
 
+#include "../adapt/ctl_payload.h"
 #include "../adapt/ctl_rooms.h"
+#include "../ctl_flash.h"
 #include "../loop/ctl_loop.h"
 #include "ctl_settings.h"
 
@@ -11,6 +13,7 @@
 
 #define SETTING_PATH "/control/set/"
 #define INTEGRAL_RESET "integral_reset"
+#define SET_ENERGY "energy_wh"
 
 /* Returns the rest of topic after prefix, or NULL when topic does not start with it. */
 static const char *after_prefix(const char *topic, const char *prefix)
@@ -69,12 +72,20 @@ ctl_topic ctl_dispatch_topic(const ctl_settings *settings, const char *base, con
         result.kind = CTL_TOPIC_DESIRED;
     } else if (is_setting(base, topic, result.name)) {
         result.kind = CTL_TOPIC_SETTING;
-        if (strcmp(result.name, INTEGRAL_RESET) == 0) {
+        if (CTL_FLASH_COMPARE(result.name, CTL_FLASH_TEXT(INTEGRAL_RESET)) == 0) {
             result = none;
             result.kind = CTL_TOPIC_INTEGRAL_RESET;
+        } else if (CTL_FLASH_COMPARE(result.name, CTL_FLASH_TEXT(SET_ENERGY)) == 0) {
+            result = none;
+            result.kind = CTL_TOPIC_SET_ENERGY;
         }
     }
     return result;
+}
+
+bool ctl_dispatch_energy_wh(const char *payload, size_t length, double *energy_wh)
+{
+    return payload != NULL && ctl_payload_parse_number(payload, length, energy_wh);
 }
 
 int ctl_dispatch_thermostat_state(uint8_t pcb_byte_6)

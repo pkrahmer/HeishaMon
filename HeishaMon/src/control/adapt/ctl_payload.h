@@ -28,4 +28,11 @@ typedef struct {
  * twice, a timestamp that is not 1 to 18 digits, and a number that is not finite as a double. */
 bool ctl_payload_parse(const char *text, size_t length, ctl_payload *payload);
 
+/* Parses the length bytes of text, which need no terminating zero, as one bare number with
+ * optional white space around it, and returns true with the number in *value. Exists for the
+ * payloads that carry no timestamp (a setting, a command, a stored value), so that a JSON object
+ * cannot pass as one. Refuses, returning false and leaving *value as it was, what
+ * ctl_payload_parse refuses and every JSON object. */
+bool ctl_payload_parse_number(const char *text, size_t length, double *value);
+
 #endif

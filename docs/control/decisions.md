@@ -1072,3 +1072,123 @@ call count.
 **Rejected.** Rewriting the history to remove the old name from earlier commits: it would rewrite
 every published commit and break every clone and open pull request, for a name that the current
 tree no longer shows.
+
+## 2026-11-15: The reset reason is published retained once per boot
+
+**Decision.** After the first successful connection to the broker of a boot, the firmware publishes
+the chip's reason of its last reset, retained, as one line of text to
+`<base>/control/status/reset_reason`: on the ESP8266 with the exception's cause and five addresses
+in hexadecimal, on the ESP32 as `esp_reset_reason()` names it. A later reconnect does not repeat it.
+The heap's free bytes, largest block and, on the ESP8266, fragmentation join the status telemetry,
+sampled at each decision. The text is built by a pure function of the fields as numbers, so a host
+test checks it; the ESP32's names follow the numbering of `esp_reset_reason_t`, which the glue
+asserts at compile time for the values that fix the table's order. The ESP32's fragmentation entry
+is left out of the list rather than published as a made-up value.
+**Reason.** The owner's board restarts with no serial cable attached, so the crash message is lost;
+the reset reason survives the reboot, and retained it waits on the broker for whoever looks, with
+the addresses that `xtensa-lx106-elf-addr2line` turns into a function and line with the release
+ELF. Once per boot is enough because it changes only at a boot.
+**Rejected.** Publishing it on every connect: a retained message already holds it, and a flapping
+link would repeat it for nothing. Saving the crash's stack to the file system: more flash writes
+and code for what the addresses mostly already tell. Fields on a watchdog reset: the reason alone
+is the line the owner asked for; the watchdog's addresses can follow if a crash needs them.
+
+## 2026-11-15: A one-shot command sets the energy balance
+
+**Decision.** A message on `<base>/control/set/energy_wh` with a bare finite number sets the
+controller's energy balance once, through the core's `ctl_set_energy`, which first advances to the
+message's instant and then clamps the value to the bounds of the directions permitted at that
+moment, the bounds of the integration itself. It is a command like `integral_reset`: it is not
+stored and changes no setting. The payload is a bare number only, as a setting's is; a JSON object
+is refused, since its timestamp would mean nothing to a command. The command, a setting and the
+stored integral read their bare number through one shared function, `ctl_payload_parse_number`
+beside the payload parser, instead of each refusing the object on its own. A refused value changes nothing,
+not even the integration reference. Setting the energy leaves the `clamped` flag alone, because the
+flag reports what the last integration step did. The log names the value after the clamp.
+**Reason.** A restart resets the balance to 0, and the pump then rests until the balance reaches
+the start threshold again; the owner wants to set it back from the value recorded before the
+restart. Clamping to the integration's own bounds means the command cannot store more windup than
+the controller itself could.
+**Rejected.** Restoring the balance automatically at boot from a stored value: after a long outage
+the stored value is stale and would be wrong. Refusing a value outside the bounds instead of
+clamping it: the owner's recorded value lay within the bounds of its moment, and the mask may have
+changed since. Accepting the payload parser's JSON object: no source sends one for a command.
+
+## 2026-11-15: Constant text in flash
+
+**Decision.** On the ESP8266 the control code keeps its constant text in flash: the telemetry's
+subtopics, the setting names, the log texts, the control page's snippets, the record line's keys,
+the reset reason words and the save results. One header, `ctl_flash.h`, maps `CTL_FLASH`,
+`CTL_FLASH_TEXT` and the flash-safe reads to `PROGMEM`, `PSTR` and the `_P` functions on the
+ESP8266 and to plain constants and the ordinary functions elsewhere, so that every `.c` file still
+compiles on the host as strict C99; the `.cpp` glue uses `PSTR` and the `_P` functions as upstream
+does. Name tables are arrays of fixed-width entries in flash rather than arrays of pointers. Flash
+text is copied into the caller's buffer before it is read as RAM text. The core is left as it is.
+**Reason.** The board restarted when upstream's web server built the main page and ran out of
+heap; the control code held about 4 KB of constant text in RAM that the page needed. The D1 mini's
+global RAM went from 49108 to 46484 bytes.
+**Rejected.** Leaving the text in RAM: the main page would keep restarting the board. Moving the
+core's type names too: the core may include no header outside its own folder and the four of the
+standard library, and its 296 bytes are not needed for the budget. Relying on the ESP8266's
+emulation of byte reads from flash (`non32xfer=fast`) to read flash text as RAM text: it is slow
+and hides the difference that a later reader of the code must see.
+
+## 2026-11-15: 8 room slots and shared buffers
+
+**Decision.** `CTL_ROOMS_MAX` is 8, and every table sized by it shrinks with it: the settings' room
+topics and weights, the rooms' configuration and state, the settings' name list and the form and
+its report. A `rooms` above 8 and a room index of 8 or more are refused like any out-of-range
+value. Only the settings file is read more kindly: `ctl_settings_load` takes a whole count above 8
+as 8, so that a file written with more rooms keeps its first 8 and its rooms beyond them are
+refused pairs, logged and skipped. In `ctl_firmware.cpp` the scratch texts share storage in two
+unions, each use under its own name and size through a reference to its member: the value texts
+(a published value, a setting's value, the integral's text) in one, the log line and the topic
+and subtopic of a publish in the other. The web glue keeps its buffers apart: its save report must
+live from the save to the next page, and the page's own buffers are already on the stack. The D1
+mini's global RAM went from 46484 to 45060 bytes, 4048 below the 49108 of before the texts moved
+to flash.
+**Reason.** The web server needs the heap, and the room slots were the control code's largest
+RAM item; the owner's house has 5 rooms. A file the board saved with more rooms must not fall back
+to the defaults, which would disable the control loop, so it loads the rooms that fit.
+**Rejected.** 16 slots: two thirds of them unused on the owner's board. Capping the count in the
+setter too: a message or a form that asks for 9 rooms is a mistake to refuse, not to correct. A
+single union for every scratch text: a log line shows a value, and a topic is built while a value
+waits to be published. Sharing the web glue's save report or the held setpoint's topic: both are
+state that outlives one call, not scratch.
+
+## 2026-11-16: The fork stands on upstream v4.4.1, and the control page takes the shared menu
+
+**Decision.** The fork's base is upstream's release v4.4.1 (`b2bd74e4`). Since v4.4.1 the side
+menu is one `<nav id='sideNav'>` in the shared page header, with the same links on every page,
+and a shared script marks the link of the page being shown. The *Control* link is one line in
+that menu, between *Rules* and *Settings* and outside every `#ifdef`, so both boards show it; it
+is the fork's only line in `htmlcode.h`. The control page no longer writes its own links into the
+menu and sends the header unchanged, the top bar's second half (`webBodyStart2`) included, which
+the page had not sent since the header was split; the board's description, which upstream's
+pages put between the two halves, is left out.
+**Reason.** A page that rewrites the shared menu shows other links than every other page and
+drops upstream's links that came after the split, such as *Firmware* and *Reboot*; one line in
+the shared menu links the page from everywhere and leaves a rebase one line to carry. Without
+the top bar's second half the header stayed open around the page's content.
+**Rejected.** Keeping the page's own menu script: it hides the shared links and would need
+updating with every upstream change to the menu. Adding the link from a script of the control
+code: the other pages send no control code, so the link would be on one page only. Showing the
+board's description in the top bar: upstream escapes it in a helper that only its own file can
+call, and copying that helper adds code for text the page does not need.
+
+## 2026-11-16: The restarts with a browser on a page came from the websocket's log queue
+
+**Decision.** The earlier explanation of the board's restarts is corrected. With a browser on a
+page, upstream sends every log line to it over the websocket, and a full retransmit of every
+topic writes one log line per topic; those lines queued for the websocket until the heap ran out
+and the board restarted. Upstream fixed this in v4.4.1 (heishamon/HeishaMon#1115). On the bench
+the board restarted twice in 12 minutes before the fix and not once with it. The earlier
+explanation, a burst of MQTT messages together with upstream's `/json`, was wrong in its
+mechanism and right in its trigger: the restarts did come with the full retransmit while a page
+was open. The control code's constant text stays in flash and the control page stays lean; both
+spare the heap whatever its cause.
+**Reason.** A wrong mechanism in the log would send a later search for heap trouble to the wrong
+code; the fix is upstream's, so the fork carries nothing for it.
+**Rejected.** Rewriting the earlier entries: the log keeps what was decided and why at the time,
+and this entry says what changed. Limiting the control code's log lines: they were not the queue
+that grew.

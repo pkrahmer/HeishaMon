@@ -114,6 +114,10 @@ static void set_fixture(fixture *f)
     f->source.gate = CTL_GATE_OPEN;
     f->source.desired_c = 21.5;
     f->source.desired_source = CTL_DESIRED_TOPIC;
+    f->source.heap_free = 23456u;
+    f->source.heap_max_block = 11208u;
+    f->source.has_heap_fragmentation = true;
+    f->source.heap_fragmentation = 37u;
 }
 
 static void check_entry(const char *file, int line, const ctl_telemetry_source *source,
@@ -170,7 +174,7 @@ static void test_counts(void)
     fixture f;
     set_fixture(&f);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS), 20u);
-    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 14u);
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 17u);
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_OUTPUTS), 4u);
 }
 
@@ -213,6 +217,9 @@ static void test_entries(void)
         {"status/integral_wh", "-45.7"},
         {"status/desired_c", "21.50"},
         {"status/desired_source", "topic"},
+        {"status/heap_free", "23456"},
+        {"status/heap_max_block", "11208"},
+        {"status/heap_fragmentation", "37"},
     };
     static const entry_row outputs[] = {
         {"outputs/router", "WAITING"},
@@ -392,7 +399,7 @@ static void test_refusals(void)
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_INPUTS, 22,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
-    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 14,
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 17,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
     check_entry_refused(__FILE__, __LINE__, &f.source, (ctl_group)3, 0,
                         CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
@@ -428,7 +435,7 @@ static void test_longest_subtopic_fits(void)
                (uint32_t)(8 + 3 * CTL_ROOMS_MAX));
     CHECK_TRUE(ctl_telemetry_entry(&f.source, CTL_GROUP_INPUTS, 8 + 3 * CTL_ROOMS_MAX - 3,
                                    subtopic, sizeof subtopic, value, sizeof value));
-    CHECK_TEXT(subtopic, "inputs/room/15/value_c");
+    CHECK_TEXT(subtopic, "inputs/room/7/value_c");
 }
 
 /* A configured count above the maximum is capped, so that no room past the arrays is listed. */
@@ -439,6 +446,22 @@ static void test_room_count_is_capped(void)
     f.rooms_config.count = CTL_ROOMS_MAX + 1;
     CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_INPUTS),
                (uint32_t)(8 + 3 * CTL_ROOMS_MAX));
+}
+
+/* A board that reports no fragmentation lists no entry for it, and the last index moves down. */
+static void test_heap_without_fragmentation(void)
+{
+    fixture f;
+    set_fixture(&f);
+    f.source.has_heap_fragmentation = false;
+    f.source.heap_free = 4294967295u;
+    f.source.heap_max_block = 0u;
+    CHECK_UINT((uint32_t)ctl_telemetry_count(&f.source, CTL_GROUP_STATUS), 16u);
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/heap_free", "4294967295");
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/heap_max_block", "0");
+    CHECK_VALUE(&f.source, CTL_GROUP_STATUS, "status/heap_fragmentation", "missing");
+    check_entry_refused(__FILE__, __LINE__, &f.source, CTL_GROUP_STATUS, 16,
+                        CTL_TELEMETRY_SUBTOPIC_MAX, VALUE_SIZE);
 }
 
 static void test_no_group_has_no_entries(void)
@@ -463,6 +486,7 @@ int main(void)
     test_unwritable_number();
     test_longest_subtopic_fits();
     test_room_count_is_capped();
+    test_heap_without_fragmentation();
     test_no_group_has_no_entries();
     return check_result();
 }

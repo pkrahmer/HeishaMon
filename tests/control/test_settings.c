@@ -128,7 +128,7 @@ static void test_numbers(void)
     } rows[] = {
         {"enabled", "1", "2", CTL_SETTING_BAD_VALUE},
         {"cooling", "1", "-1", CTL_SETTING_BAD_VALUE},
-        {"rooms", "16", "17", CTL_SETTING_BAD_VALUE},
+        {"rooms", "8", "9", CTL_SETTING_BAD_VALUE},
         {"rooms", "0", "-1", CTL_SETTING_BAD_VALUE},
         {"room.0.weight", "1000", "1000.001", CTL_SETTING_BAD_VALUE},
         {"room.0.weight", "0.5", "-0.001", CTL_SETTING_BAD_VALUE},
@@ -265,7 +265,7 @@ static void test_rooms(void)
     check_set(__FILE__, __LINE__, &settings, "room.0.topic", "house/room0");
     check_set(__FILE__, __LINE__, &settings, "room.1.topic", "house/room1");
     check_refused(__FILE__, __LINE__, &settings, "room.2.topic", "a", CTL_SETTING_UNKNOWN);
-    check_refused(__FILE__, __LINE__, &settings, "rooms", "17", CTL_SETTING_BAD_VALUE);
+    check_refused(__FILE__, __LINE__, &settings, "rooms", "9", CTL_SETTING_BAD_VALUE);
     check_set(__FILE__, __LINE__, &settings, "room.1.weight", "0");
     check_refused(__FILE__, __LINE__, &settings, "room.0.weight", "0",
                   CTL_SETTING_INVALID_SET);
@@ -284,13 +284,13 @@ static void test_room_names(void)
 {
     static const char *const unknown[] = {
         "room.00.topic", "room.-1.topic", "room..topic", "room.0.temp", "room.0.topic.",
-        "room.0",        "room.16.topic", "room.99999999999999999999.weight",
+        "room.0",        "room.8.topic",  "room.99999999999999999999.weight",
     };
     size_t i;
     ctl_settings settings;
     fresh_defaults(&settings);
-    check_set(__FILE__, __LINE__, &settings, "rooms", "16");
-    check_set(__FILE__, __LINE__, &settings, "room.15.topic", "house/last");
+    check_set(__FILE__, __LINE__, &settings, "rooms", "8");
+    check_set(__FILE__, __LINE__, &settings, "room.7.topic", "house/last");
     for (i = 0; i < sizeof unknown / sizeof unknown[0]; i++) {
         check_refused(__FILE__, __LINE__, &settings, unknown[i], "a", CTL_SETTING_UNKNOWN);
     }

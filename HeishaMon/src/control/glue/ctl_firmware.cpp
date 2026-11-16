@@ -4,6 +4,9 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
+#if defined(ESP32)
+#include <esp_system.h>
+#endif
 
 #include "../../../commands.h"
 #include "../../../decode.h"
@@ -17,6 +20,7 @@ extern "C" {
 #include "ctl_dispatch.h"
 #include "ctl_gate.h"
 #include "ctl_integral_store.h"
+#include "ctl_reset_reason.h"
 #include "ctl_settings.h"
 #include "ctl_telemetry.h"
 }
@@ -49,6 +53,8 @@ static const size_t TOPIC_SIZE = 192;
 // The longest telemetry value is the command list, far below this.
 static const size_t VALUE_SIZE = 128;
 static const size_t LOG_SIZE = 160;
+// Holds the longest consequence a failed file write logs.
+static const size_t CONSEQUENCE_SIZE = 48;
 
 static bool started;
 static bool (*send_command_function)(byte *, int);
@@ -73,25 +79,52 @@ static double decision_s;
 static ctl_gate decision_gate;
 static double decision_desired_c;
 static ctl_desired_source decision_desired_source;
+static uint32_t decision_heap_free;
+static uint32_t decision_heap_max_block;
+static uint32_t decision_heap_fragmentation;
+static ctl_reset_latch reset_reason_latch = CTL_RESET_LATCH_INIT;
 
 static ctl_integral_store integral_store;
-static char integral_text[CTL_INTEGRAL_STORE_TEXT_MAX];
 
-static char log_line[LOG_SIZE];
-static char topic_text[TOPIC_SIZE];
-static char subtopic_text[CTL_TELEMETRY_SUBTOPIC_MAX];
-static char value_text[VALUE_SIZE];
-static char setting_value[CTL_SETTINGS_VALUE_MAX];
+// The scratch texts share their storage. A value's text is made, then logged, written or
+// published before the next one is made, so the three kinds of value share one buffer. A log line
+// is never written while a topic is built or published, and a log line may show a value, so the
+// log line shares the topic's storage, not the value's.
+static union {
+    char published[VALUE_SIZE];
+    char setting[CTL_SETTINGS_VALUE_MAX];
+    char integral[CTL_INTEGRAL_STORE_TEXT_MAX];
+} value_scratch;
+static union {
+    struct {
+        char topic[TOPIC_SIZE];
+        char subtopic[CTL_TELEMETRY_SUBTOPIC_MAX];
+    } mqtt;
+    char log_line[LOG_SIZE];
+} line_scratch;
+// Each use keeps its own name and size: sizeof a reference is the size of its own member.
+static char (&value_text)[VALUE_SIZE] = value_scratch.published;
+static char (&setting_value)[CTL_SETTINGS_VALUE_MAX] = value_scratch.setting;
+static char (&integral_text)[CTL_INTEGRAL_STORE_TEXT_MAX] = value_scratch.integral;
+static char (&topic_text)[TOPIC_SIZE] = line_scratch.mqtt.topic;
+static char (&subtopic_text)[CTL_TELEMETRY_SUBTOPIC_MAX] = line_scratch.mqtt.subtopic;
+static char (&log_line)[LOG_SIZE] = line_scratch.log_line;
 
-static void log_text(const char *format, ...) __attribute__((format(printf, 1, 2)));
-
+// The format is a text in flash (PSTR), so that the log texts take no RAM on the ESP8266.
 static void log_text(const char *format, ...)
 {
     va_list arguments;
     va_start(arguments, format);
-    vsnprintf(log_line, sizeof log_line, format, arguments);
+    vsnprintf_P(log_line, sizeof log_line, format, arguments);
     va_end(arguments);
     log_function(log_line);
+}
+
+// Copies a text in flash into out, cut to fit, so that it can be passed where RAM text is read.
+static void copy_flash(char *out, const char *text, size_t size)
+{
+    strncpy_P(out, text, size - 1);
+    out[size - 1] = '\0';
 }
 
 static double now_s()
@@ -120,37 +153,38 @@ static void load_settings()
 {
     ctl_settings_defaults(&settings);
     if (!LittleFS.exists(SETTINGS_PATH)) {
-        log_text("control: no %s, using the default settings", SETTINGS_PATH);
+        log_text(PSTR("control: no %s, using the default settings"), SETTINGS_PATH);
         return;
     }
     File file = LittleFS.open(SETTINGS_PATH, "r");
     if (!file) {
-        log_text("control: cannot open %s, using the default settings", SETTINGS_PATH);
+        log_text(PSTR("control: cannot open %s, using the default settings"), SETTINGS_PATH);
         return;
     }
     JsonDocument document;
     DeserializationError error = deserializeJson(document, file);
     file.close();
     if (error || !document.is<JsonObject>()) {
-        log_text("control: %s is not a JSON object (%s), using the default settings",
+        log_text(PSTR("control: %s is not a JSON object (%s), using the default settings"),
                  SETTINGS_PATH, error ? error.c_str() : "not an object");
         return;
     }
     for (JsonPair pair : document.as<JsonObject>()) {
         const char *name = pair.key().c_str();
         if (!pair.value().is<const char *>()) {
-            log_text("control: setting %s in %s is not a text, skipped", name, SETTINGS_PATH);
+            log_text(PSTR("control: setting %s in %s is not a text, skipped"), name,
+                     SETTINGS_PATH);
             continue;
         }
         ctl_setting_status status =
-            ctl_settings_set(&settings, name, pair.value().as<const char *>());
+            ctl_settings_load(&settings, name, pair.value().as<const char *>());
         if (status != CTL_SETTING_OK) {
-            log_text("control: setting %s in %s refused (%s), skipped", name, SETTINGS_PATH,
-                     setting_status_name(status));
+            log_text(PSTR("control: setting %s in %s refused (%s), skipped"), name,
+                     SETTINGS_PATH, setting_status_name(status));
         }
     }
     if (!ctl_settings_valid(&settings)) {
-        log_text("control: the settings of %s are invalid, using the default settings",
+        log_text(PSTR("control: the settings of %s are invalid, using the default settings"),
                  SETTINGS_PATH);
         ctl_settings_defaults(&settings);
     }
@@ -190,26 +224,28 @@ static bool write_settings(File &file)
 }
 
 // Returns false, with the old file kept, when the temporary file cannot be written; the
-// consequence ends each log line.
+// consequence, a text in flash (PSTR), ends each log line.
 static bool replace_file(const char *path, const char *temporary_path, bool (*write)(File &),
-                         const char *consequence)
+                         const char *consequence_flash)
 {
+    char consequence[CONSEQUENCE_SIZE];
+    copy_flash(consequence, consequence_flash, sizeof consequence);
     File file = LittleFS.open(temporary_path, "w");
     if (!file) {
-        log_text("control: cannot write %s, %s", temporary_path, consequence);
+        log_text(PSTR("control: cannot write %s, %s"), temporary_path, consequence);
         return false;
     }
     bool written = write(file);
     file.close();
     if (!written) {
         LittleFS.remove(temporary_path);
-        log_text("control: writing %s failed, %s", temporary_path, consequence);
+        log_text(PSTR("control: writing %s failed, %s"), temporary_path, consequence);
         return false;
     }
     if (!LittleFS.rename(temporary_path, path)) {
         LittleFS.remove(path);
         if (!LittleFS.rename(temporary_path, path)) {
-            log_text("control: cannot replace %s, %s", path, consequence);
+            log_text(PSTR("control: cannot replace %s, %s"), path, consequence);
             return false;
         }
     }
@@ -219,7 +255,7 @@ static bool replace_file(const char *path, const char *temporary_path, bool (*wr
 static void save_settings()
 {
     replace_file(SETTINGS_PATH, SETTINGS_TEMPORARY_PATH, write_settings,
-                 "the change is lost at the next start");
+                 PSTR("the change is lost at the next start"));
 }
 
 // The loop's configuration from the settings, with the target the held setpoint gives; a new
@@ -250,7 +286,7 @@ static void load_integral(double now)
         ctl_integral_store_load(&integral_store, text, length, config.core.integral_limit_w, now);
     loop_state.state.p_integral_w = start_w;
     if (ctl_format_fixed(start_w, 1, integral_text, sizeof integral_text)) {
-        log_text("control: integral starts at %s W", integral_text);
+        log_text(PSTR("control: integral starts at %s W"), integral_text);
     }
 }
 
@@ -267,19 +303,28 @@ static void store_integral(bool reset, double now)
     }
     bool written = ctl_integral_store_format(integral_w, integral_text, sizeof integral_text) &&
                    replace_file(INTEGRAL_PATH, INTEGRAL_TEMPORARY_PATH, write_integral,
-                                "the integral is tried again later");
+                                PSTR("the integral is tried again later"));
     ctl_integral_store_end(&integral_store, integral_w, written);
 }
 
 // --- MQTT ----------------------------------------------------------------------------------
 
-static void publish(const char *subtopic, const char *value, bool retained)
+// Returns whether the client took the message.
+static bool publish(const char *subtopic, const char *value, bool retained)
 {
-    int length = snprintf(topic_text, sizeof topic_text, "%s/control/%s", topic_base, subtopic);
+    int length = snprintf_P(topic_text, sizeof topic_text, PSTR("%s/control/%s"), topic_base,
+                            subtopic);
     if (length < 0 || (size_t)length >= sizeof topic_text) {
-        return;
+        return false;
     }
-    control_client->publish(topic_text, value, retained);
+    return control_client->publish(topic_text, value, retained);
+}
+
+// Publishes under a subtopic in flash (PSTR); returns whether the client took the message.
+static bool publish_flash(const char *subtopic, const char *value, bool retained)
+{
+    copy_flash(subtopic_text, subtopic, sizeof subtopic_text);
+    return publish(subtopic_text, value, retained);
 }
 
 static void publish_setting_at(size_t index)
@@ -329,8 +374,49 @@ static void publish_telemetry()
         }
     }
     if (ctl_format_fixed(integral_store.saved_w, 1, value_text, sizeof value_text)) {
-        publish("status/integral_saved_w", value_text, false);
+        publish_flash(PSTR("status/integral_saved_w"), value_text, false);
     }
+}
+
+// --- The board's state ---------------------------------------------------------------------
+
+#if defined(ESP32)
+// The pure text numbers the reasons as these values do.
+static_assert(ESP_RST_UNKNOWN == 0 && ESP_RST_POWERON == 1 && ESP_RST_PANIC == 4
+                  && ESP_RST_DEEPSLEEP == 8 && ESP_RST_SDIO == 10,
+              "esp_reset_reason_t is numbered as ctl_reset_reason_esp32 reads it");
+#endif
+
+static bool reset_reason_text(char *text, size_t size)
+{
+#if defined(ESP8266)
+    const struct rst_info *raw = ESP.getResetInfoPtr();
+    ctl_reset_info info = {raw->reason, raw->exccause, raw->epc1, raw->epc2,
+                           raw->epc3,   raw->excvaddr, raw->depc};
+    return ctl_reset_reason_esp8266(&info, text, size);
+#else
+    return ctl_reset_reason_esp32((uint32_t)esp_reset_reason(), text, size);
+#endif
+}
+
+static void publish_reset_reason()
+{
+    char text[CTL_RESET_REASON_TEXT_MAX];
+    if (!ctl_reset_latch_due(&reset_reason_latch) || !reset_reason_text(text, sizeof text)) {
+        return;
+    }
+    ctl_reset_latch_record(&reset_reason_latch, publish_flash(PSTR("status/reset_reason"), text, true));
+}
+
+static void sample_heap()
+{
+    decision_heap_free = ESP.getFreeHeap();
+#if defined(ESP8266)
+    decision_heap_max_block = ESP.getMaxFreeBlockSize();
+    decision_heap_fragmentation = ESP.getHeapFragmentation();
+#else
+    decision_heap_max_block = ESP.getMaxAllocHeap();
+#endif
 }
 
 static void subscribe_one(const char *topic, bool subscribe)
@@ -400,7 +486,7 @@ ctl_setting_status ctl_firmware_change(const char *name, const char *value, bool
                    || strcmp(before, setting_value) != 0;
         change_any = change_any || *changed || change_every_ok;
     } else {
-        log_text("control: setting %s refused (%s)", name, setting_status_name(status));
+        log_text(PSTR("control: setting %s refused (%s)"), name, setting_status_name(status));
     }
     return status;
 }
@@ -440,7 +526,7 @@ static void handle_setting(const char *name, const byte *payload, unsigned int l
     if (fits) {
         ctl_firmware_change(name, value, &changed);
     } else {
-        log_text("control: setting %s refused (%s)", name,
+        log_text(PSTR("control: setting %s refused (%s)"), name,
                  setting_status_name(CTL_SETTING_BAD_VALUE));
     }
     ctl_firmware_change_end();
@@ -457,27 +543,47 @@ static void handle_desired(const byte *payload, unsigned int length)
         double target_c;
         ctl_desired_source source = ctl_desired_target(&desired, &settings, &target_c);
         if (ctl_format_fixed(target_c, 2, value_text, sizeof value_text)) {
-            log_text("control: setpoint %s, target %s from the %s", taken ? "taken" : "refused",
-                     value_text, ctl_desired_source_name(source));
+            log_text(PSTR("control: setpoint %s, target %s from the %s"),
+                     taken ? "taken" : "refused", value_text, ctl_desired_source_name(source));
         }
+    }
+}
+
+// A command, not a setting: nothing is stored, and a restart starts from 0 again. The payload is
+// parsed before the log line overwrites the client's buffer.
+static void handle_set_energy(const byte *payload, unsigned int length)
+{
+    double energy_wh = 0.0;
+    if (!ctl_dispatch_energy_wh((const char *)payload, length, &energy_wh) ||
+        !ctl_set_energy(&loop_state.state, energy_wh, now_s(), &config.core)) {
+        log_text(PSTR("control: setting energy_wh refused (%s)"),
+                 setting_status_name(CTL_SETTING_BAD_VALUE));
+        return;
+    }
+    if (ctl_format_fixed(loop_state.state.energy_wh, 1, value_text, sizeof value_text)) {
+        log_text(PSTR("control: energy balance set to %s Wh"), value_text);
     }
 }
 
 // --- Commands ------------------------------------------------------------------------------
 
-static const char *gate_text(ctl_gate reason)
+static void log_gate(ctl_gate reason)
 {
     switch (reason) {
     case CTL_GATE_OPEN:
-        return "commands go to the pump";
+        log_text(PSTR("control: commands go to the pump"));
+        return;
     case CTL_GATE_DISABLED:
-        return "no commands to the pump: enabled is 0";
+        log_text(PSTR("control: no commands to the pump: enabled is 0"));
+        return;
     case CTL_GATE_LISTEN_ONLY:
-        return "no commands to the pump: HeishaMon is in listen-only mode";
+        log_text(PSTR("control: no commands to the pump: HeishaMon is in listen-only mode"));
+        return;
     case CTL_GATE_NO_OPTIONAL_PCB:
-        return "no commands to the pump: the optional PCB emulation is off";
+        log_text(PSTR("control: no commands to the pump: the optional PCB emulation is off"));
+        return;
     }
-    return "commands to the pump unknown";
+    log_text(PSTR("control: commands to the pump unknown"));
 }
 
 // While the gate was shut the router went on as if it sent and its commands landed, so it may
@@ -493,7 +599,7 @@ static void watch_gate(ctl_gate current)
     }
     gate_known = true;
     last_gate = current;
-    log_text("control: %s", gate_text(current));
+    log_gate(current);
 }
 
 static void send_commands(bool optional_pcb)
@@ -553,6 +659,7 @@ void ctl_firmware_loop(PubSubClient &mqtt, const char *base, bool optional_pcb, 
     decision_s = now;
     decision_gate = current;
     decision_desired_source = ctl_desired_target(&desired, &settings, &decision_desired_c);
+    sample_heap();
     if (mqtt.connected()) {
         publish_telemetry();
     }
@@ -587,10 +694,12 @@ void ctl_firmware_subscribe(PubSubClient &mqtt, const char *base)
     control_client = &mqtt;
     topic_base = base;
     subscribe_inputs(true);
-    int length = snprintf(topic_text, sizeof topic_text, "%s/control/set/+", base);
+    int length = snprintf_P(topic_text, sizeof topic_text, PSTR("%s/control/set/+"), base);
     if (length > 0 && (size_t)length < sizeof topic_text) {
         mqtt.subscribe(topic_text);
     }
+    // First, so that the diagnosis never waits behind the settings.
+    publish_reset_reason();
     publish_settings();
 }
 
@@ -618,8 +727,11 @@ bool ctl_firmware_mqtt(char *topic, byte *payload, unsigned int length)
         // A command, not a setting: the payload means nothing, and only the integral's own file is
         // written, at once.
         ctl_reset_integral(&loop_state.state, now_s(), &config.core);
-        log_text("control: integral reset");
+        log_text(PSTR("control: integral reset"));
         store_integral(true, now_s());
+        return true;
+    case CTL_TOPIC_SET_ENERGY:
+        handle_set_energy(payload, length);
         return true;
     case CTL_TOPIC_NONE:
         break;
@@ -645,6 +757,14 @@ bool ctl_firmware_last_decision(ctl_telemetry_source *source)
     source->gate = decision_gate;
     source->desired_c = decision_desired_c;
     source->desired_source = decision_desired_source;
+    source->heap_free = decision_heap_free;
+    source->heap_max_block = decision_heap_max_block;
+#if defined(ESP8266)
+    source->has_heap_fragmentation = true;
+#else
+    source->has_heap_fragmentation = false;
+#endif
+    source->heap_fragmentation = decision_heap_fragmentation;
     return true;
 }
 
