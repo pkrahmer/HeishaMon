@@ -402,8 +402,11 @@ The target and its source of the last decision are the telemetry's `status/desir
 
 ## The control page
 
-HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
-the root page. From top to bottom it shows:
+HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the side
+menu that upstream's shared page header gives every page. The page sends that header as it is,
+so the menu holds the same links as on every other page, and upstream's shared menu script marks
+*Control* as the page being shown. The page sends the top bar's two halves without the board's
+description between them. Below the menu, from top to bottom, it shows:
 
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
@@ -482,9 +485,12 @@ carry the page:
    the request by that route. So one line at the very start serves both routes and every step,
    and every other request passes on to upstream untouched. `/savecontrol` is claimed even after
    the method step has set upstream's route for a POST.
-9. In `htmlcode.h`, the menu of the root page gets the link
-   `<a href="/control"><span class="nav-icon">&#9832;</span> Control</a>` after the link to
-   `/rules`.
+9. In `htmlcode.h`, inside the shared menu `<nav class='sidemenu-nav' id='sideNav'>`, the line
+   `<a href="/control"><span class="nav-icon" aria-hidden="true">&#9832;</span> Control</a>`
+   between the links to `/rules` and `/settings`, in the form of upstream's links there and
+   outside every `#ifdef`, so both boards show it. Against upstream's release v4.4.1 it is the
+   only line of `htmlcode.h` that differs. `tests/control/test_navigation.c` checks its place
+   and that the page writes no menu of its own.
 
 ## First start on a board
 

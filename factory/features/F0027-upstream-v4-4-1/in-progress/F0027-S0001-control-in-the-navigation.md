@@ -1,17 +1,13 @@
 ---
-stage: doing
+stage: review
 blocked: null
 round: 0
 attempts: 0
 crashes: 0
-pull_request: null
+pull_request: 47
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: doing
-  started_at: '2026-11-16T16:40:25.779459Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -23,6 +19,12 @@ journal:
   kind: started
   at: '2026-11-16T16:40:25.779459Z'
   stage: doing
+- number: 3
+  speaker: builder
+  kind: result
+  at: '2026-11-16T16:47:07.955808Z'
+  stage: doing
+  run: b390ff9df29a48a8b5bf4dbf3159773a
 ---
 
 # The control page in v4.4.1's navigation
@@ -84,3 +86,22 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
 
 1. 2026-11-16 human: created.
 2. factory: started doing as heishamon.
+3. builder: Built:
+   - `HeishaMon/htmlcode.h`: the one hook line `<a href="/control">…&#9832;</span> Control</a>` inside `<nav class='sidemenu-nav' id='sideNav'>`, right after the Rules line and before the Settings line, outside every `#ifdef`. Against v4.4.1 (`b2bd74e4`) it is the file's only changed line. `HeishaMon/HeishaMon.ino` still differs from v4.4.1 by exactly its 8 lines ending in `// control loop hook`. It was not touched.
+   - `HeishaMon/src/control/glue/ctl_web.cpp`: removed the page's own `sideNav` script from `PAGE_TOP`. Everything from `<main class='main-content'>` on is unchanged.
+   - `tests/control/test_navigation.c` (new): reads both sources from the root of the checkout, as `test_form_rows.c` does. It checks that there is exactly one `/control` line and that it is the interface's line exactly. It checks that the line sits inside `sideNav` before `</nav>`, with the rules line directly above it and the settings line directly below it, so no `#ifdef` can enclose it alone. It also checks that `ctl_web.cpp` has no `sideNav` and no `nav-icon`, that it keeps `<main class='main-content'>` and the line `Control loop</h1>`, and that it sends `webBodyStart2`. I saw it fail before the code change and pass after.
+   - `docs/control/firmware.md`: the control page section now says the link is part of the shared menu of every page. Hook item 9 now shows the line as it is, says where it sits, and names the test.
+   - `docs/control/decisions.md`: two entries dated 2026-11-16. The first: the fork's base is v4.4.1 and the page takes the shared menu. The second: the restart finding (the websocket log queue from a full retransmit, the fix in heishamon/HeishaMon#1115, 2 restarts in 12 minutes before the fix and none after, and the earlier MQTT-burst and `/json` explanation wrong in its mechanism but right in its trigger).
+
+   Decisions:
+   - The page sent `webBodyStart` but never the top bar's second half, `webBodyStart2`. That second half has existed since v4.4.1 split the header, so the top bar's header element stayed open around the page's content. I added one send of `webBodyStart2` in `write_page_top`, above `<main>`, so the page uses the shared header as upstream's pages do. It is constant text in flash. I left out the board's description, which upstream puts between the two halves: the helper that escapes it (`sendBodyStart`) is static in `webfunctions.cpp`, and copying it would add code for text the page does not need. This is recorded in the first decision entry.
+   - I did not rewrite the older decision entries (2026-11-12 "fills the side menu with links of its own", and the restart explanations in the lean-page entry and in 2026-11-15 "Constant text in flash"). The new entries supersede them, and the log keeps its history. The other alternatives I rejected are listed in the entries.
+   - No earlier test pinned the page's navigation script, so I changed no existing test.
+
+   Smoke test, run as written: `grep -c 'href="/control"' HeishaMon/htmlcode.h` gives 1. `grep -c 'sideNav' …/ctl_web.cpp` gives 0. The diff against `b2bd74e4` for `htmlcode.h` gives 1 changed line. `make firmware` (run inside `make check`) ends with `firmware: green (107.3 s)`. The ESP8266 line is "Variables and constants in RAM … used 45400 / 80192 bytes", exactly at the 45,400 limit with no headroom. ESP32 global variables are 74176 bytes. `make check` ends with `check: green` (41 test programs).
+
+   Noticed, not touched:
+   - The "RAM budget" section of `docs/control/firmware.md` still says the main-page restarts came from the control code's texts in RAM. The docs criterion did not name that section.
+   - The ESP8266 RAM is at the limit exactly, so any later story that adds RAM will need to reclaim some first.
+
+   `check`: check: green
