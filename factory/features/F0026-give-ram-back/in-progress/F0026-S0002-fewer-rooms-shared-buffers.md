@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 45
 comments_read: [6903522919]
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-16T00:02:00.029016Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -64,6 +68,11 @@ journal:
   at: '2026-11-16T00:01:52.768538Z'
   stage: doing
   run: 8255afe0524041b9a9bd86ab904408d4
+- number: 11
+  speaker: factory
+  kind: started
+  at: '2026-11-16T00:02:00.029016Z'
+  stage: review
 ---
 
 # Fewer room slots and shared buffers
@@ -229,3 +238,4 @@ Expect: `1`
     The factory left out changes outside the write paths: factory/features/F0026-give-ram-back/in-progress/F0026-S0002-fewer-rooms-shared-buffers.md.
 
     `check`: check: green
+11. factory: started review as heishamon.
