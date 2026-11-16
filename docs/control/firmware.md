@@ -402,8 +402,11 @@ The target and its source of the last decision are the telemetry's `status/desir
 
 ## The control page
 
-HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the menu of
-the root page. From top to bottom it shows:
+HeishaMon's web interface has a page of the loop, `/control`, linked as *Control* in the side
+menu that upstream's shared page header gives every page. The page sends that header as it is,
+so the menu holds the same links as on every other page, and upstream's shared menu script marks
+*Control* as the page being shown. The page sends the top bar's two halves without the board's
+description between them. Below the menu, from top to bottom, it shows:
 
 - the table *Status*, with the status and output entries of the telemetry of the last decision,
   and the table *Inputs*, with its input entries, each by its subtopic and value text as MQTT
@@ -482,9 +485,12 @@ carry the page:
    the request by that route. So one line at the very start serves both routes and every step,
    and every other request passes on to upstream untouched. `/savecontrol` is claimed even after
    the method step has set upstream's route for a POST.
-9. In `htmlcode.h`, the menu of the root page gets the link
-   `<a href="/control"><span class="nav-icon">&#9832;</span> Control</a>` after the link to
-   `/rules`.
+9. In `htmlcode.h`, inside the shared menu `<nav class='sidemenu-nav' id='sideNav'>`, the line
+   `<a href="/control"><span class="nav-icon" aria-hidden="true">&#9832;</span> Control</a>`
+   between the links to `/rules` and `/settings`, in the form of upstream's links there and
+   outside every `#ifdef`, so both boards show it. Against upstream's release v4.4.1 it is the
+   only line of `htmlcode.h` that differs. `tests/control/test_navigation.c` checks its place
+   and that the page writes no menu of its own.
 
 ## First start on a board
 
@@ -524,9 +530,11 @@ Node-RED takes over again.
 
 On the ESP8266 a constant lives in RAM unless it is placed in flash: every string literal, every
 `const char` array and every table of pointers to text takes RAM for as long as the board runs.
-Upstream's web server builds its main page in that RAM, and with the control code's texts there
-the board ran out of heap on the main page and restarted. So the control code keeps its constant
-text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
+Keeping constant text in flash spares the ESP8266's heap, which upstream's web server also needs
+to build its pages. The restarts once blamed on the control code's texts in RAM came from the
+websocket's log queue during a full retransmit, which upstream fixed in v4.4.1 (see the decision
+of 2026-11-16, "The restarts with a browser on a page came from the websocket's log queue"). The
+control code keeps its constant text in flash on the ESP8266, as upstream does with `PSTR`, `F()` and `PROGMEM`; the texts, the
 topics, the log lines and the page are the same byte for byte. On the ESP32 a constant already
 stays in flash, and on the host nothing changes.
 

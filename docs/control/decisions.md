@@ -1155,3 +1155,40 @@ setter too: a message or a form that asks for 9 rooms is a mistake to refuse, no
 single union for every scratch text: a log line shows a value, and a topic is built while a value
 waits to be published. Sharing the web glue's save report or the held setpoint's topic: both are
 state that outlives one call, not scratch.
+
+## 2026-11-16: The fork stands on upstream v4.4.1, and the control page takes the shared menu
+
+**Decision.** The fork's base is upstream's release v4.4.1 (`b2bd74e4`). Since v4.4.1 the side
+menu is one `<nav id='sideNav'>` in the shared page header, with the same links on every page,
+and a shared script marks the link of the page being shown. The *Control* link is one line in
+that menu, between *Rules* and *Settings* and outside every `#ifdef`, so both boards show it; it
+is the fork's only line in `htmlcode.h`. The control page no longer writes its own links into the
+menu and sends the header unchanged, the top bar's second half (`webBodyStart2`) included, which
+the page had not sent since the header was split; the board's description, which upstream's
+pages put between the two halves, is left out.
+**Reason.** A page that rewrites the shared menu shows other links than every other page and
+drops upstream's links that came after the split, such as *Firmware* and *Reboot*; one line in
+the shared menu links the page from everywhere and leaves a rebase one line to carry. Without
+the top bar's second half the header stayed open around the page's content.
+**Rejected.** Keeping the page's own menu script: it hides the shared links and would need
+updating with every upstream change to the menu. Adding the link from a script of the control
+code: the other pages send no control code, so the link would be on one page only. Showing the
+board's description in the top bar: upstream escapes it in a helper that only its own file can
+call, and copying that helper adds code for text the page does not need.
+
+## 2026-11-16: The restarts with a browser on a page came from the websocket's log queue
+
+**Decision.** The earlier explanation of the board's restarts is corrected. With a browser on a
+page, upstream sends every log line to it over the websocket, and a full retransmit of every
+topic writes one log line per topic; those lines queued for the websocket until the heap ran out
+and the board restarted. Upstream fixed this in v4.4.1 (heishamon/HeishaMon#1115). On the bench
+the board restarted twice in 12 minutes before the fix and not once with it. The earlier
+explanation, a burst of MQTT messages together with upstream's `/json`, was wrong in its
+mechanism and right in its trigger: the restarts did come with the full retransmit while a page
+was open. The control code's constant text stays in flash and the control page stays lean; both
+spare the heap whatever its cause.
+**Reason.** A wrong mechanism in the log would send a later search for heap trouble to the wrong
+code; the fix is upstream's, so the fork carries nothing for it.
+**Rejected.** Rewriting the earlier entries: the log keeps what was decided and why at the time,
+and this entry says what changed. Limiting the control code's log lines: they were not the queue
+that grew.

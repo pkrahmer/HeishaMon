@@ -757,6 +757,7 @@ static const char webBodyStart[] FLASHPROG = R"====(
     <a href="/firmware"><span class="nav-icon" aria-hidden="true">&#8679;</span> Firmware</a>
     <a href="/reboot" onclick="return confirm('Reboot the device?')"><span class="nav-icon" aria-hidden="true">&#8635;</span> Reboot</a>
     <a href="/rules"><span class="nav-icon" aria-hidden="true">&#8881;</span> Rules</a>
+    <a href="/control"><span class="nav-icon" aria-hidden="true">&#9832;</span> Control</a>
     <a href="/settings"><span class="nav-icon" aria-hidden="true">&#9881;</span> Settings</a>
 )===="
 #ifdef ESP32
