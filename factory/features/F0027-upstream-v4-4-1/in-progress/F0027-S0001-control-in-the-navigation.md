@@ -7,7 +7,11 @@ crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim: null
+claim:
+  instance: heishamon
+  stage: review
+  started_at: '2026-11-16T16:53:24.808579Z'
+  lease_duration: 60
 journal:
 - number: 1
   speaker: human
@@ -47,6 +51,11 @@ journal:
   at: '2026-11-16T16:53:19.387268Z'
   stage: doing
   run: 0b7d5db766d4483aac31fd547eb75340
+- number: 8
+  speaker: factory
+  kind: started
+  at: '2026-11-16T16:53:24.808579Z'
+  stage: review
 ---
 
 # The control page in v4.4.1's navigation
@@ -163,3 +172,4 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
    The factory left out changes outside the write paths: factory/features/F0027-upstream-v4-4-1/in-progress/F0027-S0001-control-in-the-navigation.md.
 
    `check`: check: green
+8. factory: started review as heishamon.
