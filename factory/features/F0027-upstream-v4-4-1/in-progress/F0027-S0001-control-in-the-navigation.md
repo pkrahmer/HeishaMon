@@ -1,3 +1,30 @@
+---
+stage: doing
+blocked: null
+round: 0
+attempts: 0
+crashes: 0
+pull_request: null
+comments_read: []
+handed_over: null
+claim:
+  instance: heishamon
+  stage: doing
+  started_at: '2026-11-16T16:40:25.779459Z'
+  lease_duration: 60
+journal:
+- number: 1
+  speaker: human
+  kind: created
+  at: '2026-11-16T16:40:25.771440Z'
+  stage: doing
+- number: 2
+  speaker: factory
+  kind: started
+  at: '2026-11-16T16:40:25.779459Z'
+  stage: doing
+---
+
 # The control page in v4.4.1's navigation
 
 ## Description
@@ -54,3 +81,6 @@ make firmware
 Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM line shows at most 45400 bytes used.
 
 ## Journal
+
+1. 2026-11-16 human: created.
+2. factory: started doing as heishamon.
