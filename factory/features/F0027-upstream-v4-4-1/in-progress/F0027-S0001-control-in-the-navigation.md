@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-16T16:53:24.808579Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -56,6 +52,12 @@ journal:
   kind: started
   at: '2026-11-16T16:53:24.808579Z'
   stage: review
+- number: 9
+  speaker: reviewer
+  kind: result
+  at: '2026-11-16T16:54:12.087349Z'
+  stage: review
+  run: b99bfb8de8654a99a8a90aaaa330c29c
 ---
 
 # The control page in v4.4.1's navigation
@@ -76,6 +78,7 @@ This story puts the *Control* link into the shared menu as the fork's one hook l
 
 - This is the only line the story changes in an upstream file. It is on both boards, outside every `#ifdef`.
 - `HeishaMon/src/control/glue/ctl_web.cpp` no longer writes into `sideNav`: the page's own navigation script goes, and the page shows the shared menu unchanged. Everything from `<main class='main-content'>` on stays as it is.
+- `HeishaMon/src/control/glue/ctl_web.cpp` sends the shared header's two halves, `webBodyStart` and `webBodyStart2`, before `<main class='main-content'>`, without the board's description between them.
 - The human's leave: a test that pins the control page's own navigation script may be changed to pin its absence; no other earlier check changes.
 - A new host test reads the two sources, as `tests/control/test_form_rows.c` reads `ctl_web.cpp`.
 
@@ -173,3 +176,21 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
 
    `check`: check: green
 8. factory: started review as heishamon.
+9. reviewer: no findings
+
+   Round 1 review. I checked both of the round-0 findings:
+
+   1. `docs/control/firmware.md`, section "The RAM budget": fixed. The section no longer blames the main-page restarts on the control code's texts in RAM. It now points to the decision of 2026-11-16 about the websocket log queue, so it agrees with `docs/control/decisions.md`.
+   2. Description `## Interface`, about `webBodyStart2`: not fixed on the branch. The builder wrote the line, but the factory dropped it because the work item is outside the builder's write paths (journal entry 7). Another `doing` round could not fix this. The work item is within the reviewer's write paths, and the change is to the Description, not to code. So I added the Interface line myself, the one round-0 finding 2 asked for: "`HeishaMon/src/control/glue/ctl_web.cpp` sends the shared header's two halves, `webBodyStart` and `webBodyStart2`, before `<main class='main-content'>`, without the board's description between them." It sits before the human's-leave line. The Description now matches `write_page_top` (`ctl_web.cpp:243-252`) and what `tests/control/test_navigation.c` checks. I rejected two other routes: sending the item back to `doing`, which can't write the file, and asking the human, which would cost a round over one sentence that already reads correctly in the journal.
+
+   All six groups checked again:
+   - Criteria: criterion 1 is tested by `test_link_in_shared_menu`. It checks the exact line, that there is exactly one, that it sits inside `sideNav`/`</nav>`, and that the rules and settings lines are its direct neighbours, so no `#ifdef` line can come between them. Criterion 2 is tested by `test_page_keeps_shared_menu`. Criterion 3 is for the smoke test; I checked it myself. `git diff b2bd74e4` shows `htmlcode.h` +1 (the hook line) and `HeishaMon.ino` +8, and every one of those 8 lines ends in `// control loop hook`. Criterion 4 is also for the smoke test. Round 0 reported 45400 bytes, which is at the limit, and round 1 changed no code. The factory's check after the builder was green.
+   - Architecture: the only upstream changes are the named hook line, plus the HeishaMon.ino hook lines that the story leaves untouched. `ctl_web.cpp` is a `.cpp` file in glue and adds one more send of a flash constant.
+   - Embedded safety: nothing new on the board apart from that one constant send.
+   - Quality: the comment in `write_page_top` says why. No dead code.
+   - Hygiene: the journal records the main decision (`webBodyStart2`, leaving out the board's description) and the rejected alternatives. The decision entries and `firmware.md` match the code: `menuJS` is still sent (`ctl_web.cpp:282`), and `webBodyStart2` closes `</header>` (`htmlcode.h:779-783`).
+   - Earlier tests: `git diff --name-status develop...HEAD` shows only `tests/control/test_navigation.c` (A). No earlier test is changed.
+
+   Notes:
+   - `tests/control/test_navigation.c:94`: `top_bar_closed` passes on any line that names `webBodyStart2`, not only on a send of it. It is weak, but the call is there today.
+   - `tests/control/test_navigation.c:91`: `CHECK_TEXT(line, "a line that leaves the shared menu alone")` is a roundabout way to report a forbidden line. It does print the offending line, though.
