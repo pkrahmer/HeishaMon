@@ -1,5 +1,5 @@
 ---
-stage: review
+stage: approval
 blocked: null
 round: 1
 attempts: 0
@@ -7,11 +7,7 @@ crashes: 0
 pull_request: 45
 comments_read: [6903522919]
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-16T00:02:00.029016Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -73,22 +69,28 @@ journal:
   kind: started
   at: '2026-11-16T00:02:00.029016Z'
   stage: review
+- number: 12
+  speaker: reviewer
+  kind: result
+  at: '2026-11-16T00:03:25.801699Z'
+  stage: review
+  run: 294d9263143143d9b2918f6a51c65da8
 ---
 
 # Fewer room slots and shared buffers
 
 ## Description
 
-**Why.** After S0001, the control code's largest RAM items are its fixed tables and buffers: the settings hold 16 room slots with a 96-character topic each (about 1.9 KB), and the firmware glue keeps several separate text buffers (log line, topic, subtopic, value, setting value, integral text, and in the web glue the desired-setpoint and form report buffers) that are never used at the same time. The owner uses 5 rooms.
+**Why.** After S0001, the control code's largest RAM items are its fixed tables and buffers: the settings hold 16 room slots with a 96-character topic each (about 1.9 KB), and the firmware glue (`glue/ctl_firmware.cpp`) keeps several separate scratch texts (log line, topic, subtopic, value, setting value, integral text) that are never all in use at the same time. The owner uses 5 rooms. The web glue (`glue/ctl_web.cpp`) stays as it is: its form report and the held desired-setpoint topic are state, not scratch, and the page's buffers are already on the stack.
 
-**What changes.** `CTL_ROOMS_MAX` goes from 16 to 8, and every table sized by it shrinks with it. A `/control.json` or a message that sets `rooms` above 8, or a room index of 8 or more, is refused like any out-of-range value; a file with more rooms loads the first 8. The glue's scratch buffers that are never in use at the same time share storage; each use keeps its own size limit, and no text is cut shorter than today.
+**What changes.** `CTL_ROOMS_MAX` goes from 16 to 8, and every table sized by it shrinks with it. A message or a form that sets `rooms` above 8, or a room index of 8 or more, is refused like any out-of-range value; a `/control.json` with more rooms loads the first 8 and refuses the rest. The firmware glue's scratch texts that are never in use at the same time share storage; each use keeps its own size limit, and no text is cut shorter than today.
 
 **What stays.** Every topic, value, setting, log text and page byte for up to 8 rooms; the core's behaviour; the golden traces.
 
 ## Interface
 
 - `CTL_ROOMS_MAX` 8, with every dependent size.
-- The shared buffers in `glue/ctl_firmware.cpp` and `glue/ctl_web.cpp`.
+- The shared scratch texts in `glue/ctl_firmware.cpp`; `glue/ctl_web.cpp` is unchanged.
 - The leave for tests another story wrote: tests that use rooms 9 to 16, or that check the room limit or a count derived from it (`tests/control/test_rooms.c`, `tests/control/test_settings*.c`, `tests/control/test_form*.c`, `tests/control/test_telemetry.c`, `tests/control/test_html.c`, `tests/control/test_lean_page.c`), may change their room numbers, limits and counts to the new limit; no other check may be removed or loosened.
 - No upstream file changes, and no hook line changes.
 
@@ -239,3 +241,38 @@ Expect: `1`
 
     `check`: check: green
 11. factory: started review as heishamon.
+12. reviewer: no findings
+
+    Work item: I rewrote the `## Description` and `## Interface` as the human asked in entry 8, answer (a). The builder tried to make this change in entry 10, but the factory dropped it because the work item is outside the builder's write paths (`factory/pipeline.yml`: only the reviewer may write `{work_item}`). The new text:
+    - **Why:** names only `glue/ctl_firmware.cpp`'s scratch texts. It says `glue/ctl_web.cpp` stays as it is, because its form report and the held desired-setpoint topic are state, and the page's buffers are already on the stack.
+    - **What changes:** now reads "A message or a form that sets `rooms` above 8 … is refused …; a `/control.json` with more rooms loads the first 8 and refuses the rest". The old sentence also said a `/control.json` setting rooms above 8 is refused, which contradicted criterion 2 and the code.
+    - **Interface:** "The shared scratch texts in `glue/ctl_firmware.cpp`; `glue/ctl_web.cpp` is unchanged."
+
+    No code, test or document changed in this run.
+
+    Checked and found sound:
+    - **Criteria.**
+      - Criterion 2: `tests/control/test_room_limit.c` tests both sides of each limit. `rooms` 8 is accepted and 9 refused, both through the setter. `room.7.topic`/`weight` are accepted and `room.8.*` refused as UNKNOWN. A 10-room file through `ctl_settings_load` keeps rooms 0–7, refuses rooms 8 and 9, and stays valid.
+      - `ctl_settings_load` gives the same answer as the setter for every other input (NULL, malformed, negative, fractional, `1e99`, other names).
+      - Criterion 3: `test_five_rooms.c` compares against `five_rooms.txt`, which the builder generated from `develop`'s 16-slot code. It covers the telemetry, the page rows, and the settings rows with saved, refused and unchanged results.
+      - Criterion 4: the golden traces replay in `make test`.
+      - Criteria 1 and 6: entry 10 reports `make check` green and 45,060 bytes. The RAM figure is a build output, not a test.
+    - **Architecture.** `git diff --name-status develop...HEAD` shows changes only in `HeishaMon/src/control/`, `tests/control/`, `docs/control/` and the work item. No upstream file and no hook line changed. The new function `ctl_settings_load` is in a `.c` file outside the core and is pure, and its header comment says what it returns and refuses.
+    - **Embedded safety.**
+      - Every use of the two unions in `ctl_firmware.cpp`:
+        - `publish`/`publish_flash` use the topic and subtopic, which are separate struct members.
+        - `log_text` never runs while a topic is live.
+        - `handle_desired` and `handle_set_energy` log `value_text` from the other union.
+        - `load_integral` and `store_integral` keep `integral_text` until `write_integral` reads it.
+        - `write_settings` keeps `setting_value`, and `ctl_firmware_change` compares it with its own local `before`.
+        - `ctl_firmware_mqtt` reads the setting's name from the dispatch's copy, not from scratch.
+      - Each reference keeps its member's `sizeof`, and every write uses it.
+    - **Docs.** `settings.md`, `firmware.md` (the `rooms` row, the settings-file paragraph and the RAM budget) and `adapters.md:80` now say 8 and `ctl_settings_load`, and the code matches. `decisions.md` has the entry, with date, decision, reason and what was rejected. No present-tense mention of 16 rooms is left outside the decision log's history.
+
+    Earlier tests:
+    - `tests/control/test_rooms.c`: count limits changed from 17/16 to 9/8, under the story's named leave (`test_rooms.c`).
+    - `tests/control/test_settings.c`: `rooms` 16/17 → 8/9, `room.16` → `room.8`, `room.15` → `room.7`, under the story's named leave (`test_settings*.c`).
+    - `tests/control/test_telemetry.c`: `room/15` → `room/7`, under the story's named leave (`test_telemetry.c`).
+
+    Notes:
+    - `HeishaMon/src/control/glue/ctl_settings.c:546`: a file count above `INT_MAX` (such as `"3000000000"`) is refused rather than taken as 8. A firmware that wrote the file never stores such a count, so I did not count this as a finding.
