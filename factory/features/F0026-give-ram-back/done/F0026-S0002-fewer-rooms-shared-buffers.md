@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -75,6 +75,11 @@ journal:
   at: '2026-11-16T00:03:25.801699Z'
   stage: review
   run: 294d9263143143d9b2918f6a51c65da8
+- number: 13
+  speaker: factory
+  kind: done
+  at: '2026-11-16T00:04:15.123911Z'
+  stage: approval
 ---
 
 # Fewer room slots and shared buffers
@@ -276,3 +281,4 @@ Expect: `1`
 
     Notes:
     - `HeishaMon/src/control/glue/ctl_settings.c:546`: a file count above `INT_MAX` (such as `"3000000000"`) is refused rather than taken as 8. A firmware that wrote the file never stores such a count, so I did not count this as a finding.
+13. factory: done (pull request merged); cost: 5 runs, 19.1 min, 69 turns, 226132 tokens in (3315442 more from cache), 49243 out, $2.78
