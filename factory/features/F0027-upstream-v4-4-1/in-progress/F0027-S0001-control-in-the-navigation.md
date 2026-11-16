@@ -1,17 +1,13 @@
 ---
-stage: review
+stage: doing
 blocked: null
-round: 0
+round: 1
 attempts: 0
 crashes: 0
 pull_request: 47
 comments_read: []
 handed_over: null
-claim:
-  instance: heishamon
-  stage: review
-  started_at: '2026-11-16T16:47:13.435591Z'
-  lease_duration: 60
+claim: null
 journal:
 - number: 1
   speaker: human
@@ -34,6 +30,12 @@ journal:
   kind: started
   at: '2026-11-16T16:47:13.435591Z'
   stage: review
+- number: 5
+  speaker: reviewer
+  kind: result
+  at: '2026-11-16T16:48:24.966907Z'
+  stage: review
+  run: 209f7447c962437b863e5ce637f256bc
 ---
 
 # The control page in v4.4.1's navigation
@@ -115,3 +117,16 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
 
    `check`: check: green
 4. factory: started review as heishamon.
+5. reviewer: Findings:
+
+   1. `docs/control/firmware.md:531-537` (section "The RAM budget"): the text still says the board ran out of heap on the main page and restarted because the control code's texts were in RAM. The new decision entry of 2026-11-16 (`docs/control/decisions.md`, "The restarts with a browser on a page came from the websocket's log queue") says the restarts came from upstream's websocket log queue during a full retransmit, fixed in v4.4.1 (heishamon/HeishaMon#1115). This story asks the fork's documents to record that finding, and this is one of the documents the docs criterion names, so it now contradicts the decision log. The builder saw the problem and left it (journal entry 3, "Noticed, not touched"). Fix: rewrite that sentence. Keeping constant text in flash spares the ESP8266's heap. The restarts once blamed on these texts came from the websocket log queue that upstream fixed in v4.4.1, with a pointer to the decision entry.
+   2. Description of the work item (`## Interface`) and `HeishaMon/src/control/glue/ctl_web.cpp:249-251`: the page now also sends `webBodyStart2`, which closes the top bar's `<header>`, and it still leaves out the board's description. `tests/control/test_navigation.c` checks for that send, but the Description says nothing about it. It only says the navigation script goes and the shared menu is shown unchanged. As written, the Description does not match what was built or what the test checks. Fix: add one Interface line saying that `ctl_web.cpp` sends the shared header's two halves (`webBodyStart`, `webBodyStart2`) before `<main class='main-content'>`, without the board's description between them.
+
+   Checked and found in order:
+   - Criterion 1: the `/control` line is the interface's exact line. It is inside `sideNav`, directly between the `/rules` and `/settings` lines, before the ESP32-only `#ifdef`. `test_link_in_shared_menu` checks that exact text, the count of 1, that it is inside `sideNav` and `</nav>`, and that the rules and settings lines are its direct neighbours, so no `#ifdef` line can fit between them.
+   - Criterion 2: `test_page_keeps_shared_menu` fails on any `sideNav` or `nav-icon` and requires both `<main class='main-content'>` and `Control loop</h1>`.
+   - Criterion 3: I checked it myself with `git diff b2bd74e4`. `htmlcode.h` differs by the one hook line. `HeishaMon.ino` differs by its 8 lines, each ending in `// control loop hook`. No host test can check this; the smoke test does.
+   - Criterion 4: the journal reports the ESP8266 RAM line at exactly 45400 bytes (at the limit, inside it) and `check: green`. The smoke test covers this too.
+   - The page still sends `menuJS` (`ctl_web.cpp:282`), so the docs' claim that the shared script marks *Control* holds.
+   - Architecture and embedded safety: the only new code is one send of a constant from flash. No upstream file changes beyond the named hook line.
+   - Earlier tests: `git diff --name-status develop...HEAD` shows no changed, renamed or deleted test file. The only test change is the new `tests/control/test_navigation.c` (A).
