@@ -1,5 +1,5 @@
 ---
-stage: approval
+stage: done
 blocked: null
 round: 1
 attempts: 0
@@ -58,6 +58,11 @@ journal:
   at: '2026-11-16T16:54:12.087349Z'
   stage: review
   run: b99bfb8de8654a99a8a90aaaa330c29c
+- number: 10
+  speaker: factory
+  kind: done
+  at: '2026-11-16T16:56:03.203095Z'
+  stage: approval
 ---
 
 # The control page in v4.4.1's navigation
@@ -194,3 +199,4 @@ Expect: the last line is `firmware: green (<seconds> s)`, and the ESP8266's RAM 
    Notes:
    - `tests/control/test_navigation.c:94`: `top_bar_closed` passes on any line that names `webBodyStart2`, not only on a send of it. It is weak, but the call is there today.
    - `tests/control/test_navigation.c:91`: `CHECK_TEXT(line, "a line that leaves the shared menu alone")` is a roundabout way to report a forbidden line. It does print the offending line, though.
+10. factory: done (pull request merged); cost: 4 runs, 8.7 min, 40 turns, 112448 tokens in (1028250 more from cache), 22397 out, $1.22
